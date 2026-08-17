@@ -7,4 +7,6 @@
         # Reuse the same trusted Host/Origin authorities as the built-in Web API.
         trustedHosts: !!js ctx.webRuntime.trustedHosts
         # Skills root browsed by the "技能文档" settings section.
-        skillsRoot: /volume1/homes/dsh/skills
+        # Default: <DSH_HOME>/skills. Override in the profile's cordis.patch.yml,
+        # e.g. `skillsRoot: /volume1/homes/dsh/skills`.
+        skillsRoot: !!js dshHomePath('skills')
