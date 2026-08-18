@@ -1470,16 +1470,80 @@ window.__ModuleLoader__.load({
       return { apply, inject }
     })()
 
+
+    const React = require('react')
+
+    // ===== dsh-long-plugins: mobile hamburger (hide rail, overlay sidebar) =====
+    const MOBILE_HAMBURGER_CSS = `
+      @media (max-width: 767px){
+        .pI_x6G_frame{grid-template-columns:0 minmax(0,1fr) 0!important}
+        .pI_x6G_sidebarCol{position:fixed!important;left:0;top:0;bottom:0;width:min(300px,85vw)!important;z-index:30;transform:translateX(-100%);transition:transform .22s var(--ds-ease-in-out);box-shadow:var(--dsw-shadow-lv3)}
+        .pI_x6G_frame:not([data-sidebar-collapsed]) .pI_x6G_sidebarCol{transform:translateX(0)}
+        .pI_x6G_handle[data-side=sidebar]{display:none}
+        .dsh-mobile-hamburger{pointer-events:auto;position:fixed;left:calc(env(safe-area-inset-left, 0px) + 10px);top:calc(env(safe-area-inset-top, 0px) + 10px);z-index:45;width:38px;height:38px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-specific-input-major);box-shadow:var(--dsw-shadow-lv2);color:var(--dsw-alias-label-primary);display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;cursor:pointer;padding:0}
+        .dsh-mobile-hamburger:active{transform:scale(.95)}
+        .dsh-mobile-scrim{pointer-events:auto;position:fixed;inset:0;z-index:26;background:rgba(0,0,0,.35)}
+      }
+      @media (min-width: 768px){.dsh-mobile-hamburger,.dsh-mobile-scrim{display:none!important}}
+    `
+
+    function MobileHamburger({ toggleSidebar }) {
+      const [expanded, setExpanded] = React.useState(false)
+      React.useEffect(() => {
+        const overlay = document.querySelector('[data-shell-overlay]')
+        const frame = overlay ? overlay.parentElement : null
+        if (!frame) return
+        const update = () => setExpanded(!frame.hasAttribute('data-sidebar-collapsed'))
+        update()
+        const mo = new MutationObserver(update)
+        mo.observe(frame, { attributes: true, attributeFilter: ['data-sidebar-collapsed'] })
+        return () => mo.disconnect()
+      }, [])
+      return React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('button', {
+          type: 'button',
+          className: 'dsh-mobile-hamburger',
+          'aria-label': expanded ? '收起侧边栏' : '打开侧边栏',
+          onClick: toggleSidebar,
+        }, expanded ? '✕' : '☰'),
+        expanded && React.createElement('div', { className: 'dsh-mobile-scrim', onClick: toggleSidebar }),
+      )
+    }
+
+    const mobilePlugin = {
+      inject: ['slots', 'layout'],
+      apply(ctx) {
+        ctx.effect(() => {
+          const style = document.createElement('style')
+          style.dataset.plugin = 'dsh-long-plugins'
+          style.dataset.pluginCss = 'dsh-long-plugins/mobile-hamburger'
+          style.textContent = MOBILE_HAMBURGER_CSS
+          document.head.appendChild(style)
+          return () => style.remove()
+        }, 'dsh-long-plugins: mobile hamburger styles')
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'dsh-mobile-hamburger',
+          order: 100,
+          inject: () => ({ toggleSidebar: () => ctx.layout.toggleSidebar() }),
+        }, MobileHamburger))
+      },
+    }
+
     const inject = Array.from(new Set([
       ...uploadPlugin.inject,
       ...skillDocsPlugin.inject,
       ...tokenUsagePlugin.inject,
+      ...mobilePlugin.inject,
     ]))
 
     function apply(ctx) {
       uploadPlugin.apply(ctx)
       skillDocsPlugin.apply(ctx)
       tokenUsagePlugin.apply(ctx)
+      mobilePlugin.apply(ctx)
     }
 
     exports.apply = apply
