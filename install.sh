@@ -70,12 +70,29 @@ fi
 echo "== pnpm install =="
 "$PNPM_BIN" install
 
+# 5) 自动注入 profile 层的 patch 配置（若尚未存在）
+PATCH_FILE="$PROFILE_DIR/cordis.patch.yml"
+if [ ! -f "$PATCH_FILE" ]; then
+  echo "# dsh profile patch — composed over bundle layers" > "$PATCH_FILE"
+fi
+if grep -q "id: dsh-long-plugins" "$PATCH_FILE"; then
+  echo "== $PATCH_FILE 已有 dsh-long-plugins 配置，跳过 =="
+else
+  cat >> "$PATCH_FILE" <<'PATCH_EOF'
+
+# dsh-long-plugins：工作区输出文件 / 技能文档 / 余额（trustedHosts 复用内置 Web API 信任域）
+- id: dsh-long-plugins
+  config:
+    priority: -10
+    trustedHosts: !!js ctx.webRuntime.trustedHosts
+    # 技能文档根目录；如不是 <DSH_HOME>/skills 请改成你的实际路径
+    skillsRoot: !!js dshHomePath('skills')
+PATCH_EOF
+  echo "== 已追加 dsh-long-plugins 配置到 $PATCH_FILE =="
+  echo "   （skillsRoot 默认 <DSH_HOME>/skills，如需改路径请编辑该文件）"
+fi
+
 echo
-echo "✅ 安装完成。还差两步："
-echo "  1) 确认 $PROFILE_DIR/cordis.patch.yml 里有："
-echo "     - id: dsh-long-plugins"
-echo "       config:"
-echo "         priority: -10"
-echo "         trustedHosts: !!js ctx.webRuntime.trustedHosts"
-echo "         skillsRoot: <你的技能目录，如 /volume1/homes/dsh/skills>"
-echo "  2) 用带 --expose-internals 和原有 --trusted-host 参数的方式重启 dsh web。"
+echo "✅ 安装完成。最后一步：重启 dsh web。"
+echo "   NAS 上直接：/volume1/dsh/start.sh"
+echo "   或手动用带 --expose-internals 和原有 --trusted-host 参数的方式启动。"
