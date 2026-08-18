@@ -1546,10 +1546,17 @@ window.__ModuleLoader__.load({
     ]))
 
     function apply(ctx) {
-      uploadPlugin.apply(ctx)
-      skillDocsPlugin.apply(ctx)
-      tokenUsagePlugin.apply(ctx)
-      mobilePlugin.apply(ctx)
+      const safeApply = (label, fn) => {
+        try {
+          fn(ctx)
+        } catch (error) {
+          console.error('[dsh-long-plugins] ' + label + ' apply failed:', error)
+        }
+      }
+      safeApply('upload', (c) => uploadPlugin.apply(c))
+      safeApply('skill-docs', (c) => skillDocsPlugin.apply(c))
+      safeApply('token-usage', (c) => tokenUsagePlugin.apply(c))
+      safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
     }
 
     exports.apply = apply
