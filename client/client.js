@@ -602,8 +602,8 @@ window.__ModuleLoader__.load({
     }
 
     const CSS = `
-      [data-decoration="chip"][title^="${HIDDEN_LABEL}"]{background:transparent!important;border:none!important;box-shadow:none!important}
-      [data-decoration="chip"][title^="${HIDDEN_LABEL}"] .uV2eYG_chipLabel,[data-decoration="chip"][title^="${HIDDEN_LABEL}"] span{display:none!important}
+      [data-decoration="chip"][title^="${HIDDEN_LABEL}"]{display:inline-block!important;width:0!important;height:0!important;overflow:hidden!important;background:transparent!important;border:none!important;box-shadow:none!important;margin:0!important;padding:0!important;font-size:0!important;line-height:0!important}
+      [data-decoration="chip"][title^="${HIDDEN_LABEL}"]:before,[data-decoration="chip"][title^="${HIDDEN_LABEL}"]>*{display:none!important}
       .dsh-upload-control{display:flex;align-items:center;min-width:0}
       .dsh-upload-picker,.dsh-upload-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
       .dsh-upload-button{height:28px;width:28px;padding:0;border:0;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
