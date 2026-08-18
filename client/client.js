@@ -444,6 +444,7 @@ window.__ModuleLoader__.load({
       })
       const [deleting, setDeleting] = React.useState('')
       const [preview, setPreview] = React.useState(null)
+      const [previewMaximized, setPreviewMaximized] = React.useState(false)
 
       async function refresh() {
         setState((current) => ({ ...current, loading: true, error: '' }))
@@ -483,7 +484,22 @@ window.__ModuleLoader__.load({
       }
 
       async function previewFile(name) {
+        setPreviewMaximized(false)
         try {
+          const isOffice = /\.(docx|xlsx|pptx)$/i.test(name)
+          if (isOffice) {
+            const response = await fetch(previewUrl(name), { cache: 'no-store' })
+            if (!response.ok) {
+              const body = await response.json().catch(() => ({}))
+              throw new Error(body.error || `HTTP ${response.status}`)
+            }
+            const data = await response.json().catch(() => ({}))
+            setPreview({
+              name,
+              officeHtml: data.officeHtml ?? '<p style="font-family:sans-serif;padding:12px">（无法渲染此文档）</p>',
+            })
+            return
+          }
           const response = await fetch(previewUrl(name), { cache: 'no-store' })
           if (!response.ok) {
             const body = await response.json().catch(() => ({}))
@@ -503,7 +519,7 @@ window.__ModuleLoader__.load({
       }
 
       function closePreview() {
-        if (preview) URL.revokeObjectURL(preview.url)
+        if (preview?.url) URL.revokeObjectURL(preview.url)
         setPreview(null)
       }
 
@@ -544,17 +560,20 @@ window.__ModuleLoader__.load({
         preview
           ? React.createElement(
               'div',
-              { className: 'dsh-upload-preview-overlay', onClick: closePreview },
+              { className: 'dsh-upload-preview-overlay' + (previewMaximized ? ' dsh-upload-preview-overlay-max' : ''), onClick: closePreview },
               React.createElement(
                 'div',
-                { className: 'dsh-upload-preview-card', onClick: (event) => event.stopPropagation() },
+                { className: 'dsh-upload-preview-card' + (previewMaximized ? ' dsh-upload-preview-card-max' : ''), onClick: (event) => event.stopPropagation() },
                 React.createElement(
                   'div',
                   { className: 'dsh-upload-preview-head' },
                   React.createElement('strong', null, preview.name),
+                  React.createElement('button', { type: 'button', onClick: () => setPreviewMaximized((m) => !m) }, previewMaximized ? '还原窗口' : '放大窗口'),
                   React.createElement('button', { type: 'button', onClick: closePreview }, '关闭'),
                 ),
-                React.createElement('img', { src: preview.url, alt: preview.name, className: 'dsh-upload-preview-img' }),
+                preview.url
+                  ? React.createElement('img', { src: preview.url, alt: preview.name, className: 'dsh-upload-preview-img' })
+                  : React.createElement('iframe', { title: preview.name, srcDoc: preview.officeHtml ?? '', style: previewMaximized ? { width: '100%', height: 'calc(100vh - 60px)', border: 'none', background: '#fff', flex: 1 } : { width: '100%', height: '70vh', border: 'none', background: '#fff' }, sandbox: 'allow-same-origin' }),
               ),
             )
           : null,
@@ -564,13 +583,8 @@ window.__ModuleLoader__.load({
           state.files.map((file) => React.createElement(
             'div',
             { className: 'dsh-upload-row', key: file.name },
-            React.createElement(
-              'div',
-              { className: 'dsh-upload-file-info' },
-              React.createElement('strong', { title: file.name }, file.name),
-              React.createElement('span', null, `${sizeText(file.size)} · ${dateText(file.modifiedAt)}`),
-              React.createElement('code', { title: file.path }, file.path),
-            ),
+            React.createElement('span', { className: 'dsh-upload-file-name', title: file.path }, file.name),
+            React.createElement('span', { className: 'dsh-upload-file-meta' }, `${sizeText(file.size)} · ${dateText(file.modifiedAt)}`),
             React.createElement(
               'div',
               { className: 'dsh-upload-actions' },
@@ -617,14 +631,12 @@ window.__ModuleLoader__.load({
       .dsh-upload-error{padding:10px 12px;border-radius:8px;background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary);font-size:12px}
       .dsh-upload-empty{padding:24px;text-align:center;color:var(--dsw-alias-label-secondary);border:1px dashed var(--dsw-alias-border-l2);border-radius:10px}
       .dsh-upload-list{display:flex;flex-direction:column;border-top:1px solid var(--dsw-alias-border-l2)}
-      .dsh-upload-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 2px;border-bottom:1px solid var(--dsw-alias-border-l2)}
-      .dsh-upload-file-info{display:flex;flex-direction:column;min-width:0;gap:2px}
-      .dsh-upload-file-info strong,.dsh-upload-file-info code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .dsh-upload-file-info strong{font-size:13px}
-      .dsh-upload-file-info span,.dsh-upload-file-info code{font-size:11px;color:var(--dsw-alias-label-secondary)}
+      .dsh-upload-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l2);border-radius:8px;font-size:13px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform,transparent);margin-bottom:4px}
+      .dsh-upload-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary)}
+      .dsh-upload-file-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px}
       .dsh-upload-actions{display:flex;flex:none;gap:7px}
       .dsh-upload-actions button{color:var(--dsw-alias-state-error-primary)}
-      @media (max-width:640px){.dsh-upload-row{align-items:flex-start;flex-direction:column}.dsh-upload-actions{width:100%}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center}.dsh-upload-chip{min-width:160px}}
+      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center}.dsh-upload-chip{min-width:160px}}
       .dsh-ws-folder:hover{background:var(--dsw-alias-interactive-bg-hover)}
       @media (max-width: 767px){
         .dsh-ws-row{flex-direction:column!important;align-items:stretch!important;gap:4px!important}
@@ -635,7 +647,9 @@ window.__ModuleLoader__.load({
       }
       .dsh-upload-actions button.dsh-upload-preview{color:var(--dsw-alias-label-primary)}
       .dsh-upload-preview-overlay{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+      .dsh-upload-preview-overlay-max{padding:0}
       .dsh-upload-preview-card{box-sizing:border-box;background:var(--dsw-specific-input-major);border-radius:14px;max-width:min(560px,100%);max-height:90%;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--dsw-shadow-lv3)}
+      .dsh-upload-preview-card-max{width:100%;height:100%;max-width:none;max-height:none;border-radius:0}
       .dsh-upload-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--dsw-alias-border-l2)}
       .dsh-upload-preview-head strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
       .dsh-upload-preview-head button{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:5px 12px;font:inherit;font-size:12px;cursor:pointer}
@@ -694,15 +708,17 @@ window.__ModuleLoader__.load({
         setBusy(false)
       }
       const copyContent = async () => {
-        if (preview === null || preview.content === void 0) return
+        if (preview === null) return
+        const text = preview.content !== void 0 ? preview.content : preview.officeHtml !== void 0 ? preview.officeHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : void 0
+        if (text === void 0) return
         try {
-          await navigator.clipboard.writeText(preview.content)
+          await navigator.clipboard.writeText(text)
           setCopied(true)
           setTimeout(() => setCopied(false), 1500)
         } catch (e) {
           try {
             const ta = document.createElement('textarea')
-            ta.value = preview.content
+            ta.value = text
             ta.style.position = 'fixed'
             ta.style.opacity = '0'
             document.body.appendChild(ta)
@@ -834,9 +850,10 @@ window.__ModuleLoader__.load({
               { style: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'auto' } },
               preview.loading === true && React.createElement('div', { style: { ...metaStyle, padding: 10 } }, '加载中…'),
               preview.error !== void 0 && preview.loading !== true && React.createElement('div', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)', padding: 10 } }, preview.error),
-              preview.binary === true && React.createElement('div', { style: { ...metaStyle, padding: 10 } }, '二进制文件，无法预览，请下载后查看'),
+              preview.binary === true && preview.officeHtml === void 0 && React.createElement('div', { style: { ...metaStyle, padding: 10 } }, '二进制文件，无法预览，请下载后查看'),
+              preview.officeHtml !== void 0 && React.createElement('iframe', { title: preview.name ?? preview.path, srcDoc: preview.officeHtml, style: { width: '100%', flex: 1, minHeight: 0, border: 'none', background: '#fff' }, sandbox: 'allow-same-origin' }),
               editing && preview.binary !== true && React.createElement('textarea', { style: textareaStyle, value: edited, onChange: (e) => setEdited(e.target.value), spellCheck: false }),
-              !editing && preview.content !== void 0 && React.createElement('pre', { style: preStyle }, preview.content),
+              !editing && preview.binary !== true && preview.content !== void 0 && React.createElement('pre', { style: preStyle }, preview.content),
               preview.truncated === true && React.createElement('div', { style: { ...metaStyle, padding: '4px 12px 10px' } }, '（内容过大，仅显示前 256KB）'),
             ),
           ),
