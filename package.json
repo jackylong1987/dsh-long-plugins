@@ -16,6 +16,10 @@
     "cordis.patch.yml",
     "dsh.plugin.json"
   ],
+  "dependencies": {
+    "mammoth": "^1.12.1",
+    "exceljs": "^4.4.0"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
