@@ -1701,12 +1701,132 @@ window.__ModuleLoader__.load({
       },
     }
 
+
+    // ===== dsh-long-plugins: turn ruler (会话右侧轮次刻度，点击跳转提问) =====
+    const TURN_RULER_CSS = `
+      .dsh-turn-ruler{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:900;display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 6px;border-radius:12px;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 88%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);box-shadow:var(--dsw-shadow-lv2);max-height:70vh;overflow-y:auto;scrollbar-width:none;backdrop-filter:blur(6px)}
+      .dsh-turn-ruler::-webkit-scrollbar{display:none}
+      .dsh-turn-ruler-dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);cursor:pointer;padding:0;flex:none;transition:all .15s;position:relative}
+      .dsh-turn-ruler-dot:hover{transform:scale(1.45);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
+      .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
+      .dsh-turn-ruler-dot .tip{position:absolute;right:calc(100% + 9px);top:50%;transform:translateY(-50%);white-space:nowrap;font-size:11px;line-height:1;padding:4px 8px;border-radius:6px;background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2,#2c3a47);color:var(--dsw-alias-label-primary,#e5e7eb);opacity:0;pointer-events:none;transition:opacity .15s}
+      .dsh-turn-ruler-dot:hover .tip{opacity:1}
+      @media (max-width:767px){.dsh-turn-ruler{display:none}}
+    `
+    const turnRulerPlugin = {
+      inject: [],
+      apply(ctx) {
+        ctx.effect(() => {
+          const style = document.createElement('style')
+          style.dataset.plugin = 'dsh-long-plugins'
+          style.dataset.pluginCss = 'dsh-long-plugins/turn-ruler'
+          style.textContent = TURN_RULER_CSS
+          document.head.appendChild(style)
+          return () => style.remove()
+        }, 'dsh-long-plugins: turn ruler styles')
+
+        ctx.effect(() => {
+          let ruler = null
+          let dots = []
+          let scrollEl = null
+          let boundEl = null
+          let observer = null
+          let raf = 0
+
+          const ensureRuler = () => {
+            if (ruler && ruler.isConnected) return ruler
+            ruler = document.createElement('div')
+            ruler.className = 'dsh-turn-ruler'
+            ruler.setAttribute('aria-label', '轮次导航')
+            document.body.appendChild(ruler)
+            return ruler
+          }
+
+          const findScrollEl = (node) => {
+            let el = node && node.parentElement
+            while (el && el !== document.body) {
+              const cs = getComputedStyle(el)
+              if (cs.overflowY === 'auto' || cs.overflowY === 'scroll') return el
+              el = el.parentElement
+            }
+            return null
+          }
+
+          const bindScroll = () => {
+            if (boundEl === scrollEl) return
+            if (boundEl) boundEl.removeEventListener('scroll', updateActive)
+            boundEl = scrollEl
+            if (boundEl) boundEl.addEventListener('scroll', updateActive, { passive: true })
+          }
+
+          const updateActive = () => {
+            if (!scrollEl || dots.length === 0) return
+            const viewTop = scrollEl.scrollTop
+            let active = 0
+            for (let i = 0; i < dots.length; i++) {
+              const r = dots[i].node.getBoundingClientRect()
+              const sr = scrollEl.getBoundingClientRect()
+              const top = r.top - sr.top + scrollEl.scrollTop
+              if (top <= viewTop + 90) active = i
+            }
+            dots.forEach((d, i) => d.dot.classList.toggle('active', i === active))
+          }
+
+          const render = () => {
+            const nodes = Array.from(document.querySelectorAll('[data-chat-flow-kind="user"]'))
+            const el = ensureRuler()
+            el.innerHTML = ''
+            dots = []
+            if (nodes.length === 0) { el.style.display = 'none'; return }
+            el.style.display = 'flex'
+            scrollEl = findScrollEl(nodes[0]) || scrollEl
+            bindScroll()
+            nodes.forEach((node, index) => {
+              const dot = document.createElement('button')
+              dot.type = 'button'
+              dot.className = 'dsh-turn-ruler-dot'
+              dot.setAttribute('aria-label', `跳转到第 ${index + 1} 轮`)
+              const tip = document.createElement('span')
+              tip.className = 'tip'
+              tip.textContent = `第 ${index + 1} 轮`
+              dot.appendChild(tip)
+              dot.addEventListener('click', () => {
+                node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              })
+              el.appendChild(dot)
+              dots.push({ dot, node })
+            })
+            updateActive()
+          }
+
+          const schedule = () => {
+            cancelAnimationFrame(raf)
+            raf = requestAnimationFrame(render)
+          }
+
+          observer = new MutationObserver(schedule)
+          observer.observe(document.body, { childList: true, subtree: true })
+          render()
+          window.addEventListener('resize', updateActive)
+
+          return () => {
+            cancelAnimationFrame(raf)
+            if (observer) observer.disconnect()
+            if (boundEl) boundEl.removeEventListener('scroll', updateActive)
+            window.removeEventListener('resize', updateActive)
+            if (ruler) ruler.remove()
+          }
+        }, 'dsh-long-plugins: turn ruler')
+      },
+    }
+
     const inject = Array.from(new Set([
       ...uploadPlugin.inject,
       ...skillDocsPlugin.inject,
       ...tokenUsagePlugin.inject,
       ...mobilePlugin.inject,
       ...workspaceFilesPlugin.inject,
+      ...turnRulerPlugin.inject,
     ]))
 
     function apply(ctx) {
@@ -1722,6 +1842,7 @@ window.__ModuleLoader__.load({
       safeApply('token-usage', (c) => tokenUsagePlugin.apply(c))
       safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
       safeApply('workspace-files', (c) => workspaceFilesPlugin.apply(c))
+      safeApply('turn-ruler', (c) => turnRulerPlugin.apply(c))
     }
 
     exports.apply = apply
