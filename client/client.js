@@ -1489,6 +1489,20 @@ window.__ModuleLoader__.load({
         .dsh-mobile-hamburger{pointer-events:auto;position:fixed;left:calc(env(safe-area-inset-left, 0px) + 10px);top:calc(env(safe-area-inset-top, 0px) + 10px);z-index:45;width:38px;height:38px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-specific-input-major);box-shadow:var(--dsw-shadow-lv2);color:var(--dsw-alias-label-primary);display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;cursor:pointer;padding:0}
         .dsh-mobile-hamburger:active{transform:scale(.95)}
         .dsh-mobile-scrim{pointer-events:auto;position:fixed;inset:0;z-index:26;background:rgba(0,0,0,.35)}
+        /* 手机端会话标题栏按钮压缩，避免遮挡标题 */
+        .dsh-ws-files-btn{padding:4px 8px;font-size:12px}
+        .dsh-ws-files-label{display:none}
+        .nL4_yW_sessionLogButton{min-width:0!important;height:28px;padding:4px 8px}
+        .nL4_yW_sessionLogButton span{display:none!important}
+        /* 手机端设置面板：全屏 + 导航横排，内容区全宽（类名随 DSH 版本，升级后需核对） */
+        .VOzbGW_overlay{padding:0}
+        .VOzbGW_panel{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0}
+        .VOzbGW_nav{width:100%;flex-direction:row;gap:6px;padding:10px 14px 0;overflow-x:auto;align-items:center;flex:none}
+        .VOzbGW_navTitle{display:none}
+        .VOzbGW_navList{flex-direction:row;gap:6px}
+        .VOzbGW_navCell{height:36px;padding:8px 14px}
+        .VOzbGW_header{height:auto;min-height:44px;padding:12px 14px 6px}
+        .VOzbGW_options{padding:0 16px 24px}
       }
       @media (min-width: 768px){.dsh-mobile-hamburger,.dsh-mobile-scrim{display:none!important}}
     `
@@ -1538,11 +1552,84 @@ window.__ModuleLoader__.load({
       },
     }
 
+    // ===== dsh-long-plugins: workspace file browser entry (inline overlay, no new tab) =====
+    const WORKSPACE_FILES_CSS = `
+      .dsh-ws-files-btn{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:transparent;color:var(--dsw-alias-label-primary,#e5e7eb);border-radius:8px;padding:5px 10px;font-size:13px;line-height:1;cursor:pointer;text-decoration:none}
+      .dsh-ws-files-btn:hover{background:var(--dsw-alias-border-l2,#2c3a47)}
+      .dsh-ws-files-overlay{position:fixed;inset:0;z-index:1200;background:rgba(5,10,16,.66);display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+      .dsh-ws-files-panel{width:min(1080px,96vw);height:min(820px,92vh);background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55)}
+      .dsh-ws-files-panel-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#1a2530;border-bottom:1px solid #2c3a47;flex:none}
+      .dsh-ws-files-panel-head .t{font-weight:600;font-size:14px;color:#e5e7eb}
+      .dsh-ws-files-panel-head .sp{flex:1}
+      .dsh-ws-files-close{border:1px solid #2c3a47;background:transparent;color:#e5e7eb;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer}
+      .dsh-ws-files-close:hover{background:#2c3a47}
+      .dsh-ws-files-frame{flex:1;border:none;width:100%;background:#0f1720}
+    `
+    const workspaceFilesPlugin = {
+      inject: ['slots'],
+      apply(ctx) {
+        ctx.effect(() => {
+          const style = document.createElement('style')
+          style.dataset.plugin = 'dsh-long-plugins'
+          style.dataset.pluginCss = 'dsh-long-plugins/workspace-files-btn'
+          style.textContent = WORKSPACE_FILES_CSS
+          document.head.appendChild(style)
+          return () => style.remove()
+        }, 'dsh-long-plugins: workspace files button styles')
+        const WorkspaceFilesButton = ({ sessionId, useSessions }) => {
+          const [open, setOpen] = React.useState(false)
+          const cwd = useSessions((s) => (sessionId === void 0 ? void 0 : s.byId[sessionId]?.cwd))
+          const ws = cwd ? cwd.split('/').filter(Boolean).pop() : ''
+          React.useEffect(() => {
+            if (!open) return undefined
+            const onKey = (event) => { if (event.key === 'Escape') setOpen(false) }
+            window.addEventListener('keydown', onKey)
+            return () => window.removeEventListener('keydown', onKey)
+          }, [open])
+          return React.createElement(
+            React.Fragment,
+            null,
+            React.createElement('button', {
+              type: 'button',
+              className: 'dsh-ws-files-btn',
+              title: '工作区文件浏览' + (ws ? `（当前：${ws}，可切换总文件）` : '（所有工作区文件，可预览/下载）'),
+              'aria-label': '工作区文件浏览',
+              onClick: () => setOpen(true),
+            },
+              React.createElement('span', { className: 'dsh-ws-files-icon' }, '📂'),
+              React.createElement('span', { className: 'dsh-ws-files-label' }, '文件'),
+            ),
+            open && React.createElement('div', { className: 'dsh-ws-files-overlay' },
+              React.createElement('div', { className: 'dsh-ws-files-panel' },
+                React.createElement('div', { className: 'dsh-ws-files-panel-head' },
+                  React.createElement('span', { className: 't' }, `📂 工作区文件${ws ? ` · ${ws}` : ''}`),
+                  React.createElement('span', { className: 'sp' }),
+                  React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => setOpen(false) }, '✕ 关闭'),
+                ),
+                React.createElement('iframe', {
+                  className: 'dsh-ws-files-frame',
+                  src: '/api/dsh-uploads/workspace-browse' + (ws ? `?ws=${encodeURIComponent(ws)}` : ''),
+                  title: '工作区文件浏览',
+                }),
+              ),
+            ),
+          )
+        }
+        ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
+          name: 'conversation.session.header.actions',
+          id: 'dsh-workspace-files',
+          order: 10,
+          label: '文件',
+        }, WorkspaceFilesButton))
+      },
+    }
+
     const inject = Array.from(new Set([
       ...uploadPlugin.inject,
       ...skillDocsPlugin.inject,
       ...tokenUsagePlugin.inject,
       ...mobilePlugin.inject,
+      ...workspaceFilesPlugin.inject,
     ]))
 
     function apply(ctx) {
@@ -1557,6 +1644,7 @@ window.__ModuleLoader__.load({
       safeApply('skill-docs', (c) => skillDocsPlugin.apply(c))
       safeApply('token-usage', (c) => tokenUsagePlugin.apply(c))
       safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
+      safeApply('workspace-files', (c) => workspaceFilesPlugin.apply(c))
     }
 
     exports.apply = apply
