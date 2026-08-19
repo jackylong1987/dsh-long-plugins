@@ -1710,12 +1710,12 @@ window.__ModuleLoader__.load({
       .dsh-turn-ruler-dot:hover{transform:scale(1.45);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
       /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
-      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);max-height:55vh;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
+      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);max-height:60vh;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
       .dsh-turn-preview.open{opacity:1;visibility:visible}
       .dsh-turn-preview-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#141d27);flex:none}
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
       .dsh-turn-preview-count{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;font-variant-numeric:tabular-nums}
-      .dsh-turn-preview-body{flex:1;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
+      .dsh-turn-preview-body{flex:1;min-height:0;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
       .dsh-turn-preview-row{display:flex;gap:8px;align-items:baseline;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .1s}
       .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 55%,transparent)}
       .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 16%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
@@ -1744,6 +1744,7 @@ window.__ModuleLoader__.load({
           let raf = 0
           let rendering = false
           let curIndex = -1
+          let hideTimer = 0
 
           const ensureRuler = () => {
             if (ruler && ruler.isConnected) return ruler
@@ -1854,7 +1855,12 @@ window.__ModuleLoader__.load({
             const rows = preview.querySelectorAll('.dsh-turn-preview-row')
             rows.forEach((r, i) => r.classList.toggle('active', i === index))
             const active = preview.querySelector('.dsh-turn-preview-row.active')
-            if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' })
+            const body = preview.querySelector('.dsh-turn-preview-body')
+            if (active && body) {
+              // 手动滚动列表容器（fixed 浮窗内 scrollIntoView 会滚整个页面）
+              const target = active.offsetTop - body.clientHeight / 2 + active.clientHeight / 2
+              body.scrollTop = Math.max(0, target)
+            }
           }
 
           // 显示浮窗并选中 index：滚动列表到该行 + 主会话定位
@@ -1947,11 +1953,17 @@ window.__ModuleLoader__.load({
             }
           }
 
-          const onMouseOut = (event) => {
-            const next = event.relatedTarget
-            if (next && preview && preview.contains(next)) return
-            if (next && next.closest && next.closest('.dsh-turn-ruler-dot')) return
-            hidePreview()
+          // 全局鼠标跟踪：进入刻度条/浮窗 → 取消延迟；移出两者 → 延迟 200ms 隐藏，
+          // 保证鼠标从刻度条跨空白进入浮窗期间浮窗不消失。
+          const onDocMouseOver = (event) => {
+            const t = event.target
+            const inRuler = t && t.closest ? t.closest('.dsh-turn-ruler') : null
+            const inPreview = t && t.closest ? t.closest('.dsh-turn-preview') : null
+            if (inRuler || inPreview) {
+              if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0 }
+            } else if (!hideTimer) {
+              hideTimer = setTimeout(() => { hideTimer = 0; hidePreview() }, 200)
+            }
           }
 
           // 浮窗内滚轮 → 选择上一/下一个刻度（并联动主会话定位）
@@ -1995,7 +2007,7 @@ window.__ModuleLoader__.load({
           const root = ensureRuler()
           root.addEventListener('click', onClick)
           root.addEventListener('mouseover', onMouseOver)
-          root.addEventListener('mouseout', onMouseOut)
+          document.addEventListener('mouseover', onDocMouseOver)
           const pv = ensurePreview()
           pv.addEventListener('wheel', onPreviewWheel, { passive: false })
           pv.addEventListener('mouseover', onRowOver)
@@ -2005,10 +2017,11 @@ window.__ModuleLoader__.load({
 
           return () => {
             cancelAnimationFrame(raf)
+            if (hideTimer) clearTimeout(hideTimer)
             if (observer) observer.disconnect()
             root.removeEventListener('click', onClick)
             root.removeEventListener('mouseover', onMouseOver)
-            root.removeEventListener('mouseout', onMouseOut)
+            document.removeEventListener('mouseover', onDocMouseOver)
             pv.removeEventListener('wheel', onPreviewWheel)
             pv.removeEventListener('mouseover', onRowOver)
             if (scrollEl) scrollEl.removeEventListener('scroll', updateActive)
