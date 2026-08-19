@@ -1712,12 +1712,12 @@ window.__ModuleLoader__.load({
       .dsh-turn-ruler-bottom{width:26px;height:26px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
       .dsh-turn-ruler-bottom:hover{color:var(--dsw-alias-label-primary,#e5e7eb);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
-      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(420px,60vh);overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
+      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(420px,60vh);touch-action:pan-y;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
       .dsh-turn-preview.open{opacity:1;visibility:visible}
       .dsh-turn-preview-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#141d27);flex:none}
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
       .dsh-turn-preview-count{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;font-variant-numeric:tabular-nums}
-      .dsh-turn-preview-body{flex:1;min-height:0;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
+      .dsh-turn-preview-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
       .dsh-turn-preview-row{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .1s}
       .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 55%,transparent)}
       .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 16%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
@@ -2078,6 +2078,12 @@ window.__ModuleLoader__.load({
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
             if (body.scrollTop <= 2) tryLoadOlder()
           }
+          // 触摸滚动后也检查顶部 → 自动加载
+          const onPreviewTouchEnd = () => {
+            const body = preview && preview.querySelector('.dsh-turn-preview-body')
+            if (body && body.scrollTop <= 2) tryLoadOlder()
+
+          }
 
           // 浮窗行 hover 只高亮，不定位主会话（定位仅在点击时发生）
           const onRowOver = (event) => {
@@ -2116,6 +2122,7 @@ window.__ModuleLoader__.load({
           const pv = ensurePreview()
           pv.addEventListener('click', onClick)
           pv.addEventListener('wheel', onPreviewWheel, { passive: false })
+          pv.addEventListener('touchend', onPreviewTouchEnd, { passive: true })
           pv.addEventListener('mouseover', onRowOver)
           const tab = ensurePhoneTab()
           tab.addEventListener('click', onClick)
@@ -2132,6 +2139,7 @@ window.__ModuleLoader__.load({
             document.removeEventListener('mouseover', onDocMouseOver)
             pv.removeEventListener('click', onClick)
             pv.removeEventListener('wheel', onPreviewWheel)
+            pv.removeEventListener('touchend', onPreviewTouchEnd)
             pv.removeEventListener('mouseover', onRowOver)
             if (scrollEl) scrollEl.removeEventListener('scroll', updateActive)
             window.removeEventListener('resize', updateActive)
