@@ -1710,7 +1710,7 @@ window.__ModuleLoader__.load({
       .dsh-turn-ruler-dot:hover{transform:scale(1.45);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
       /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
-      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);max-height:60vh;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
+      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(420px,60vh);overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
       .dsh-turn-preview.open{opacity:1;visibility:visible}
       .dsh-turn-preview-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#141d27);flex:none}
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
@@ -1966,11 +1966,33 @@ window.__ModuleLoader__.load({
             }
           }
 
-          // 浮窗内滚轮 → 原生滚动列表浏览轮次标题（不联动主会话）
+          // 浮窗内滚轮 → 原生滚动列表浏览轮次标题；滚到顶部且主会话还有更早历史时自动加载
+          let loadChain = 0
+          const tryLoadOlder = () => {
+            const flow = document.querySelector('[data-chat-flow]')
+            const btn = flow && flow.querySelector('.Md3f7G_older button, [class*="_older"] button')
+            if (!btn) return false
+            if (btn.disabled) {
+              // 正在加载：等待恢复后若仍滚在顶部则继续加载下一页
+              const chain = ++loadChain
+              setTimeout(() => {
+                if (chain === loadChain && preview && preview.classList.contains('open')) {
+                  const body = preview.querySelector('.dsh-turn-preview-body')
+                  if (body && body.scrollTop <= 2) tryLoadOlder()
+                }
+              }, 400)
+              return true
+            }
+            btn.click()
+            return true
+          }
           const onPreviewWheel = (event) => {
             if (!preview || !preview.classList.contains('open')) return
             const body = preview.querySelector('.dsh-turn-preview-body')
-            if (body) body.scrollTop += event.deltaY
+            if (!body) return
+            body.scrollTop += event.deltaY
+            // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
+            if (body.scrollTop <= 2) tryLoadOlder()
           }
 
           // 浮窗行 hover 只高亮，不定位主会话（定位仅在点击时发生）
