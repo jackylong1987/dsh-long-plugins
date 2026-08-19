@@ -1992,10 +1992,12 @@ window.__ModuleLoader__.load({
             const relevant = mutations.some((m) => {
               if (m.type !== 'childList') return false
               const t = m.target
-              if (t === document.body) return true
+              // 刻度条/浮窗自身的变更忽略（它们由我们维护，不反映会话变化）
               if (ruler && (t === ruler || ruler.contains(t))) return false
               if (preview && (t === preview || preview.contains(t))) return false
-              return t.closest && t.closest('[data-chat-flow-kind]') !== null
+              // 其余任何 DOM 增删都可能带来新轮次（新消息常加在会话容器里，
+              // target 不是 [data-chat-flow-kind] 后代，故不再做精确匹配）
+              return true
             })
             if (relevant) schedule()
           })
@@ -2006,6 +2008,7 @@ window.__ModuleLoader__.load({
           root.addEventListener('mouseover', onMouseOver)
           document.addEventListener('mouseover', onDocMouseOver)
           const pv = ensurePreview()
+          pv.addEventListener('click', onClick)
           pv.addEventListener('wheel', onPreviewWheel, { passive: false })
           pv.addEventListener('mouseover', onRowOver)
           render()
@@ -2019,6 +2022,7 @@ window.__ModuleLoader__.load({
             root.removeEventListener('click', onClick)
             root.removeEventListener('mouseover', onMouseOver)
             document.removeEventListener('mouseover', onDocMouseOver)
+            pv.removeEventListener('click', onClick)
             pv.removeEventListener('wheel', onPreviewWheel)
             pv.removeEventListener('mouseover', onRowOver)
             if (scrollEl) scrollEl.removeEventListener('scroll', updateActive)
