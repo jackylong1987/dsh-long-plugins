@@ -252,22 +252,18 @@ window.__ModuleLoader__.load({
       }
 
       async migrateLegacy(sessionId, draft) {
+        // 旧格式草稿兼容：只清理残留的「上传文件：`路径`」文本行，不再重新挂载附件。
+        // （原先会把它转成待发送附件，导致刷新后幽灵文件反复出现——2026-08-19 修复）
         const key = String(sessionId)
         if (this.migrated.has(key)) return
         this.migrated.add(key)
         const paths = legacyUploadPaths(draft)
         if (paths.length === 0) return
-
         try {
-          const body = await responseJson(await fetch(API_PATH, { cache: 'no-store' }))
-          const wanted = new Set(paths)
-          const files = body.files.filter((file) => wanted.has(file.path))
-          if (files.length === 0) return
           const { shell } = this.scope(sessionId)
-          shell.setDraft(stripLegacyPaths(shell.snapshot.draft, files.map((file) => file.path)))
-          for (const file of files) this.attach(sessionId, file)
+          shell.setDraft(stripLegacyPaths(shell.snapshot.draft, paths))
         } catch (error) {
-          console.error('[dsh-upload-manager] legacy draft migration failed', error)
+          console.error('[dsh-upload-manager] legacy draft cleanup failed', error)
         }
       }
 
@@ -568,7 +564,7 @@ window.__ModuleLoader__.load({
                   'div',
                   { className: 'dsh-upload-preview-head' },
                   React.createElement('strong', null, preview.name),
-                  React.createElement('button', { type: 'button', onClick: () => setPreviewMaximized((m) => !m) }, previewMaximized ? '还原窗口' : '放大窗口'),
+                  React.createElement('button', { type: 'button', onClick: () => setPreviewMaximized((m) => !m) }, previewMaximized ? '还原' : '放大'),
                   React.createElement('button', { type: 'button', onClick: closePreview }, '关闭'),
                 ),
                 preview.url
@@ -641,7 +637,7 @@ window.__ModuleLoader__.load({
       .dsh-upload-actions button{color:var(--dsw-alias-state-error-primary)}
       @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center}.dsh-upload-chip{min-width:160px}}
       .dsh-ws-folder:hover{background:var(--dsw-alias-interactive-bg-hover)}
-      @media (max-width: 767px){
+      @media (max-width: 767px){ .dsh-upload-preview-head{padding:8px 10px;gap:8px} .dsh-upload-preview-head button{padding:4px 8px;font-size:11px}
         .dsh-ws-row{flex-direction:column!important;align-items:stretch!important;gap:4px!important}
         .dsh-ws-name{white-space:normal!important;word-break:break-all}
         .dsh-ws-meta{font-size:11px}
@@ -655,7 +651,7 @@ window.__ModuleLoader__.load({
       .dsh-upload-preview-card-max{width:100%;height:100%;max-width:none;max-height:none;border-radius:0}
       .dsh-upload-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--dsw-alias-border-l2)}
       .dsh-upload-preview-head strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
-      .dsh-upload-preview-head button{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:5px 12px;font:inherit;font-size:12px;cursor:pointer}
+      .dsh-upload-preview-head button{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:5px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;flex:none}
       .dsh-upload-preview-img{max-width:100%;max-height:70vh;object-fit:contain;display:block}
     `
 
@@ -845,7 +841,7 @@ window.__ModuleLoader__.load({
               preview.binary !== true && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => { if (editing) { setEdited(preview.content !== void 0 ? preview.content : ''); setEditing(false); } else setEditing(true); } }, editing ? '取消编辑' : '编辑'),
               editing && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: doSave }, savedFlash ? '已保存' : '保存'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: copyContent }, copied ? '已复制' : '复制全部'),
-              React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setMaximized((m) => !m) }, maximized ? '还原窗口' : '放大窗口'),
+              React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setPreview(null) }, '关闭'),
             ),
             React.createElement(
@@ -1552,18 +1548,29 @@ window.__ModuleLoader__.load({
       },
     }
 
-    // ===== dsh-long-plugins: workspace file browser entry (inline overlay, no new tab) =====
+    // ===== dsh-long-plugins: workspace file browser + inline preview =====
+    // 共享内联面板状态：标题栏「📂 文件」、消息文件徽章、工具卡片文件名共用
+    const wsOverlay = {
+      url: null, title: '',
+      listeners: new Set(),
+      open(url, title) { this.url = url; this.title = title || ''; this.emit(); },
+      close() { this.url = null; this.emit(); },
+      emit() { this.listeners.forEach((fn) => fn()); },
+      subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
+    }
     const WORKSPACE_FILES_CSS = `
       .dsh-ws-files-btn{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:transparent;color:var(--dsw-alias-label-primary,#e5e7eb);border-radius:8px;padding:5px 10px;font-size:13px;line-height:1;cursor:pointer;text-decoration:none}
       .dsh-ws-files-btn:hover{background:var(--dsw-alias-border-l2,#2c3a47)}
       .dsh-ws-files-overlay{position:fixed;inset:0;z-index:1200;background:rgba(5,10,16,.66);display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
       .dsh-ws-files-panel{width:min(1080px,96vw);height:min(820px,92vh);background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55)}
       .dsh-ws-files-panel-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#1a2530;border-bottom:1px solid #2c3a47;flex:none}
-      .dsh-ws-files-panel-head .t{font-weight:600;font-size:14px;color:#e5e7eb}
+      .dsh-ws-files-panel-head .t{font-weight:600;font-size:14px;color:#e5e7eb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .dsh-ws-files-panel-head .sp{flex:1}
       .dsh-ws-files-close{border:1px solid #2c3a47;background:transparent;color:#e5e7eb;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer}
       .dsh-ws-files-close:hover{background:#2c3a47}
       .dsh-ws-files-frame{flex:1;border:none;width:100%;background:#0f1720}
+      /* 会话 markdown 里的预览/下载图标：内联显示在文件名后面（默认 markdown 图片是 block 独占一行） */
+      img[src*="/api/dsh-uploads/icons/"]{display:inline!important;width:14px!important;height:14px!important;vertical-align:-2px!important;border-radius:0!important;background:transparent!important;margin:0 1px!important}
     `
     const workspaceFilesPlugin = {
       inject: ['slots'],
@@ -1576,16 +1583,70 @@ window.__ModuleLoader__.load({
           document.head.appendChild(style)
           return () => style.remove()
         }, 'dsh-long-plugins: workspace files button styles')
-        const WorkspaceFilesButton = ({ sessionId, useSessions }) => {
-          const [open, setOpen] = React.useState(false)
-          const cwd = useSessions((s) => (sessionId === void 0 ? void 0 : s.byId[sessionId]?.cwd))
-          const ws = cwd ? cwd.split('/').filter(Boolean).pop() : ''
+        // 全局点击拦截：消息文件徽章 + 工具卡片文件名 + 产物文件芯片 → 内联预览
+        // 类名随 DSH 版本（升级后需核对）：._fileMention_* 徽章 / .o3BgMG_fileLink 工具卡片 / .P4kPIW_file 产物芯片
+        const WORKSPACE_ROOT = '/volume1/homes/dsh/workspace'
+        let lastCwd = ''
+        const onFileClick = (event) => {
+          const target = event.target
+          const el = target && target.closest
+            ? target.closest('.o3BgMG_fileLink, ._fileMention_1nba0_249, .P4kPIW_file')
+            : null
+          if (!el) return
+          // 优先用 title 里的完整路径（产物芯片/徽章带 title=完整路径），否则用文字
+          const t = el.getAttribute ? el.getAttribute('title') : null
+          const raw = (t && (t.startsWith('/') || t.indexOf('/') !== -1) ? t.trim() : (el.textContent || '').trim())
+          if (!raw) return
+          event.preventDefault()
+          event.stopPropagation()
+          const abs = raw.startsWith('/')
+            ? raw
+            : (lastCwd ? lastCwd.replace(/\/+$/, '') + '/' + raw.replace(/^\/+/, '') : raw)
+          const rel = abs.startsWith(WORKSPACE_ROOT + '/') ? abs.slice(WORKSPACE_ROOT.length + 1) : abs
+          wsOverlay.open('/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(rel), '👁 预览 · ' + (raw.split('/').pop() || raw))
+        }
+        ctx.effect(() => {
+          document.addEventListener('click', onFileClick, true)
+          return () => document.removeEventListener('click', onFileClick, true)
+        }, 'dsh-long-plugins: file mention preview interceptor')
+        // 预览页在 iframe 里点「关闭」时，通过 postMessage 关闭内联面板
+        ctx.effect(() => {
+          const onMessage = (event) => {
+            if (event.origin !== window.location.origin) return
+            if (event.data && event.data.type === 'dsh-close-preview') wsOverlay.close()
+          }
+          window.addEventListener('message', onMessage)
+          return () => window.removeEventListener('message', onMessage)
+        }, 'dsh-long-plugins: preview close message listener')
+        const useOverlay = () => {
+          const [state, setState] = React.useState({ url: wsOverlay.url, title: wsOverlay.title })
+          React.useEffect(() => wsOverlay.subscribe(() => setState({ url: wsOverlay.url, title: wsOverlay.title })), [])
+          return state
+        }
+        const WorkspaceFilesOverlay = () => {
+          const { url, title } = useOverlay()
           React.useEffect(() => {
-            if (!open) return undefined
-            const onKey = (event) => { if (event.key === 'Escape') setOpen(false) }
+            if (!url) return undefined
+            const onKey = (event) => { if (event.key === 'Escape') wsOverlay.close() }
             window.addEventListener('keydown', onKey)
             return () => window.removeEventListener('keydown', onKey)
-          }, [open])
+          }, [url])
+          if (!url) return null
+          return React.createElement('div', { className: 'dsh-ws-files-overlay' },
+            React.createElement('div', { className: 'dsh-ws-files-panel' },
+              React.createElement('div', { className: 'dsh-ws-files-panel-head' },
+                React.createElement('span', { className: 't' }, title || '工作区文件'),
+                React.createElement('span', { className: 'sp' }),
+                React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => wsOverlay.close() }, '✕ 关闭'),
+              ),
+              React.createElement('iframe', { className: 'dsh-ws-files-frame', src: url, title: '文件预览' }),
+            ),
+          )
+        }
+        const WorkspaceFilesButton = ({ sessionId, useSessions }) => {
+          const cur = useSessions((s) => (sessionId === void 0 ? void 0 : s.byId[sessionId]?.cwd))
+          React.useEffect(() => { if (cur) lastCwd = cur }, [cur])
+          const ws = cur ? cur.split('/').filter(Boolean).pop() : ''
           return React.createElement(
             React.Fragment,
             null,
@@ -1594,25 +1655,21 @@ window.__ModuleLoader__.load({
               className: 'dsh-ws-files-btn',
               title: '工作区文件浏览' + (ws ? `（当前：${ws}，可切换总文件）` : '（所有工作区文件，可预览/下载）'),
               'aria-label': '工作区文件浏览',
-              onClick: () => setOpen(true),
+              onClick: () => wsOverlay.open('/api/dsh-uploads/workspace-browse' + (ws ? `?ws=${encodeURIComponent(ws)}` : ''), `工作区文件${ws ? ` · ${ws}` : ''}`),
             },
-              React.createElement('span', { className: 'dsh-ws-files-icon' }, '📂'),
+              React.createElement('svg', {
+                className: 'dsh-ws-files-icon',
+                viewBox: '0 0 24 24',
+                fill: 'currentColor',
+                width: '14',
+                height: '14',
+                'aria-hidden': true,
+              },
+                React.createElement('path', { d: 'M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z' }),
+              ),
               React.createElement('span', { className: 'dsh-ws-files-label' }, '文件'),
             ),
-            open && React.createElement('div', { className: 'dsh-ws-files-overlay' },
-              React.createElement('div', { className: 'dsh-ws-files-panel' },
-                React.createElement('div', { className: 'dsh-ws-files-panel-head' },
-                  React.createElement('span', { className: 't' }, `📂 工作区文件${ws ? ` · ${ws}` : ''}`),
-                  React.createElement('span', { className: 'sp' }),
-                  React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => setOpen(false) }, '✕ 关闭'),
-                ),
-                React.createElement('iframe', {
-                  className: 'dsh-ws-files-frame',
-                  src: '/api/dsh-uploads/workspace-browse' + (ws ? `?ws=${encodeURIComponent(ws)}` : ''),
-                  title: '工作区文件浏览',
-                }),
-              ),
-            ),
+            React.createElement(WorkspaceFilesOverlay, null),
           )
         }
         ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
