@@ -1704,11 +1704,13 @@ window.__ModuleLoader__.load({
 
     // ===== dsh-long-plugins: turn ruler (会话右侧轮次刻度，点击跳转提问) =====
     const TURN_RULER_CSS = `
-      .dsh-turn-ruler{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:1300;pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 6px;border-radius:12px;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 88%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);box-shadow:var(--dsw-shadow-lv2);max-height:70vh;overflow-y:auto;scrollbar-width:none;backdrop-filter:blur(6px)}
-      .dsh-turn-ruler::-webkit-scrollbar{display:none}
-      .dsh-turn-ruler-dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);cursor:pointer;padding:0;flex:none;transition:all .15s;position:relative}
+      .dsh-turn-ruler{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:1300;pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 7px;border-radius:14px;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 88%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);box-shadow:var(--dsw-shadow-lv2);backdrop-filter:blur(6px)}
+      .dsh-turn-ruler-dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);cursor:pointer;padding:0;flex:none;transition:all .15s}
       .dsh-turn-ruler-dot:hover{transform:scale(1.45);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
+      .dsh-turn-ruler-divider{width:14px;height:1px;background:var(--dsw-alias-border-l2,#2c3a47);flex:none}
+      .dsh-turn-ruler-bottom{width:26px;height:26px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;transition:all .15s}
+      .dsh-turn-ruler-bottom:hover{color:var(--dsw-alias-label-primary,#e5e7eb);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
       .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(420px,60vh);overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
       .dsh-turn-preview.open{opacity:1;visibility:visible}
@@ -1812,8 +1814,11 @@ window.__ModuleLoader__.load({
               const top = r.top - sr.top + scrollEl.scrollTop
               if (top <= viewTop + 90) active = i
             }
+            // 3 个刻度点按当前轮次在总轮数中的位置高亮
+            const ratio = turns.length <= 1 ? 0 : active / (turns.length - 1)
+            const dotIdx = ratioToDot(ratio)
             const dots = ruler.querySelectorAll('.dsh-turn-ruler-dot')
-            dots.forEach((d, i) => d.classList.toggle('active', i === active))
+            dots.forEach((d, i) => d.classList.toggle('active', i === dotIdx))
             curIndex = active
             syncPreviewHighlight(active)
           }
@@ -1884,27 +1889,47 @@ window.__ModuleLoader__.load({
             if (preview) preview.classList.remove('open')
           }
 
+          // 按轮次比例计算三个刻度点的归属：0=最早 1=中间 2=最新
+          const ratioToDot = (ratio) => {
+            if (ratio < 0.34) return 0
+            if (ratio < 0.67) return 1
+            return 2
+          }
+          const buildRulerStatic = () => {
+            const el = ensureRuler()
+            el.innerHTML = ''
+            for (let i = 0; i < 3; i++) {
+              const dot = document.createElement('button')
+              dot.type = 'button'
+              dot.className = 'dsh-turn-ruler-dot'
+              dot.dataset.dot = String(i)
+              dot.setAttribute('aria-label', ['最早轮次', '中间轮次', '最新轮次'][i])
+              el.appendChild(dot)
+            }
+            const divider = document.createElement('div')
+            divider.className = 'dsh-turn-ruler-divider'
+            el.appendChild(divider)
+            const bottom = document.createElement('button')
+            bottom.type = 'button'
+            bottom.className = 'dsh-turn-ruler-bottom'
+            bottom.dataset.action = 'bottom'
+            bottom.setAttribute('aria-label', '回到最后位置')
+            bottom.textContent = '⤓'
+            el.appendChild(bottom)
+          }
           const render = () => {
             if (rendering) return
             rendering = true
             try {
               const el = ensureRuler()
               const nextTurns = buildTurns()
-              const same = turns.length === nextTurns.length && nextTurns.every((t, i) => t.userNode === turns[i].userNode)
+              const countChanged = turns.length !== nextTurns.length
               turns = nextTurns
               if (turns.length === 0) { el.style.display = 'none'; hidePreview(); return }
               el.style.display = 'flex'
               scrollEl = findScrollEl(turns[0].userNode) || scrollEl
-              if (!same) {
-                el.innerHTML = ''
-                turns.forEach((t, index) => {
-                  const dot = document.createElement('button')
-                  dot.type = 'button'
-                  dot.className = 'dsh-turn-ruler-dot'
-                  dot.dataset.index = String(index)
-                  dot.setAttribute('aria-label', `第 ${index + 1} 轮`)
-                  el.appendChild(dot)
-                })
+              if (countChanged) {
+                buildRulerStatic()
                 buildRows()
               }
               updateActive()
@@ -1918,7 +1943,7 @@ window.__ModuleLoader__.load({
             raf = requestAnimationFrame(render)
           }
 
-          // 事件委托：点击行 → 定位会话；点击刻度 → 定位会话
+          // 事件委托：预览行点击 → 定位；3 刻度点 → 按比例定位；回到最后 → 滚到会话底部
           const onClick = (event) => {
             const t = event.target
             const row = t && t.closest ? t.closest('.dsh-turn-preview-row') : null
@@ -1932,24 +1957,42 @@ window.__ModuleLoader__.load({
               }
               return
             }
+            const bottom = t && t.closest ? t.closest('.dsh-turn-ruler-bottom') : null
+            if (bottom) {
+              event.preventDefault()
+              const host = scrollEl
+              if (host && host.isConnected) {
+                try { host.scrollTo({ top: host.scrollHeight, behavior: 'smooth' }) }
+                catch { host.scrollTop = host.scrollHeight }
+              }
+              hidePreview()
+              return
+            }
             const dot = t && t.closest ? t.closest('.dsh-turn-ruler-dot') : null
             if (dot) {
-              const index = Number(dot.dataset.index)
-              if (Number.isFinite(index) && turns[index]) {
-                event.preventDefault()
+              event.preventDefault()
+              if (turns.length === 0) return
+              const dotIdx = Number(dot.dataset.dot)
+              const ratio = [0, 0.5, 1][dotIdx] ?? 0
+              const index = Math.round(ratio * (turns.length - 1))
+              if (turns[index]) {
+                curIndex = index
                 jumpTo(turns[index].userNode)
+                syncPreviewHighlight(index)
               }
             }
           }
 
-          // 悬停刻度 → 打开浮窗并选中该轮
+          // 悬停刻度 → 打开浮窗并按比例选中对应轮次
           const onMouseOver = (event) => {
             const dot = event.target && event.target.closest
               ? event.target.closest('.dsh-turn-ruler-dot')
               : null
-            if (dot) {
-              const index = Number(dot.dataset.index)
-              if (Number.isFinite(index)) showPreview(index)
+            if (dot && turns.length > 0) {
+              const dotIdx = Number(dot.dataset.dot)
+              const ratio = [0, 0.5, 1][dotIdx] ?? 0
+              const index = Math.round(ratio * (turns.length - 1))
+              showPreview(index)
             }
           }
 
