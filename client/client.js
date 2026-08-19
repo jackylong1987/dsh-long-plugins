@@ -1563,12 +1563,21 @@ window.__ModuleLoader__.load({
       .dsh-ws-files-btn:hover{background:var(--dsw-alias-border-l2,#2c3a47)}
       .dsh-ws-files-overlay{position:fixed;inset:0;z-index:1200;background:rgba(5,10,16,.66);display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
       .dsh-ws-files-panel{width:min(1080px,96vw);height:min(820px,92vh);background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55)}
-      .dsh-ws-files-panel-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#1a2530;border-bottom:1px solid #2c3a47;flex:none}
-      .dsh-ws-files-panel-head .t{font-weight:600;font-size:14px;color:#e5e7eb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .dsh-ws-files-panel-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--dsw-alias-bg-module-platform,#1a2530);border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);flex:none}
+      .dsh-ws-files-panel-head .t{font-weight:600;font-size:14px;color:var(--dsw-alias-label-primary,#e5e7eb);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .dsh-ws-files-panel-head .sp{flex:1}
-      .dsh-ws-files-close{border:1px solid #2c3a47;background:transparent;color:#e5e7eb;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer}
-      .dsh-ws-files-close:hover{background:#2c3a47}
-      .dsh-ws-files-frame{flex:1;border:none;width:100%;background:#0f1720}
+      .dsh-ws-files-close{border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:transparent;color:var(--dsw-alias-label-primary,#e5e7eb);border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer}
+      .dsh-ws-files-close:hover{background:var(--dsw-alias-interactive-bg-hover,#2c3a47)}
+      .dsh-ws-files-frame{flex:1;border:none;width:100%;background:var(--dsw-specific-input-major,#0f1720)}
+      /* 浅色模式下即使主题变量缺失也保证跟随系统 */
+      @media (prefers-color-scheme: light) {
+        .dsh-ws-files-panel{background:#ffffff}
+        .dsh-ws-files-panel-head{background:#f3f4f6;border-bottom-color:#e5e7eb}
+        .dsh-ws-files-panel-head .t{color:#1f2937}
+        .dsh-ws-files-close{color:#374151;border-color:#e5e7eb}
+        .dsh-ws-files-close:hover{background:#e5e7eb}
+        .dsh-ws-files-frame{background:#ffffff}
+      }
       /* 会话 markdown 里的预览/下载图标：内联显示在文件名后面（默认 markdown 图片是 block 独占一行） */
       img[src*="/api/dsh-uploads/icons/"]{display:inline!important;width:14px!important;height:14px!important;vertical-align:-2px!important;border-radius:0!important;background:transparent!important;margin:0 1px!important}
     `
