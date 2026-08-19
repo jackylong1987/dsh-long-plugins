@@ -1724,7 +1724,17 @@ window.__ModuleLoader__.load({
       .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:18px;text-align:center}
       .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe);border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;align-self:center}
       .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      @media (max-width:1024px){.dsh-turn-ruler{display:none!important}.dsh-turn-preview{display:none!important}}
+      .dsh-turn-preview-close{flex:none;width:24px;height:24px;border-radius:7px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:transparent;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;transition:all .15s}
+      .dsh-turn-preview-close:hover{color:var(--dsw-alias-label-primary,#e5e7eb);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
+      /* 手机/窄屏：右边缘竖向把手（半透明、不挡内容），点击打开预览窗 */
+      .dsh-turn-phone-tab{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:1300;pointer-events:auto;display:none;flex-direction:column;align-items:center;gap:10px;padding:14px 7px;border-radius:12px 0 0 12px;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 82%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-right:none;backdrop-filter:blur(6px);cursor:pointer;box-shadow:var(--dsw-shadow-lv2)}
+      .dsh-turn-phone-tab-dot{width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;transition:all .2s}
+      .dsh-turn-phone-tab:active{opacity:.7}
+      @media (max-width:1024px){
+        .dsh-turn-ruler{display:none!important}
+        .dsh-turn-phone-tab{display:flex}
+        .dsh-turn-preview{width:min(360px,88vw);height:min(70vh,520px);top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important}
+      }
     `
     const turnRulerPlugin = {
       inject: [],
@@ -1748,6 +1758,7 @@ window.__ModuleLoader__.load({
           let rendering = false
           let curIndex = -1
           let hideTimer = 0
+          let phoneTab = null
 
           const ensureRuler = () => {
             if (ruler && ruler.isConnected) return ruler
@@ -1758,11 +1769,26 @@ window.__ModuleLoader__.load({
             return ruler
           }
 
+          const ensurePhoneTab = () => {
+            if (phoneTab && phoneTab.isConnected) return phoneTab
+            phoneTab = document.createElement('button')
+            phoneTab.type = 'button'
+            phoneTab.className = 'dsh-turn-phone-tab'
+            phoneTab.setAttribute('aria-label', '轮次导航')
+            for (let i = 0; i < 3; i++) {
+              const d = document.createElement('span')
+              d.className = 'dsh-turn-phone-tab-dot'
+              phoneTab.appendChild(d)
+            }
+            document.body.appendChild(phoneTab)
+            return phoneTab
+          }
+
           const ensurePreview = () => {
             if (preview && preview.isConnected) return preview
             preview = document.createElement('div')
             preview.className = 'dsh-turn-preview'
-            preview.innerHTML = '<div class="dsh-turn-preview-head"><span class="dsh-turn-preview-title">历史提问</span><span class="dsh-turn-preview-count"></span></div><div class="dsh-turn-preview-body"></div>'
+            preview.innerHTML = '<div class="dsh-turn-preview-head"><span class="dsh-turn-preview-title">历史提问</span><span class="dsh-turn-preview-count"></span><button type="button" class="dsh-turn-preview-close" aria-label="关闭">✕</button></div><div class="dsh-turn-preview-body"></div>'
             document.body.appendChild(preview)
             return preview
           }
@@ -1946,6 +1972,12 @@ window.__ModuleLoader__.load({
           // 事件委托：预览行点击 → 定位；3 刻度点 → 按比例定位；回到最后 → 滚到会话底部
           const onClick = (event) => {
             const t = event.target
+            const closeBtn = t && t.closest ? t.closest('.dsh-turn-preview-close') : null
+            if (closeBtn) {
+              event.preventDefault()
+              hidePreview()
+              return
+            }
             const row = t && t.closest ? t.closest('.dsh-turn-preview-row') : null
             if (row) {
               const index = Number(row.dataset.index)
@@ -1954,7 +1986,16 @@ window.__ModuleLoader__.load({
                 curIndex = index
                 jumpTo(turns[index].userNode)
                 syncPreviewHighlight(index)
+                // 手机端：定位后关闭预览窗，方便看到会话跳转
+                if (window.innerWidth <= 1024) hidePreview()
               }
+              return
+            }
+            const tabBtn = t && t.closest ? t.closest('.dsh-turn-phone-tab') : null
+            if (tabBtn) {
+              event.preventDefault()
+              const index = curIndex >= 0 ? curIndex : 0
+              showPreview(index)
               return
             }
             const bottom = t && t.closest ? t.closest('.dsh-turn-ruler-bottom') : null
@@ -2076,6 +2117,8 @@ window.__ModuleLoader__.load({
           pv.addEventListener('click', onClick)
           pv.addEventListener('wheel', onPreviewWheel, { passive: false })
           pv.addEventListener('mouseover', onRowOver)
+          const tab = ensurePhoneTab()
+          tab.addEventListener('click', onClick)
           render()
           if (scrollEl) scrollEl.addEventListener('scroll', updateActive, { passive: true })
           window.addEventListener('resize', updateActive)
@@ -2093,6 +2136,7 @@ window.__ModuleLoader__.load({
             if (scrollEl) scrollEl.removeEventListener('scroll', updateActive)
             window.removeEventListener('resize', updateActive)
             if (ruler) ruler.remove()
+            if (phoneTab) phoneTab.remove()
             if (preview) preview.remove()
           }
         }, 'dsh-long-plugins: turn ruler')
