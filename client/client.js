@@ -1709,18 +1709,18 @@ window.__ModuleLoader__.load({
       .dsh-turn-ruler-dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);cursor:pointer;padding:0;flex:none;transition:all .15s;position:relative}
       .dsh-turn-ruler-dot:hover{transform:scale(1.45);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
-      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(320px,42vw);max-height:60vh;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 96%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(8px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
+      /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
+      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);max-height:55vh;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
       .dsh-turn-preview.open{opacity:1;visibility:visible}
       .dsh-turn-preview-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#141d27);flex:none}
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
       .dsh-turn-preview-count{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;font-variant-numeric:tabular-nums}
-      .dsh-turn-preview-body{flex:1;overflow-y:auto;padding:6px 0;scrollbar-width:thin}
-      .dsh-turn-preview-msg{display:flex;gap:8px;padding:5px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4)}
-      .dsh-turn-preview-msg+.dsh-turn-preview-msg{border-top:1px solid color-mix(in srgb,var(--dsw-alias-border-l2,#2c3a47) 45%,transparent)}
-      .dsh-turn-preview-role{flex:none;width:20px;text-align:center;border-radius:5px;font-size:11px;line-height:18px;font-weight:600}
-      .dsh-turn-preview-role.u{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 18%,transparent);color:var(--dsw-static-deepseek-500,#4d6bfe)}
-      .dsh-turn-preview-role.a{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 60%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
-      .dsh-turn-preview-text{flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+      .dsh-turn-preview-body{flex:1;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
+      .dsh-turn-preview-row{display:flex;gap:8px;align-items:baseline;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .1s}
+      .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 55%,transparent)}
+      .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 16%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
+      .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:16px;text-align:right}
+      .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       @media (max-width:767px){.dsh-turn-ruler{display:none}.dsh-turn-preview{display:none}}
     `
     const turnRulerPlugin = {
@@ -1738,7 +1738,7 @@ window.__ModuleLoader__.load({
         ctx.effect(() => {
           let ruler = null
           let preview = null
-          let turns = []          // turns[i] = { userNode, msgs: [{node, kind}] }
+          let turns = []          // turns[i] = { userNode, summary }
           let scrollEl = null
           let observer = null
           let raf = 0
@@ -1758,7 +1758,7 @@ window.__ModuleLoader__.load({
             if (preview && preview.isConnected) return preview
             preview = document.createElement('div')
             preview.className = 'dsh-turn-preview'
-            preview.innerHTML = '<div class="dsh-turn-preview-head"><span class="dsh-turn-preview-title"></span><span class="dsh-turn-preview-count"></span></div><div class="dsh-turn-preview-body"></div>'
+            preview.innerHTML = '<div class="dsh-turn-preview-head"><span class="dsh-turn-preview-title">历史提问</span><span class="dsh-turn-preview-count"></span></div><div class="dsh-turn-preview-body"></div>'
             document.body.appendChild(preview)
             return preview
           }
@@ -1790,15 +1790,12 @@ window.__ModuleLoader__.load({
             }
           }
 
-          // 提取单条消息的预览文本（去图标/按钮文字，取核心内容）
-          const msgText = (node) => {
+          // 提取一轮的摘要：取用户提问节点的文本（去图标/按钮文字）
+          const summaryOf = (node) => {
             if (!node || !node.isConnected) return ''
-            const main = node.querySelector && node.querySelector('[class*="content"], [data-chat-flow-kind] > div')
-            const pick = main || node
-            let t = (pick.textContent || '').replace(/\s+/g, ' ').trim()
-            // 去掉常见操作词尾巴
+            let t = (node.textContent || '').replace(/\s+/g, ' ').trim()
             t = t.replace(/(复制|下载|编辑|删除|预览|重试|点赞|点踩)$/i, '').trim()
-            return t.slice(0, 200)
+            return t.slice(0, 120)
           }
 
           const updateActive = () => {
@@ -1816,74 +1813,65 @@ window.__ModuleLoader__.load({
             const dots = ruler.querySelectorAll('.dsh-turn-ruler-dot')
             dots.forEach((d, i) => d.classList.toggle('active', i === active))
             curIndex = active
+            syncPreviewHighlight(active)
           }
 
-          // 构建轮次列表：按 user 节点分组，每组包含该 user 之后到下一 user 前的节点
+          // 构建轮次：每个 user 节点一轮，摘要取该用户提问文本
           const buildTurns = () => {
-            const all = Array.from(document.querySelectorAll('[data-chat-flow-kind]'))
             const result = []
-            let cur = null
-            for (const node of all) {
-              const kind = node.getAttribute('data-chat-flow-kind')
-              if (kind === 'user') {
-                if (cur) result.push(cur)
-                cur = { userNode: node, msgs: [{ node, kind }] }
-              } else if (cur) {
-                // 只收集有实际内容的节点，跳过空的 tool/command 包装
-                const txt = msgText(node)
-                if (txt) cur.msgs.push({ node, kind })
-              }
-            }
-            if (cur) result.push(cur)
+            const users = document.querySelectorAll('[data-chat-flow-kind="user"]')
+            users.forEach((node) => {
+              const summary = summaryOf(node)
+              if (summary) result.push({ userNode: node, summary })
+            })
             return result
           }
 
-          const showPreview = (index) => {
+          // 重建列表行（turns 集合变化时调用）
+          const buildRows = () => {
             const el = ensurePreview()
-            const t = turns[index]
-            if (!t) { el.classList.remove('open'); return }
-            curIndex = index
-            const head = el.querySelector('.dsh-turn-preview-head')
-            const title = el.querySelector('.dsh-turn-preview-title')
-            const count = el.querySelector('.dsh-turn-preview-count')
             const body = el.querySelector('.dsh-turn-preview-body')
-            title.textContent = `第 ${index + 1} 轮`
-            count.textContent = `${index + 1} / ${turns.length}`
             body.innerHTML = ''
-            t.msgs.forEach((m) => {
+            turns.forEach((t, index) => {
               const row = document.createElement('div')
-              row.className = 'dsh-turn-preview-msg'
-              const role = document.createElement('span')
-              role.className = 'dsh-turn-preview-role ' + (m.kind === 'user' ? 'u' : 'a')
-              role.textContent = m.kind === 'user' ? '问' : '答'
-              const text = document.createElement('span')
-              text.className = 'dsh-turn-preview-text'
-              text.textContent = msgText(m.node)
-              row.appendChild(role)
-              row.appendChild(text)
+              row.className = 'dsh-turn-preview-row'
+              row.dataset.index = String(index)
+              const n = document.createElement('span')
+              n.className = 'n'
+              n.textContent = String(index + 1)
+              const txt = document.createElement('span')
+              txt.className = 't'
+              txt.textContent = t.summary
+              row.appendChild(n)
+              row.appendChild(txt)
               body.appendChild(row)
             })
-            // 定位：预览窗放在刻度条左侧、与该轮刻度垂直居中对齐
-            const dot = ruler.querySelector('.dsh-turn-ruler-dot[data-index="' + index + '"]')
-            const dotRect = dot ? dot.getBoundingClientRect() : null
-            const rulerRect = ruler.getBoundingClientRect()
-            el.style.visibility = 'hidden'
-            el.style.opacity = '0'
+            el.querySelector('.dsh-turn-preview-count').textContent = `${turns.length} 轮`
+          }
+
+          const syncPreviewHighlight = (index) => {
+            if (!preview) return
+            const rows = preview.querySelectorAll('.dsh-turn-preview-row')
+            rows.forEach((r, i) => r.classList.toggle('active', i === index))
+            const active = preview.querySelector('.dsh-turn-preview-row.active')
+            if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' })
+          }
+
+          // 显示浮窗并选中 index：滚动列表到该行 + 主会话定位
+          const showPreview = (index) => {
+            const el = ensurePreview()
+            if (turns.length === 0) { el.classList.remove('open'); return }
+            curIndex = Math.max(0, Math.min(turns.length - 1, index))
             el.classList.add('open')
             const pr = el.getBoundingClientRect()
-            const left = (rulerRect.left - pr.width - 10)
-            const centerY = dotRect ? dotRect.top + dotRect.height / 2 : rulerRect.top + rulerRect.height / 2
-            let top = centerY - pr.height / 2
+            const rulerRect = ruler.getBoundingClientRect()
+            const left = rulerRect.left - pr.width - 10
+            let top = rulerRect.top + rulerRect.height / 2 - pr.height / 2
             top = Math.max(10, Math.min(top, window.innerHeight - pr.height - 10))
             el.style.left = Math.max(8, left) + 'px'
             el.style.top = top + 'px'
-            // 强制重排后淡入
-            requestAnimationFrame(() => {
-              el.style.visibility = 'visible'
-              el.style.opacity = '1'
-            })
-            // 滚动主会话到该轮
-            jumpTo(t.userNode)
+            syncPreviewHighlight(curIndex)
+            jumpTo(turns[curIndex].userNode)
           }
 
           const hidePreview = () => {
@@ -1911,6 +1899,7 @@ window.__ModuleLoader__.load({
                   dot.setAttribute('aria-label', `第 ${index + 1} 轮`)
                   el.appendChild(dot)
                 })
+                buildRows()
               }
               updateActive()
             } finally {
@@ -1923,19 +1912,31 @@ window.__ModuleLoader__.load({
             raf = requestAnimationFrame(render)
           }
 
-          // 事件委托：click 跳转 + hover 预览
+          // 事件委托：点击行 → 定位会话；点击刻度 → 定位会话
           const onClick = (event) => {
-            const dot = event.target && event.target.closest
-              ? event.target.closest('.dsh-turn-ruler-dot')
-              : null
-            if (!dot) return
-            const index = Number(dot.dataset.index)
-            if (Number.isFinite(index) && turns[index]) {
-              event.preventDefault()
-              jumpTo(turns[index].userNode)
+            const t = event.target
+            const row = t && t.closest ? t.closest('.dsh-turn-preview-row') : null
+            if (row) {
+              const index = Number(row.dataset.index)
+              if (Number.isFinite(index) && turns[index]) {
+                event.preventDefault()
+                curIndex = index
+                jumpTo(turns[index].userNode)
+                syncPreviewHighlight(index)
+              }
+              return
+            }
+            const dot = t && t.closest ? t.closest('.dsh-turn-ruler-dot') : null
+            if (dot) {
+              const index = Number(dot.dataset.index)
+              if (Number.isFinite(index) && turns[index]) {
+                event.preventDefault()
+                jumpTo(turns[index].userNode)
+              }
             }
           }
 
+          // 悬停刻度 → 打开浮窗并选中该轮
           const onMouseOver = (event) => {
             const dot = event.target && event.target.closest
               ? event.target.closest('.dsh-turn-ruler-dot')
@@ -1953,13 +1954,28 @@ window.__ModuleLoader__.load({
             hidePreview()
           }
 
-          // 预览窗内滚轮 → 切换轮次
+          // 浮窗内滚轮 → 选择上一/下一个刻度（并联动主会话定位）
           const onPreviewWheel = (event) => {
             if (!preview || !preview.classList.contains('open') || turns.length === 0) return
             event.preventDefault()
             const delta = event.deltaY > 0 ? 1 : -1
             const next = Math.max(0, Math.min(turns.length - 1, curIndex + delta))
             if (next !== curIndex) showPreview(next)
+          }
+
+          // 浮窗行 hover 时也切换选中（可选，官网是滚轮）
+          const onRowOver = (event) => {
+            const row = event.target && event.target.closest
+              ? event.target.closest('.dsh-turn-preview-row')
+              : null
+            if (row) {
+              const index = Number(row.dataset.index)
+              if (Number.isFinite(index) && index !== curIndex) {
+                curIndex = index
+                syncPreviewHighlight(index)
+                jumpTo(turns[index].userNode)
+              }
+            }
           }
 
           observer = new MutationObserver((mutations) => {
@@ -1982,6 +1998,7 @@ window.__ModuleLoader__.load({
           root.addEventListener('mouseout', onMouseOut)
           const pv = ensurePreview()
           pv.addEventListener('wheel', onPreviewWheel, { passive: false })
+          pv.addEventListener('mouseover', onRowOver)
           render()
           if (scrollEl) scrollEl.addEventListener('scroll', updateActive, { passive: true })
           window.addEventListener('resize', updateActive)
@@ -1993,6 +2010,7 @@ window.__ModuleLoader__.load({
             root.removeEventListener('mouseover', onMouseOver)
             root.removeEventListener('mouseout', onMouseOut)
             pv.removeEventListener('wheel', onPreviewWheel)
+            pv.removeEventListener('mouseover', onRowOver)
             if (scrollEl) scrollEl.removeEventListener('scroll', updateActive)
             window.removeEventListener('resize', updateActive)
             if (ruler) ruler.remove()
