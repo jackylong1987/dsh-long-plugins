@@ -9,11 +9,11 @@
 #
 # 参数：
 #   profile         profile 名，默认 web
-#   DSH_HOME        dsh 主目录，默认 $HOME/.dsh（NAS 上通常是 /volume1/dsh）
+#   DSH_HOME        dsh 主目录，默认 $HOME/.dsh（按你的实际环境设置）
 #   插件本地目录    默认 <DSH_HOME>/plugins/dsh-long-plugins
 #
-# 示例（NAS）：
-#   ./install.sh web /volume1/dsh
+# 示例：
+#   ./install.sh web "$HOME/.dsh"
 #
 # 脚本做的事：
 #   1) clone 公开仓库到插件目录（已存在则 git pull 更新）
@@ -41,9 +41,9 @@ else
   git -c http.version=HTTP/1.1 clone "$REPO_URL" "$PLUGIN_DIR"
 fi
 
-# 2) 检查 node 可用
-NODE_BIN="$(command -v node || echo /volume1/@appstore/Node.js_v22/usr/local/bin/node)"
-PNPM_BIN="$(command -v pnpm || echo /volume1/npm/global/bin/pnpm)"
+# 2) 检查 node 可用（优先 PATH 里的；找不到时探测常见安装位置）
+NODE_BIN="$(command -v node 2>/dev/null || echo /usr/local/bin/node)"
+PNPM_BIN="$(command -v pnpm 2>/dev/null || echo /usr/local/bin/pnpm)"
 export PATH="$(dirname "$NODE_BIN"):$(dirname "$PNPM_BIN"):$PATH"
 
 # 3) profile package.json 注入依赖
@@ -94,5 +94,4 @@ fi
 
 echo
 echo "✅ 安装完成。最后一步：重启 dsh web。"
-echo "   NAS 上直接：/volume1/dsh/start.sh"
-echo "   或手动用带 --expose-internals 和原有 --trusted-host 参数的方式启动。"
+echo "   用带 --expose-internals 和原有 --trusted-host 参数的方式启动（常见做法是写进 start.sh）。"

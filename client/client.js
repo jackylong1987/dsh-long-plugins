@@ -1594,7 +1594,15 @@ window.__ModuleLoader__.load({
         }, 'dsh-long-plugins: workspace files button styles')
         // 全局点击拦截：消息文件徽章 + 工具卡片文件名 + 产物文件芯片 → 内联预览
         // 类名随 DSH 版本（升级后需核对）：._fileMention_* 徽章 / .o3BgMG_fileLink 工具卡片 / .P4kPIW_file 产物芯片
-        const WORKSPACE_ROOT = '/volume1/homes/dsh/workspace'
+        // 工作区根路径运行时从服务端获取（避免硬编码本机路径）
+        let workspaceRootPromise = null
+        const getWorkspaceRoot = () => {
+          workspaceRootPromise ??= fetch('/api/dsh-uploads/workspace', { headers: { Accept: 'application/json' } })
+            .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+            .then((d) => (d && d.ok && typeof d.root === 'string') ? d.root.replace(/\/+$/, '') : '')
+            .catch(() => '')
+          return workspaceRootPromise
+        }
         let lastCwd = ''
         const onFileClick = (event) => {
           const target = event.target
@@ -1611,8 +1619,11 @@ window.__ModuleLoader__.load({
           const abs = raw.startsWith('/')
             ? raw
             : (lastCwd ? lastCwd.replace(/\/+$/, '') + '/' + raw.replace(/^\/+/, '') : raw)
-          const rel = abs.startsWith(WORKSPACE_ROOT + '/') ? abs.slice(WORKSPACE_ROOT.length + 1) : abs
-          wsOverlay.open('/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(rel), '👁 预览 · ' + (raw.split('/').pop() || raw))
+          getWorkspaceRoot().then((root) => {
+            if (!root) { wsOverlay.open('/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(abs.replace(/^\/+/, '')), '👁 预览 · ' + (raw.split('/').pop() || raw)); return }
+            const rel = abs.startsWith(root + '/') ? abs.slice(root.length + 1) : abs.replace(/^\/+/, '')
+            wsOverlay.open('/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(rel), '👁 预览 · ' + (raw.split('/').pop() || raw))
+          })
         }
         ctx.effect(() => {
           document.addEventListener('click', onFileClick, true)

@@ -23,7 +23,7 @@ Clone anywhere, then run `install.sh` against a DSH profile:
 ```sh
 git clone https://github.com/jackylong1987/dsh-long-plugins.git
 cd dsh-long-plugins
-./install.sh web /volume1/dsh      # profile, DSH_HOME
+./install.sh web "$HOME/.dsh"      # profile, DSH_HOME
 ```
 
 `install.sh` adds the `file:` dependency and bundle entry to the profile's
@@ -51,7 +51,7 @@ Add to the profile's `cordis.patch.yml`:
   config:
     priority: -10
     trustedHosts: !!js ctx.webRuntime.trustedHosts
-    skillsRoot: /volume1/homes/dsh/skills   # override the default <DSH_HOME>/skills
+    skillsRoot: !!js dshHomePath('skills')   # default <DSH_HOME>/skills; override with your path
 ```
 
 - `trustedHosts` — required for the browser trust fence (same as the built-in Web API).
