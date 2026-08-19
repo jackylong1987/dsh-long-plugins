@@ -1709,7 +1709,7 @@ window.__ModuleLoader__.load({
       .dsh-turn-ruler-dot:hover{transform:scale(1.45);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
       .dsh-turn-ruler-divider{width:14px;height:1px;background:var(--dsw-alias-border-l2,#2c3a47);flex:none}
-      .dsh-turn-ruler-bottom{width:26px;height:26px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;transition:all .15s}
+      .dsh-turn-ruler-bottom{width:26px;height:26px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
       .dsh-turn-ruler-bottom:hover{color:var(--dsw-alias-label-primary,#e5e7eb);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
       .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(420px,60vh);overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
@@ -1724,7 +1724,7 @@ window.__ModuleLoader__.load({
       .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:18px;text-align:center}
       .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe);border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;align-self:center}
       .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      @media (max-width:767px){.dsh-turn-ruler{display:none}.dsh-turn-preview{display:none}}
+      @media (max-width:1024px){.dsh-turn-ruler{display:none!important}.dsh-turn-preview{display:none!important}}
     `
     const turnRulerPlugin = {
       inject: [],
@@ -1914,7 +1914,7 @@ window.__ModuleLoader__.load({
             bottom.className = 'dsh-turn-ruler-bottom'
             bottom.dataset.action = 'bottom'
             bottom.setAttribute('aria-label', '回到最后位置')
-            bottom.textContent = '⤓'
+            bottom.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>'
             el.appendChild(bottom)
           }
           const render = () => {
