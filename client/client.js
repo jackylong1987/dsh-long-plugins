@@ -1716,10 +1716,11 @@ window.__ModuleLoader__.load({
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
       .dsh-turn-preview-count{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;font-variant-numeric:tabular-nums}
       .dsh-turn-preview-body{flex:1;min-height:0;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
-      .dsh-turn-preview-row{display:flex;gap:8px;align-items:baseline;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .1s}
+      .dsh-turn-preview-row{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .1s}
       .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 55%,transparent)}
       .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 16%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
-      .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:16px;text-align:right}
+      .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:18px;text-align:center}
+      .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe);border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;align-self:center}
       .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       @media (max-width:767px){.dsh-turn-ruler{display:none}.dsh-turn-preview{display:none}}
     `
@@ -1863,7 +1864,7 @@ window.__ModuleLoader__.load({
             }
           }
 
-          // 显示浮窗并选中 index：滚动列表到该行 + 主会话定位
+          // 显示浮窗并选中 index：仅滚动浮窗列表到该行，主会话不跟随
           const showPreview = (index) => {
             const el = ensurePreview()
             if (turns.length === 0) { el.classList.remove('open'); return }
@@ -1877,7 +1878,6 @@ window.__ModuleLoader__.load({
             el.style.left = Math.max(8, left) + 'px'
             el.style.top = top + 'px'
             syncPreviewHighlight(curIndex)
-            jumpTo(turns[curIndex].userNode)
           }
 
           const hidePreview = () => {
@@ -1966,16 +1966,14 @@ window.__ModuleLoader__.load({
             }
           }
 
-          // 浮窗内滚轮 → 选择上一/下一个刻度（并联动主会话定位）
+          // 浮窗内滚轮 → 原生滚动列表浏览轮次标题（不联动主会话）
           const onPreviewWheel = (event) => {
-            if (!preview || !preview.classList.contains('open') || turns.length === 0) return
-            event.preventDefault()
-            const delta = event.deltaY > 0 ? 1 : -1
-            const next = Math.max(0, Math.min(turns.length - 1, curIndex + delta))
-            if (next !== curIndex) showPreview(next)
+            if (!preview || !preview.classList.contains('open')) return
+            const body = preview.querySelector('.dsh-turn-preview-body')
+            if (body) body.scrollTop += event.deltaY
           }
 
-          // 浮窗行 hover 时也切换选中（可选，官网是滚轮）
+          // 浮窗行 hover 只高亮，不定位主会话（定位仅在点击时发生）
           const onRowOver = (event) => {
             const row = event.target && event.target.closest
               ? event.target.closest('.dsh-turn-preview-row')
@@ -1985,7 +1983,6 @@ window.__ModuleLoader__.load({
               if (Number.isFinite(index) && index !== curIndex) {
                 curIndex = index
                 syncPreviewHighlight(index)
-                jumpTo(turns[index].userNode)
               }
             }
           }
