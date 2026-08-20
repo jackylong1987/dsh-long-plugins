@@ -1872,13 +1872,17 @@ window.__ModuleLoader__.load({
 
           // 重建列表行（turns 集合变化时调用）
           // 焦点行 = 中心行：scrollTop=0 时第 0 行在焦点；scrollTop=(n-1)*rowH 时最后一行在焦点
+          // 基于实际行 offsetTop 计算当前 scrollTop 对应的行（比估算行高精确）
           const focusIndex = () => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body) return 0
-            const h = rowHeightOf()
-            if (h <= 0) return 0
-            const max = Math.max(0, turns.length - 1)
-            return Math.round(body.scrollTop / h)
+            const rows = body.querySelectorAll('.dsh-turn-preview-row')
+            if (rows.length === 0) return 0
+            const st = body.scrollTop
+            for (let i = 0; i < rows.length; i++) {
+              if (rows[i].offsetTop + rows[i].offsetHeight > st) return i
+            }
+            return rows.length - 1
           }
           const buildRows = () => {
             const el = ensurePreview()
@@ -1935,11 +1939,17 @@ window.__ModuleLoader__.load({
           }
 
           // 视觉：active 行（点击切换的当前会话轮次）蓝色标记，其余不变
+          // 高亮跟随滚动位置：active 行 = 当前 scrollTop 对应的行（用户实际看到的那行）。
+          // 这样加载更早历史后（scrollTop 不变）高亮仍指向同一内容行，不会错位到第一行。
           const updateRowVisuals = () => {
             if (!preview) return
+            const body = preview.querySelector('.dsh-turn-preview-body')
             const rows = preview.querySelectorAll('.dsh-turn-preview-row')
+            if (rows.length === 0) return
+            const idx = body ? focusIndex() : 0
+            const bounded = Math.max(0, Math.min(rows.length - 1, idx))
             rows.forEach((row, i) => {
-              row.classList.toggle('active', i === curIndex)
+              row.classList.toggle('active', i === bounded)
               row.style.opacity = ''
             })
           }
@@ -2216,7 +2226,7 @@ window.__ModuleLoader__.load({
           // 列表 scroll 事件：仅用于滚到顶部自动加载（视觉不随滚动变化）
           const onBodyScroll = () => {
             if (rendering) return
-            // 保留给将来可能的需求
+            updateRowVisuals()
           }
 
           // 浮窗行 hover：纯 CSS 点亮，不滚动列表、不改变选中（滚动/切换仅通过滚动与点击）
