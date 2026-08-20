@@ -1965,21 +1965,25 @@ window.__ModuleLoader__.load({
             updateRowVisuals(true)
           }
 
-          // 高亮：可指定显式行（selectRow 用），否则按 scrollTop 反推（滚动用）
+          // 高亮：explicitIndex（点击/启用）直接用；否则（滚动）按 scrollTop 反推当前行。
+          // 反推结果同步到 curIndex，保证点击与滚动的高亮最终一致，互不覆盖。
           const updateRowVisuals = (explicitIndex) => {
             if (!preview) return
             const rows = preview.querySelectorAll('.dsh-turn-preview-row')
             if (rows.length === 0) return
-            const idx = explicitIndex !== undefined
-              ? Math.max(0, Math.min(rows.length - 1, explicitIndex))
-              : (() => {
-                  const body = preview.querySelector('.dsh-turn-preview-body')
-                  const st = body ? body.scrollTop : 0
-                  for (let i = 0; i < rows.length; i++) {
-                    if (rows[i].offsetTop + rows[i].offsetHeight > st) return i
-                  }
-                  return rows.length - 1
-                })()
+            let idx
+            if (explicitIndex !== undefined) {
+              idx = Math.max(0, Math.min(rows.length - 1, explicitIndex))
+              curIndex = idx
+            } else {
+              const body = preview.querySelector('.dsh-turn-preview-body')
+              const st = body ? body.scrollTop : 0
+              idx = 0
+              for (let i = 0; i < rows.length; i++) {
+                if (rows[i].offsetTop + rows[i].offsetHeight > st) { idx = i; break }
+              }
+              curIndex = idx
+            }
             rows.forEach((row, i) => {
               row.classList.toggle('active', i === idx)
               row.style.opacity = ''
