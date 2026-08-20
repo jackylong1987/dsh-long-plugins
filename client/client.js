@@ -2205,17 +2205,9 @@ window.__ModuleLoader__.load({
             // 保留给将来可能的需求
           }
 
-          // 浮窗行 hover 只高亮，不定位主会话（定位仅在点击时发生）
-          const onRowOver = (event) => {
-            const row = event.target && event.target.closest
-              ? event.target.closest('.dsh-turn-preview-row')
-              : null
-            if (row) {
-              const index = Number(row.dataset.index)
-              if (Number.isFinite(index) && index !== curIndex) {
-                selectRow(index)
-              }
-            }
+          // 浮窗行 hover：纯 CSS 点亮，不滚动列表、不改变选中（滚动/切换仅通过滚动与点击）
+          const onRowOver = () => {
+            // no-op: hover styling handled entirely by CSS
           }
 
           observer = new MutationObserver((mutations) => {
