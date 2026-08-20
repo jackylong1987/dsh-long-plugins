@@ -1746,6 +1746,8 @@ window.__ModuleLoader__.load({
         .dsh-turn-ruler{display:none!important}
         .dsh-turn-phone-tab{display:flex}
         .dsh-turn-preview{width:min(360px,88vw);height:min(70vh,520px);top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important}
+        /* 输入框聚焦（虚拟键盘弹出）时：预览窗上移并缩小，保证可见 */
+        .dsh-turn-preview.keyboard-open{height:min(40vh,300px)!important;top:30%!important}
       }
     `
     const turnRulerPlugin = {
@@ -2260,6 +2262,14 @@ window.__ModuleLoader__.load({
             // no-op: hover styling handled entirely by CSS
           }
 
+          // 手机端键盘弹出处理：输入框聚焦时压缩预览窗（避免键盘遮挡看不完整）
+          const onFieldFocus = () => {
+            if (preview && window.innerWidth <= 1024) preview.classList.add('keyboard-open')
+          }
+          const onFieldBlur = () => {
+            if (preview) preview.classList.remove('keyboard-open')
+          }
+
           // 搜索过滤：输入关键词 → 只显示匹配的轮次行（不匹配的隐藏）
           const onSearchInput = (event) => {
             const q = (event.target.value || '').trim().toLowerCase()
@@ -2327,8 +2337,16 @@ window.__ModuleLoader__.load({
           tab.addEventListener('click', onClick)
           const searchInput = pv.querySelector('.dsh-turn-preview-search')
           const gotoInput = pv.querySelector('.dsh-turn-preview-goto-input')
-          if (searchInput) searchInput.addEventListener('input', onSearchInput)
-          if (gotoInput) gotoInput.addEventListener('keydown', onGotoInput)
+          if (searchInput) {
+            searchInput.addEventListener('input', onSearchInput)
+            searchInput.addEventListener('focus', onFieldFocus)
+            searchInput.addEventListener('blur', onFieldBlur)
+          }
+          if (gotoInput) {
+            gotoInput.addEventListener('keydown', onGotoInput)
+            gotoInput.addEventListener('focus', onFieldFocus)
+            gotoInput.addEventListener('blur', onFieldBlur)
+          }
           const gotoBtn = pv.querySelector('.dsh-turn-preview-goto-btn')
           if (gotoBtn) gotoBtn.addEventListener('click', onGotoClick)
           // 列表滚动（含惯性）时同步选中视觉
@@ -2366,8 +2384,16 @@ window.__ModuleLoader__.load({
             pv.removeEventListener('touchmove', onPreviewTouchMove)
             pv.removeEventListener('touchend', onPreviewTouchEnd)
             pv.removeEventListener('mouseover', onRowOver)
-            if (searchInput) searchInput.removeEventListener('input', onSearchInput)
-            if (gotoInput) gotoInput.removeEventListener('keydown', onGotoInput)
+            if (searchInput) {
+              searchInput.removeEventListener('input', onSearchInput)
+              searchInput.removeEventListener('focus', onFieldFocus)
+              searchInput.removeEventListener('blur', onFieldBlur)
+            }
+            if (gotoInput) {
+              gotoInput.removeEventListener('keydown', onGotoInput)
+              gotoInput.removeEventListener('focus', onFieldFocus)
+              gotoInput.removeEventListener('blur', onFieldBlur)
+            }
             const _gotoBtn = pv.querySelector('.dsh-turn-preview-goto-btn')
             if (_gotoBtn) _gotoBtn.removeEventListener('click', onGotoClick)
             if (scrollEl) scrollEl.removeEventListener('scroll', onSessionScroll)
