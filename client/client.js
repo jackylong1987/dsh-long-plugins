@@ -1710,12 +1710,15 @@ window.__ModuleLoader__.load({
       .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
 
       /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
-      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(210px,32vh);touch-action:none;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
+      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(420px,60vh);touch-action:none;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
       .dsh-turn-preview.open{opacity:1;visibility:visible}
       .dsh-turn-preview-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#141d27);flex:none}
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
       .dsh-turn-preview-count{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;font-variant-numeric:tabular-nums}
       .dsh-turn-preview-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
+      .dsh-turn-preview-body::-webkit-scrollbar{width:4px}
+      .dsh-turn-preview-body::-webkit-scrollbar-track{background:transparent}
+      .dsh-turn-preview-body::-webkit-scrollbar-thumb{background:var(--dsw-alias-label-tertiary,#8b98a5);border-radius:4px;min-height:24px}
       .dsh-turn-preview-row{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .15s ease,color .15s ease}
       /* 光标悬停 → 该行点亮（其他行不变） */
       .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 80%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
@@ -1735,7 +1738,7 @@ window.__ModuleLoader__.load({
       @media (max-width:1024px){
         .dsh-turn-ruler{display:none!important}
         .dsh-turn-phone-tab{display:flex}
-        .dsh-turn-preview{width:min(360px,88vw);height:min(45vh,340px);top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important}
+        .dsh-turn-preview{width:min(360px,88vw);height:min(70vh,520px);top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important}
       }
     `
     const turnRulerPlugin = {
