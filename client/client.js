@@ -1722,10 +1722,7 @@ window.__ModuleLoader__.load({
       .dsh-turn-preview-row{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .15s ease,color .15s ease}
       /* 光标悬停 → 该行点亮（其他行不变） */
       .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 80%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
-      /* 点击切换的当前会话行 → 蓝色标记 */
-      .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 30%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb);box-shadow:inset 3px 0 0 var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:18px;text-align:center}
-      .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe);border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;align-self:center}
       .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .dsh-turn-preview-close{flex:none;width:24px;height:24px;border-radius:7px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:transparent;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;transition:all .15s}
       .dsh-turn-preview-close:hover{color:var(--dsw-alias-label-primary,#e5e7eb);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
@@ -1964,29 +1961,19 @@ window.__ModuleLoader__.load({
             updateRowVisuals(true)
           }
 
-          // 高亮：explicitIndex（点击/启用）直接用；否则（滚动）按 scrollTop 反推当前行。
-          // 反推结果同步到 curIndex，保证点击与滚动的高亮最终一致，互不覆盖。
+          // 高亮功能已移除：只维护 curIndex（供点击/滚动定位使用），不加任何 active 样式
           const updateRowVisuals = (explicitIndex) => {
-            if (!preview) return
-            const rows = preview.querySelectorAll('.dsh-turn-preview-row')
-            if (rows.length === 0) return
-            let idx
             if (explicitIndex !== undefined) {
-              idx = Math.max(0, Math.min(rows.length - 1, explicitIndex))
-              curIndex = idx
-            } else {
+              curIndex = Math.max(0, Math.min((turns.length || 1) - 1, explicitIndex))
+            } else if (preview) {
               const body = preview.querySelector('.dsh-turn-preview-body')
+              const rows = preview.querySelectorAll('.dsh-turn-preview-row')
               const st = body ? body.scrollTop : 0
-              idx = 0
+              curIndex = 0
               for (let i = 0; i < rows.length; i++) {
-                if (rows[i].offsetTop + rows[i].offsetHeight > st) { idx = i; break }
+                if (rows[i].offsetTop + rows[i].offsetHeight > st) { curIndex = i; break }
               }
-              curIndex = idx
             }
-            rows.forEach((row, i) => {
-              row.classList.toggle('active', i === idx)
-              row.style.opacity = ''
-            })
           }
 
           const syncPreviewHighlight = (index) => {
