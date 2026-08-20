@@ -1847,8 +1847,8 @@ window.__ModuleLoader__.load({
             const dotIdx = ratioToDot(ratio)
             const dots = ruler.querySelectorAll('.dsh-turn-ruler-dot')
             dots.forEach((d, i) => d.classList.toggle('active', i === dotIdx))
-            curIndex = active
-            syncPreviewHighlight(active)
+            // 主会话滚动时同步预览选中（但不滚动主会话）
+            if (curIndex !== active) selectRow(active)
           }
 
           // 构建轮次：每个 user 节点一轮，摘要取该用户提问文本
@@ -1897,59 +1897,62 @@ window.__ModuleLoader__.load({
             // 行数增加（向前加载了更早历史）：原顶行 index 前移 delta 位，
             // 用实际 offsetTop 恢复滚动位置，使同一内容行仍在视口顶部
             const delta = turns.length - countBefore
-            if (delta > 0 && body && body.scrollHeight > body.clientHeight) {
-              const keep = Math.min(topBefore + delta, Math.max(0, turns.length - 1))
-              const targetRow = body.children[keep]
-              if (targetRow) body.scrollTop = targetRow.offsetTop
+            // 加载更早历史后：原选中行前移 delta 位，直接选中它（保持内容位置，无震动）
+            if (delta > 0) {
+              selectRow(Math.min(topBefore + delta, turns.length - 1))
+            } else {
+              updateRowVisuals()
             }
+          }
+
+          const rowHeightOf = () => {
+            if (!preview) return 30
+            const first = preview.querySelector('.dsh-turn-preview-row')
+            return first ? first.offsetHeight || 30 : 30
+          }
+
+          // 滚动视觉：按 curIndex 更新（选中行悬浮，其余按行距渐变）
+          const updateRowVisuals = () => {
+            if (!preview) return
+            const rows = preview.querySelectorAll('.dsh-turn-preview-row')
+            rows.forEach((row, i) => {
+              const dist = Math.abs(i - curIndex)
+              const isActive = i === curIndex
+              row.classList.toggle('active', isActive)
+              // 距离 0 → 1.0；距离 1 → ~0.8；距离 2 → ~0.62；更远 → 0.4 下限
+              const opacity = Math.max(0.4, 1 - dist * 0.2)
+              row.style.opacity = isActive ? '1' : String(opacity)
+            })
+          }
+
+          // 列表滚动到某行尽量居中（无动画，直接定位；fixed 浮窗内不用 scrollIntoView）
+          const scrollListTo = (index) => {
+            const body = preview && preview.querySelector('.dsh-turn-preview-body')
+            if (!body) return
+            const h = rowHeightOf()
+            const max = Math.max(0, body.scrollHeight - body.clientHeight)
+            const target = Math.max(0, Math.min(max, index * h - (body.clientHeight - h) / 2))
+            body.scrollTop = target
+          }
+
+          // 选中某行：更新 curIndex + 视觉 + 列表定位
+          const selectRow = (index) => {
+            if (turns.length === 0) return
+            curIndex = Math.max(0, Math.min(turns.length - 1, index))
             updateRowVisuals()
+            scrollListTo(curIndex)
           }
 
           const syncPreviewHighlight = (index) => {
-            if (!preview) return
-            const rows = preview.querySelectorAll('.dsh-turn-preview-row')
-            rows.forEach((r, i) => r.classList.toggle('active', i === index))
-            const active = preview.querySelector('.dsh-turn-preview-row.active')
-            const body = preview.querySelector('.dsh-turn-preview-body')
-            if (active && body) {
-              // 手动滚动列表容器（fixed 浮窗内 scrollIntoView 会滚整个页面）
-              const target = active.offsetTop - body.clientHeight / 2 + active.clientHeight / 2
-              body.scrollTop = Math.max(0, target)
-            }
-          }
-
-          // 滚动视觉：以视口中心行为选中（悬浮），其余按行距做透明度渐变（近亮远暗）
-          const updateRowVisuals = () => {
-            if (!preview) return
-            const body = preview.querySelector('.dsh-turn-preview-body')
-            if (!body) return
-            const rows = body.querySelectorAll('.dsh-turn-preview-row')
-            if (rows.length === 0) return
-            const center = body.scrollTop + body.clientHeight / 2
-            let best = 0
-            let bestDist = Infinity
-            rows.forEach((row, i) => {
-              const mid = row.offsetTop + row.offsetHeight / 2
-              const dist = Math.abs(mid - center)
-              if (dist < bestDist) { bestDist = dist; best = i }
-            })
-            rows.forEach((row, i) => {
-              const mid = row.offsetTop + row.offsetHeight / 2
-              const dist = Math.abs(mid - center) / (row.offsetHeight || 30)
-              const isActive = i === best
-              row.classList.toggle('active', isActive)
-              // 距离 0 → 1.0；距离 1 → ~0.75；距离 2 → ~0.55；更远 → 0.35 下限
-              const opacity = Math.max(0.35, 1 - dist * 0.25)
-              row.style.opacity = isActive ? '1' : String(opacity)
-            })
+            selectRow(index)
           }
 
           // 显示浮窗并选中 index：仅滚动浮窗列表到该行，主会话不跟随
           const showPreview = (index) => {
             const el = ensurePreview()
             if (turns.length === 0) { el.classList.remove('open'); return }
-            curIndex = Math.max(0, Math.min(turns.length - 1, index))
             el.classList.add('open')
+            selectRow(index)
             const pr = el.getBoundingClientRect()
             const rulerRect = ruler.getBoundingClientRect()
             const left = rulerRect.left - pr.width - 10
@@ -1957,7 +1960,6 @@ window.__ModuleLoader__.load({
             top = Math.max(10, Math.min(top, window.innerHeight - pr.height - 10))
             el.style.left = Math.max(8, left) + 'px'
             el.style.top = top + 'px'
-            syncPreviewHighlight(curIndex)
           }
 
           const hidePreview = () => {
@@ -2024,9 +2026,8 @@ window.__ModuleLoader__.load({
               const index = Number(row.dataset.index)
               if (Number.isFinite(index) && turns[index]) {
                 event.preventDefault()
-                curIndex = index
+                selectRow(index)
                 jumpTo(turns[index].userNode)
-                syncPreviewHighlight(index)
                 // 手机端：定位后关闭预览窗，方便看到会话跳转
                 if (window.innerWidth <= 1024) hidePreview()
               }
@@ -2047,9 +2048,8 @@ window.__ModuleLoader__.load({
               const ratio = [0, 0.5, 1][dotIdx] ?? 0
               const index = Math.round(ratio * (turns.length - 1))
               if (turns[index]) {
-                curIndex = index
+                selectRow(index)
                 jumpTo(turns[index].userNode)
-                syncPreviewHighlight(index)
               }
             }
           }
@@ -2083,20 +2083,27 @@ window.__ModuleLoader__.load({
           // 触摸滚动：预览窗 touch-action:none，手指滑动只驱动列表，页面不动
           let touchStartY = 0
           let touchBodyTop = 0
+          let touchStartIdx = 0
           const onPreviewTouchStart = (event) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body || !preview.classList.contains('open') || !event.touches) return
             cancelAnimationFrame(scrollAnim)
             touchStartY = event.touches[0].clientY
-            touchBodyTop = body.scrollTop
+            touchStartIdx = curIndex
           }
           const onPreviewTouchMove = (event) => {
-            const body = preview && preview.querySelector('.dsh-turn-preview-body')
-            if (!body || !preview.classList.contains('open') || !event.touches) return
-            const dy = (touchStartY - event.touches[0].clientY) * 0.3
-            body.scrollTop = touchBodyTop + dy
-            updateRowVisuals()
+            if (!preview || !preview.classList.contains('open') || !event.touches || turns.length === 0) return
             event.preventDefault()
+            const h = rowHeightOf()
+            // 手指位移换算行数：约 1.2 倍行高滑一行，可滑到任意行（含首尾）
+            const dy = touchStartY - event.touches[0].clientY
+            const steps = Math.round(dy / (h * 1.2))
+            const next = Math.max(0, Math.min(turns.length - 1, touchStartIdx + steps))
+            if (next !== curIndex) {
+              curIndex = next
+              updateRowVisuals()
+              scrollListTo(curIndex)
+            }
           }
           // 浮窗内滚轮 → 原生滚动列表浏览轮次标题；滚到顶部且主会话还有更早历史时自动加载
           let loadChain = 0
@@ -2120,14 +2127,16 @@ window.__ModuleLoader__.load({
             btn.click()
             return true
           }
-          // 阻尼滚动：累积目标位置，rAF 每帧移动剩余距离的一部分，
-          // 与滚轮速度无关，速度恒定且平滑（18%/帧 ≈ 明显慢于原生滚动）
-          const dampedScrollTo = (target) => {
+          // 滚轮：索引驱动——直接切换选中行（可到首尾），列表做平滑居中
+          const dampedScrollListTo = (index) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body) return
+            const h = rowHeightOf()
+            const max = Math.max(0, body.scrollHeight - body.clientHeight)
+            const target = Math.max(0, Math.min(max, index * h - (body.clientHeight - h) / 2))
             cancelAnimationFrame(scrollAnim)
             scrollFrom = body.scrollTop
-            scrollTarget = Math.max(0, Math.min(target, body.scrollHeight - body.clientHeight))
+            scrollTarget = target
             if (Math.abs(scrollTarget - scrollFrom) < 0.5) { scrollTarget = -1; return }
             const step = () => {
               const body2 = preview && preview.querySelector('.dsh-turn-preview-body')
@@ -2136,21 +2145,24 @@ window.__ModuleLoader__.load({
               if (Math.abs(delta) < 0.5) {
                 body2.scrollTop = scrollTarget
                 scrollTarget = -1
-                updateRowVisuals()
                 return
               }
               body2.scrollTop += delta
-              updateRowVisuals()
               scrollAnim = requestAnimationFrame(step)
             }
             scrollAnim = requestAnimationFrame(step)
           }
           const onPreviewWheel = (event) => {
-            if (!preview || !preview.classList.contains('open')) return
-            const body = preview.querySelector('.dsh-turn-preview-body')
-            if (!body) return
+            if (!preview || !preview.classList.contains('open') || turns.length === 0) return
             event.preventDefault()
-            dampedScrollTo(body.scrollTop + event.deltaY * 0.25)
+            // 每 ~40px 位移切换一行；始终允许滚到 0 和 n-1（含首尾）
+            const steps = Math.max(1, Math.round(Math.abs(event.deltaY) / 40))
+            const next = Math.max(0, Math.min(turns.length - 1, curIndex + (event.deltaY > 0 ? steps : -steps)))
+            if (next !== curIndex) {
+              curIndex = next
+              updateRowVisuals()
+              dampedScrollListTo(curIndex)
+            }
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
             if (body.scrollTop <= 2) tryLoadOlder()
           }
@@ -2169,8 +2181,7 @@ window.__ModuleLoader__.load({
             if (row) {
               const index = Number(row.dataset.index)
               if (Number.isFinite(index) && index !== curIndex) {
-                curIndex = index
-                syncPreviewHighlight(index)
+                selectRow(index)
               }
             }
           }
