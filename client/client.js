@@ -1838,8 +1838,9 @@ window.__ModuleLoader__.load({
             return t.slice(0, 120)
           }
 
-          const updateActive = (opts) => {
-            const skipPreviewScroll = !!(opts && opts.skipPreviewScroll)
+          // 主会话滚动：只更新 3 个刻度点的高亮。预览窗滚动位置 100% 由用户操作控制，
+          // 绝不因主会话滚动/加载而移动（否则加载更早历史后焦点会跑到主会话位置）。
+          const updateActive = () => {
             if (!scrollEl || turns.length === 0 || !ruler) return
             const viewTop = scrollEl.scrollTop
             let active = 0
@@ -1856,9 +1857,6 @@ window.__ModuleLoader__.load({
             const dotIdx = ratioToDot(ratio)
             const dots = ruler.querySelectorAll('.dsh-turn-ruler-dot')
             dots.forEach((d, i) => d.classList.toggle('active', i === dotIdx))
-            // 主会话滚动时同步预览选中（但不滚动主会话）
-            // 加载更早历史后（skipPreviewScroll）：只更新刻度高亮，不滚动预览窗，保持焦点
-            if (!skipPreviewScroll && curIndex !== active) selectRow(active)
           }
 
           // 构建轮次：每个 user 节点一轮，摘要取该用户提问文本
@@ -2021,11 +2019,8 @@ window.__ModuleLoader__.load({
               if (countChanged) {
                 buildRulerStatic()
                 buildRows()
-                // 加载更早历史后保持预览焦点：只更新刻度高亮，不滚动预览窗
-                updateActive({ skipPreviewScroll: true })
-              } else {
-                updateActive()
               }
+              updateActive()
             } finally {
               rendering = false
             }
