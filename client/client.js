@@ -1716,9 +1716,9 @@ window.__ModuleLoader__.load({
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
       .dsh-turn-preview-count{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;font-variant-numeric:tabular-nums}
       .dsh-turn-preview-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
-      .dsh-turn-preview-row{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .1s}
+      .dsh-turn-preview-row{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:opacity .18s ease,transform .18s ease,background .18s ease,filter .18s ease;will-change:opacity,transform}
       .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 55%,transparent)}
-      .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 16%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
+      .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 16%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb);transform:scale(1.045);filter:brightness(1.08);box-shadow:0 3px 10px color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 25%,transparent);border-radius:7px}
       .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:18px;text-align:center}
       .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe);border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;align-self:center}
       .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1890,6 +1890,7 @@ window.__ModuleLoader__.load({
               const keep = Math.min(topBefore + delta, Math.max(0, turns.length - 1))
               body.scrollTop = keep * ROW_H
             }
+            updateRowVisuals()
           }
 
           const syncPreviewHighlight = (index) => {
@@ -1903,6 +1904,32 @@ window.__ModuleLoader__.load({
               const target = active.offsetTop - body.clientHeight / 2 + active.clientHeight / 2
               body.scrollTop = Math.max(0, target)
             }
+          }
+
+          // 滚动视觉：以视口中心行为选中（悬浮），其余按行距做透明度渐变（近亮远暗）
+          const updateRowVisuals = () => {
+            if (!preview) return
+            const body = preview.querySelector('.dsh-turn-preview-body')
+            if (!body) return
+            const rows = body.querySelectorAll('.dsh-turn-preview-row')
+            if (rows.length === 0) return
+            const center = body.scrollTop + body.clientHeight / 2
+            let best = 0
+            let bestDist = Infinity
+            rows.forEach((row, i) => {
+              const mid = row.offsetTop + row.offsetHeight / 2
+              const dist = Math.abs(mid - center)
+              if (dist < bestDist) { bestDist = dist; best = i }
+            })
+            rows.forEach((row, i) => {
+              const mid = row.offsetTop + row.offsetHeight / 2
+              const dist = Math.abs(mid - center) / (row.offsetHeight || 30)
+              const isActive = i === best
+              row.classList.toggle('active', isActive)
+              // 距离 0 → 1.0；距离 1 → ~0.75；距离 2 → ~0.55；更远 → 0.35 下限
+              const opacity = Math.max(0.35, 1 - dist * 0.25)
+              row.style.opacity = isActive ? '1' : String(opacity)
+            })
           }
 
           // 显示浮窗并选中 index：仅滚动浮窗列表到该行，主会话不跟随
@@ -2053,8 +2080,9 @@ window.__ModuleLoader__.load({
           const onPreviewTouchMove = (event) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body || !preview.classList.contains('open') || !event.touches) return
-            const dy = touchStartY - event.touches[0].clientY
+            const dy = (touchStartY - event.touches[0].clientY) * 0.5
             body.scrollTop = touchBodyTop + dy
+            updateRowVisuals()
             event.preventDefault()
           }
           // 浮窗内滚轮 → 原生滚动列表浏览轮次标题；滚到顶部且主会话还有更早历史时自动加载
@@ -2081,7 +2109,9 @@ window.__ModuleLoader__.load({
             if (!preview || !preview.classList.contains('open')) return
             const body = preview.querySelector('.dsh-turn-preview-body')
             if (!body) return
-            body.scrollTop += event.deltaY
+            // 减速滚动：只滚 45% 的位移，避免太快
+            body.scrollTop += event.deltaY * 0.45
+            updateRowVisuals()
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
             if (body.scrollTop <= 2) tryLoadOlder()
           }
@@ -2135,6 +2165,9 @@ window.__ModuleLoader__.load({
           pv.addEventListener('mouseover', onRowOver)
           const tab = ensurePhoneTab()
           tab.addEventListener('click', onClick)
+          // 列表滚动（含惯性）时同步选中视觉
+          const pvBody = pv.querySelector('.dsh-turn-preview-body')
+          if (pvBody) pvBody.addEventListener('scroll', updateRowVisuals, { passive: true })
           render()
           if (scrollEl) scrollEl.addEventListener('scroll', updateActive, { passive: true })
           window.addEventListener('resize', updateActive)
@@ -2148,6 +2181,8 @@ window.__ModuleLoader__.load({
             document.removeEventListener('mouseover', onDocMouseOver)
             pv.removeEventListener('click', onClick)
             pv.removeEventListener('wheel', onPreviewWheel)
+            const _pvBody = pv.querySelector('.dsh-turn-preview-body')
+            if (_pvBody) _pvBody.removeEventListener('scroll', updateRowVisuals)
             pv.removeEventListener('touchstart', onPreviewTouchStart)
             pv.removeEventListener('touchmove', onPreviewTouchMove)
             pv.removeEventListener('touchend', onPreviewTouchEnd)
