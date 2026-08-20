@@ -1847,6 +1847,11 @@ window.__ModuleLoader__.load({
             t = t.replace(/(复制|下载|编辑|删除|预览|重试|点赞|点踩)$/i, '').trim()
             return t.slice(0, 120)
           }
+          // 完整文本：用于搜索匹配（不截断），标题仍用 summary
+          const fullTextOf = (node) => {
+            if (!node || !node.isConnected) return ''
+            return (node.textContent || '').replace(/\s+/g, ' ').trim()
+          }
 
           // 主会话滚动：只更新 3 个刻度点的高亮。预览窗滚动位置 100% 由用户操作控制，
           // 绝不因主会话滚动/加载而移动（否则加载更早历史后焦点会跑到主会话位置）。
@@ -1875,7 +1880,7 @@ window.__ModuleLoader__.load({
             const users = document.querySelectorAll('[data-chat-flow-kind="user"]')
             users.forEach((node) => {
               const summary = summaryOf(node)
-              if (summary) result.push({ userNode: node, summary })
+              if (summary) result.push({ userNode: node, summary, fullText: fullTextOf(node) })
             })
             return result
           }
@@ -2270,13 +2275,16 @@ window.__ModuleLoader__.load({
             if (preview) preview.classList.remove('keyboard-open')
           }
 
-          // 搜索过滤：输入关键词 → 只显示匹配的轮次行（不匹配的隐藏）
+          // 搜索过滤：匹配完整提问文本（不限于标题），匹配的轮次行显示，其余隐藏
           const onSearchInput = (event) => {
             const q = (event.target.value || '').trim().toLowerCase()
             const rows = preview ? preview.querySelectorAll('.dsh-turn-preview-row') : []
             rows.forEach((row) => {
-              const text = (row.textContent || '').toLowerCase()
-              row.style.display = q === '' || text.includes(q) ? '' : 'none'
+              const idx = Number(row.dataset.index)
+              const turn = turns[idx]
+              // 优先用完整文本匹配，缺失时回退行文本
+              const haystack = (turn && turn.fullText ? turn.fullText : (row.textContent || '')).toLowerCase()
+              row.style.display = q === '' || haystack.includes(q) ? '' : 'none'
             })
           }
 
