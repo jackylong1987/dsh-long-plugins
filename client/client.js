@@ -1758,6 +1758,7 @@ window.__ModuleLoader__.load({
           let hideTimer = 0
           let phoneTab = null
           let turnsPrevCount = -1
+          let loadingOlder = false
           let scrollAnim = 0
           let scrollTarget = -1
           let scrollFrom = 0
@@ -1875,10 +1876,12 @@ window.__ModuleLoader__.load({
           const buildRows = () => {
             const el = ensurePreview()
             const body = el.querySelector('.dsh-turn-preview-body')
-            // 重建前：停止动画；记录焦点行（中心行）序号，重建后保持同一内容行仍在焦点
+            // 重建前：停止动画；用「焦点行的文本」做内容锚点（比索引稳，索引会随插入前移）
             cancelAnimationFrame(scrollAnim)
             scrollTarget = -1
+            const oldRows = body ? Array.from(body.querySelectorAll('.dsh-turn-preview-row')) : []
             const focusBefore = focusIndex()
+            const anchorText = oldRows[focusBefore] ? oldRows[focusBefore].querySelector('.t').textContent : ''
             const countBefore = turnsPrevCount >= 0 ? turnsPrevCount : turns.length
             body.innerHTML = ''
             turns.forEach((t, index) => {
@@ -1898,10 +1901,14 @@ window.__ModuleLoader__.load({
             el.querySelector('.dsh-turn-preview-count').textContent = `${turns.length} 轮`
             // 列表上下加 padding：第一行和最后一行都能滚到中心焦点位
             applyFocusPadding()
-            // 加载更早历史后：原焦点行前移 delta 位，恢复 scrollTop 使其仍在焦点（无震动）
+            // 加载更早历史后：按内容锚点找回同一行，精确恢复焦点位置（无震动、不跳跃）
             const delta = turns.length - countBefore
-            if (delta > 0) {
-              const keep = Math.min(focusBefore + delta, Math.max(0, turns.length - 1))
+            if (delta > 0 && anchorText !== '') {
+              const rows = body.querySelectorAll('.dsh-turn-preview-row')
+              let keep = Math.min(focusBefore + delta, Math.max(0, turns.length - 1))
+              for (let i = 0; i < rows.length; i++) {
+                if (rows[i].querySelector('.t').textContent === anchorText) { keep = i; break }
+              }
               body.scrollTop = keep * rowHeightOf()
             }
             updateRowVisuals()
@@ -2106,6 +2113,7 @@ window.__ModuleLoader__.load({
           const onPreviewTouchMove = (event) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body || !preview.classList.contains('open') || !event.touches || turns.length === 0) return
+            if (loadingOlder) return
             event.preventDefault()
             // 跟手滚动：焦点固定，内容随手指移动（1:1）
             const dy = touchStartY - event.touches[0].clientY
@@ -2116,6 +2124,7 @@ window.__ModuleLoader__.load({
           // 浮窗内滚轮 → 原生滚动列表浏览轮次标题；滚到顶部且主会话还有更早历史时自动加载
           let loadChain = 0
           const tryLoadOlder = () => {
+            if (loadingOlder) return true
             cancelAnimationFrame(scrollAnim)
             scrollTarget = -1
             const flow = document.querySelector('[data-chat-flow]')
@@ -2129,10 +2138,19 @@ window.__ModuleLoader__.load({
                   const body = preview.querySelector('.dsh-turn-preview-body')
                   if (body && body.scrollTop <= 2) tryLoadOlder()
                 }
-              }, 400)
+              }, 300)
               return true
             }
+            // 锁定：加载期间忽略新的滚动动画，避免与重建冲突
+            loadingOlder = true
             btn.click()
+            // 等按钮恢复可用（加载完成）后解锁；超时兜底
+            const probe = () => {
+              const b2 = document.querySelector('[data-chat-flow] [class*="_older"] button')
+              if (b2 && !b2.disabled) { loadingOlder = false; return }
+              setTimeout(probe, 150)
+            }
+            setTimeout(probe, 400)
             return true
           }
           // 阻尼滚动 scrollTop（焦点固定、内容移动的 picker 手感）
@@ -2164,6 +2182,8 @@ window.__ModuleLoader__.load({
             event.preventDefault()
             const body = preview.querySelector('.dsh-turn-preview-body')
             if (!body) return
+            // 加载更早历史期间锁定滚动，等重建完成后由锚点恢复焦点（避免震动）
+            if (loadingOlder) return
             dampedScrollTo(body.scrollTop + event.deltaY * 0.3)
             // 已滚到顶部（第一行在焦点）且继续向上滚 → 自动加载更早历史
             if (body.scrollTop <= 2 && event.deltaY < 0) tryLoadOlder()
