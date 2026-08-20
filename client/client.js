@@ -2157,7 +2157,7 @@ window.__ModuleLoader__.load({
               setTimeout(() => {
                 if (chain === loadChain && preview && preview.classList.contains('open')) {
                   const body = preview.querySelector('.dsh-turn-preview-body')
-                  if (body && body.scrollTop <= rowHeightOf() * 3) tryLoadOlder()
+                  if (body && body.scrollTop <= rowHeightOf() * 6) tryLoadOlder()
                 }
               }, 120)
               return true
@@ -2223,14 +2223,14 @@ window.__ModuleLoader__.load({
             if (loadingOlder) return
             dampedScrollTo(body.scrollTop + event.deltaY * 0.5)
             // 接近顶部（1.5 行内）且继续向上滚 → 提前自动加载更早历史
-            if (body.scrollTop <= rowHeightOf() * 3 && event.deltaY < 0) tryLoadOlder()
+            if (body.scrollTop <= rowHeightOf() * 6 && event.deltaY < 0) tryLoadOlder()
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
             if (body.scrollTop <= 2) tryLoadOlder()
           }
           // 触摸滚动后也检查顶部 → 自动加载
           const onPreviewTouchEnd = () => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
-            if (body && body.scrollTop <= rowHeightOf() * 3) tryLoadOlder()
+            if (body && body.scrollTop <= rowHeightOf() * 6) tryLoadOlder()
           }
           // 列表 scroll 事件：仅用于滚到顶部自动加载（视觉不随滚动变化）
           const onBodyScroll = () => {
