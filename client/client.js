@@ -1716,9 +1716,12 @@ window.__ModuleLoader__.load({
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
       .dsh-turn-preview-count{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;font-variant-numeric:tabular-nums}
       .dsh-turn-preview-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary,#8b98a5) transparent}
-      .dsh-turn-preview-row{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:opacity .18s ease,transform .18s ease,background .18s ease,filter .18s ease;will-change:opacity,transform}
-      .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 55%,transparent)}
-      .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 16%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb);transform:scale(1.045);filter:brightness(1.08);box-shadow:0 3px 10px color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 25%,transparent);border-radius:7px}
+      .dsh-turn-preview-row{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;transition:background .15s ease,color .15s ease}
+      /* 光标悬停 → 该行点亮（其他行不变） */
+      .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 80%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
+      /* 点击切换的当前会话行 → 蓝色标记 */
+      .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 22%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
+      .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:18px;text-align:center}
       .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe);border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;align-self:center}
       .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1936,19 +1939,13 @@ window.__ModuleLoader__.load({
             return first ? first.offsetHeight || 30 : 30
           }
 
-          // 滚动视觉：焦点（中心）行为选中悬浮，其余按到焦点的行距渐变
+          // 视觉：active 行（点击切换的当前会话轮次）蓝色标记，其余不变
           const updateRowVisuals = () => {
             if (!preview) return
             const rows = preview.querySelectorAll('.dsh-turn-preview-row')
-            if (rows.length === 0) return
-            const center = focusIndex()
             rows.forEach((row, i) => {
-              const dist = Math.abs(i - center)
-              const isActive = i === center
-              row.classList.toggle('active', isActive)
-              // 距离 0 → 1.0；距离 1 → ~0.8；距离 2 → ~0.62；更远 → 0.4 下限
-              const opacity = Math.max(0.4, 1 - dist * 0.2)
-              row.style.opacity = isActive ? '1' : String(opacity)
+              row.classList.toggle('active', i === curIndex)
+              row.style.opacity = ''
             })
           }
 
@@ -2202,10 +2199,10 @@ window.__ModuleLoader__.load({
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (body && body.scrollTop <= 2) tryLoadOlder()
           }
-          // 列表 scroll 事件（wheel/触摸/惯性）→ 更新焦点视觉
+          // 列表 scroll 事件：仅用于滚到顶部自动加载（视觉不随滚动变化）
           const onBodyScroll = () => {
             if (rendering) return
-            updateRowVisuals()
+            // 保留给将来可能的需求
           }
 
           // 浮窗行 hover 只高亮，不定位主会话（定位仅在点击时发生）
