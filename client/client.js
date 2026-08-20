@@ -2166,7 +2166,11 @@ window.__ModuleLoader__.load({
             // 等按钮恢复可用（加载完成）后解锁；快速探测
             const probe = () => {
               const b2 = document.querySelector('[data-chat-flow] [class*="_older"] button')
-              if (b2 && !b2.disabled) { loadingOlder = false; return }
+              if (b2 && !b2.disabled) {
+                // 加载完成：延迟释放，让主会话加载后的滚动尘埃落定，避免覆盖预览焦点
+                setTimeout(() => { loadingOlder = false }, 500)
+                return
+              }
               setTimeout(probe, 60)
             }
             setTimeout(probe, 120)
@@ -2258,7 +2262,13 @@ window.__ModuleLoader__.load({
           const pvBody = pv.querySelector('.dsh-turn-preview-body')
           if (pvBody) pvBody.addEventListener('scroll', onBodyScroll, { passive: true })
           render()
-          if (scrollEl) scrollEl.addEventListener('scroll', updateActive, { passive: true })
+          // 主会话滚动 → 同步刻度高亮；但加载更早历史期间及完成后短暂窗口内，
+          // 不滚动预览窗（否则 DSH 加载后主会话自身滚动会覆盖用户焦点）
+          const onSessionScroll = () => {
+            if (loadingOlder) return
+            updateActive()
+          }
+          if (scrollEl) scrollEl.addEventListener('scroll', onSessionScroll, { passive: true })
           window.addEventListener('resize', () => {
             cachedRowH = -1
             rowHeightOf()
@@ -2283,7 +2293,7 @@ window.__ModuleLoader__.load({
             pv.removeEventListener('touchmove', onPreviewTouchMove)
             pv.removeEventListener('touchend', onPreviewTouchEnd)
             pv.removeEventListener('mouseover', onRowOver)
-            if (scrollEl) scrollEl.removeEventListener('scroll', updateActive)
+            if (scrollEl) scrollEl.removeEventListener('scroll', onSessionScroll)
             window.removeEventListener('resize', updateActive)
             if (ruler) ruler.remove()
             if (phoneTab) phoneTab.remove()
