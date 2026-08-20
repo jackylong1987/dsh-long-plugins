@@ -1723,8 +1723,7 @@ window.__ModuleLoader__.load({
       /* 光标悬停 → 该行点亮（其他行不变） */
       .dsh-turn-preview-row:hover{background:color-mix(in srgb,var(--dsw-alias-interactive-bg-hover,#2c3a47) 80%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
       /* 点击切换的当前会话行 → 蓝色标记 */
-      .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 22%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb)}
-      .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe)}
+      .dsh-turn-preview-row.active{background:color-mix(in srgb,var(--dsw-static-deepseek-500,#4d6bfe) 30%,transparent);color:var(--dsw-alias-label-primary,#e5e7eb);box-shadow:inset 3px 0 0 var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:18px;text-align:center}
       .dsh-turn-preview-row.active .n{color:#fff;background:var(--dsw-static-deepseek-500,#4d6bfe);border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;align-self:center}
       .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
