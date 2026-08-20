@@ -1906,6 +1906,8 @@ window.__ModuleLoader__.load({
               body.appendChild(row)
             })
             el.querySelector('.dsh-turn-preview-count').textContent = `${turns.length} 轮`
+            cachedRowH = -1
+            rowHeightOf()
             // 列表上下加 padding：第一行和最后一行都能滚到中心焦点位
             applyFocusPadding()
             // 加载更早历史后：按内容锚点找回同一行，精确恢复焦点位置（无震动、不跳跃）
@@ -1937,10 +1939,13 @@ window.__ModuleLoader__.load({
             body.style.paddingBottom = pad + 'px'
           }
 
+          let cachedRowH = 30
           const rowHeightOf = () => {
+            if (cachedRowH > 0) return cachedRowH
             if (!preview) return 30
             const first = preview.querySelector('.dsh-turn-preview-row')
-            return first ? first.offsetHeight || 30 : 30
+            cachedRowH = first ? first.offsetHeight || 30 : 30
+            return cachedRowH
           }
 
           // 视觉：active 行（点击切换的当前会话轮次）蓝色标记，其余不变
@@ -2118,16 +2123,23 @@ window.__ModuleLoader__.load({
             touchStartY = event.touches[0].clientY
             touchBodyTop = body.scrollTop
           }
+          let touchFrame = 0
           const onPreviewTouchMove = (event) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body || !preview.classList.contains('open') || !event.touches || turns.length === 0) return
             if (loadingOlder) return
             event.preventDefault()
-            // 跟手滚动：焦点固定，内容随手指移动（1:1）
+            // 跟手滚动：只改 scrollTop（布局原生滚动，不触发视觉重算），避免每帧遍历卡顿
             const dy = touchStartY - event.touches[0].clientY
             const max = Math.max(0, (turns.length - 1) * rowHeightOf())
             body.scrollTop = Math.max(0, Math.min(max, touchBodyTop + dy))
-            updateRowVisuals()
+            // rAF 节流更新视觉（每秒最多 ~60 次，且只 toggle 少量 class）
+            if (!touchFrame) {
+              touchFrame = requestAnimationFrame(() => {
+                touchFrame = 0
+                updateRowVisuals()
+              })
+            }
           }
           // 浮窗内滚轮 → 原生滚动列表浏览轮次标题；滚到顶部且主会话还有更早历史时自动加载
           let loadChain = 0
@@ -2257,6 +2269,8 @@ window.__ModuleLoader__.load({
           render()
           if (scrollEl) scrollEl.addEventListener('scroll', updateActive, { passive: true })
           window.addEventListener('resize', () => {
+            cachedRowH = -1
+            rowHeightOf()
             applyFocusPadding()
             updateActive()
             updateRowVisuals()
