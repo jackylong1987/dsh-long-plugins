@@ -1905,11 +1905,18 @@ window.__ModuleLoader__.load({
             const delta = turns.length - countBefore
             if (delta > 0 && anchorText !== '') {
               const rows = body.querySelectorAll('.dsh-turn-preview-row')
-              let keep = Math.min(focusBefore + delta, Math.max(0, turns.length - 1))
+              let keep = -1
               for (let i = 0; i < rows.length; i++) {
                 if (rows[i].querySelector('.t').textContent === anchorText) { keep = i; break }
               }
-              body.scrollTop = keep * rowHeightOf()
+              if (keep >= 0) {
+                // 锚点命中：让该行回到焦点（真实 offsetTop 居中，避免行高估算误差）
+                const tr = rows[keep]
+                body.scrollTop = Math.max(0, tr.offsetTop - (body.clientHeight - tr.offsetHeight) / 2)
+              } else {
+                // 锚点未命中（重复文本等极少数情况）：只补偿新增高度，保持原视觉位置，绝不跳尾
+                body.scrollTop = Math.min(body.scrollTop + delta * rowHeightOf(), Math.max(0, (turns.length - 1) * rowHeightOf()))
+              }
             }
             updateRowVisuals()
           }
