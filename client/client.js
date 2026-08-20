@@ -1759,6 +1759,7 @@ window.__ModuleLoader__.load({
           let rendering = false
           let curIndex = -1
           let hideTimer = 0
+          let touchActive = false
           let phoneTab = null
           let turnsPrevCount = -1
           let loadingOlder = false
@@ -2107,6 +2108,7 @@ window.__ModuleLoader__.load({
             const t = event.target
             const inRuler = t && t.closest ? t.closest('.dsh-turn-ruler') : null
             const inPreview = t && t.closest ? t.closest('.dsh-turn-preview') : null
+            if (touchActive) return
             if (inRuler || inPreview) {
               if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0 }
             } else if (!hideTimer) {
@@ -2118,6 +2120,8 @@ window.__ModuleLoader__.load({
           let touchStartY = 0
           let touchBodyTop = 0
           const onPreviewTouchStart = (event) => {
+            touchActive = true
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0 }
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body || !preview.classList.contains('open') || !event.touches) return
             cancelAnimationFrame(scrollAnim)
@@ -2229,6 +2233,8 @@ window.__ModuleLoader__.load({
           }
           // 触摸滚动后也检查顶部 → 自动加载
           const onPreviewTouchEnd = () => {
+            // 触摸结束后短暂保持抑制，等合成的 mouse 事件过去
+            setTimeout(() => { touchActive = false }, 300)
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (body && body.scrollTop <= rowHeightOf() * 6) tryLoadOlder()
           }
