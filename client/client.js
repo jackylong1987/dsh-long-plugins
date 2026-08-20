@@ -1708,9 +1708,7 @@ window.__ModuleLoader__.load({
       .dsh-turn-ruler-dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);cursor:pointer;padding:0;flex:none;transition:all .15s}
       .dsh-turn-ruler-dot:hover{transform:scale(1.45);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
-      .dsh-turn-ruler-divider{width:14px;height:1px;background:var(--dsw-alias-border-l2,#2c3a47);flex:none}
-      .dsh-turn-ruler-bottom{width:26px;height:26px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#1a2530);color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
-      .dsh-turn-ruler-bottom:hover{color:var(--dsw-alias-label-primary,#e5e7eb);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
+
       /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
       .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(420px,60vh);touch-action:none;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
       .dsh-turn-preview.open{opacity:1;visibility:visible}
@@ -1759,6 +1757,7 @@ window.__ModuleLoader__.load({
           let curIndex = -1
           let hideTimer = 0
           let phoneTab = null
+          let turnsPrevCount = -1
 
           const ensureRuler = () => {
             if (ruler && ruler.isConnected) return ruler
@@ -1861,9 +1860,13 @@ window.__ModuleLoader__.load({
           }
 
           // 重建列表行（turns 集合变化时调用）
+          const ROW_H = 30 // 每行估算高度（padding 6+6 + line 18）
           const buildRows = () => {
             const el = ensurePreview()
             const body = el.querySelector('.dsh-turn-preview-body')
+            // 记录重建前顶部对应的行序号（加载更早历史后保持该行仍显示在顶部）
+            const topBefore = body ? Math.floor(body.scrollTop / ROW_H) : 0
+            const countBefore = turnsPrevCount >= 0 ? turnsPrevCount : turns.length
             body.innerHTML = ''
             turns.forEach((t, index) => {
               const row = document.createElement('div')
@@ -1880,6 +1883,13 @@ window.__ModuleLoader__.load({
               body.appendChild(row)
             })
             el.querySelector('.dsh-turn-preview-count').textContent = `${turns.length} 轮`
+            // 行数增加（向前加载了更早历史）：原顶行 index 前移 delta 位，
+            // 恢复 scrollTop 使同一内容行仍在视口顶部，而非跳到列表末尾
+            const delta = turns.length - countBefore
+            if (delta > 0 && body) {
+              const keep = Math.min(topBefore + delta, Math.max(0, turns.length - 1))
+              body.scrollTop = keep * ROW_H
+            }
           }
 
           const syncPreviewHighlight = (index) => {
@@ -1932,16 +1942,7 @@ window.__ModuleLoader__.load({
               dot.setAttribute('aria-label', ['最早轮次', '中间轮次', '最新轮次'][i])
               el.appendChild(dot)
             }
-            const divider = document.createElement('div')
-            divider.className = 'dsh-turn-ruler-divider'
-            el.appendChild(divider)
-            const bottom = document.createElement('button')
-            bottom.type = 'button'
-            bottom.className = 'dsh-turn-ruler-bottom'
-            bottom.dataset.action = 'bottom'
-            bottom.setAttribute('aria-label', '回到最后位置')
-            bottom.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>'
-            el.appendChild(bottom)
+
           }
           const render = () => {
             if (rendering) return
@@ -1950,6 +1951,7 @@ window.__ModuleLoader__.load({
               const el = ensureRuler()
               const nextTurns = buildTurns()
               const countChanged = turns.length !== nextTurns.length
+              turnsPrevCount = turns.length
               turns = nextTurns
               if (turns.length === 0) { el.style.display = 'none'; hidePreview(); return }
               el.style.display = 'flex'
@@ -1996,17 +1998,6 @@ window.__ModuleLoader__.load({
               event.preventDefault()
               const index = curIndex >= 0 ? curIndex : 0
               showPreview(index)
-              return
-            }
-            const bottom = t && t.closest ? t.closest('.dsh-turn-ruler-bottom') : null
-            if (bottom) {
-              event.preventDefault()
-              const host = scrollEl
-              if (host && host.isConnected) {
-                try { host.scrollTo({ top: host.scrollHeight, behavior: 'smooth' }) }
-                catch { host.scrollTop = host.scrollHeight }
-              }
-              hidePreview()
               return
             }
             const dot = t && t.closest ? t.closest('.dsh-turn-ruler-dot') : null
