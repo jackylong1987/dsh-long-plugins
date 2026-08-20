@@ -1725,6 +1725,15 @@ window.__ModuleLoader__.load({
       .dsh-turn-preview-row .n{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);font-variant-numeric:tabular-nums;width:18px;text-align:center}
       .dsh-turn-preview-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .dsh-turn-preview-close{flex:none;width:24px;height:24px;border-radius:7px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:transparent;color:var(--dsw-alias-label-secondary,#c2cad4);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;transition:all .15s}
+      /* 工具栏：搜索 + 轮数定位 */
+      .dsh-turn-preview-toolbar{display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#141d27);flex:none}
+      .dsh-turn-preview-search{flex:1;min-width:0;height:26px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:7px;background:var(--dsw-alias-bg-module-platform,#0f1720);color:var(--dsw-alias-label-primary,#e5e7eb);font:inherit;font-size:12px;padding:0 8px;outline:none}
+      .dsh-turn-preview-search:focus{border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
+      .dsh-turn-preview-search::placeholder{color:var(--dsw-alias-label-tertiary,#8b98a5)}
+      .dsh-turn-preview-goto{display:flex;align-items:center;gap:4px;flex:none}
+      .dsh-turn-preview-goto input{width:44px;height:26px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:7px;background:var(--dsw-alias-bg-module-platform,#0f1720);color:var(--dsw-alias-label-primary,#e5e7eb);font:inherit;font-size:12px;text-align:center;padding:0;outline:none}
+      .dsh-turn-preview-goto input:focus{border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
+      .dsh-turn-preview-goto .lab{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);white-space:nowrap}
       .dsh-turn-preview-close:hover{color:var(--dsw-alias-label-primary,#e5e7eb);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
       /* 手机/窄屏：右边缘竖向把手（半透明、不挡内容），点击打开预览窗 */
       .dsh-turn-phone-tab{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:1300;pointer-events:auto;display:none;flex-direction:column;align-items:center;gap:10px;padding:14px 7px;border-radius:12px 0 0 12px;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 82%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-right:none;backdrop-filter:blur(6px);cursor:pointer;box-shadow:var(--dsw-shadow-lv2)}
@@ -1795,7 +1804,7 @@ window.__ModuleLoader__.load({
             if (preview && preview.isConnected) return preview
             preview = document.createElement('div')
             preview.className = 'dsh-turn-preview'
-            preview.innerHTML = '<div class="dsh-turn-preview-head"><span class="dsh-turn-preview-title">历史提问</span><span class="dsh-turn-preview-count"></span><button type="button" class="dsh-turn-preview-close" aria-label="关闭">✕</button></div><div class="dsh-turn-preview-body"></div>'
+            preview.innerHTML = '<div class="dsh-turn-preview-head"><span class="dsh-turn-preview-title">历史提问</span><span class="dsh-turn-preview-count"></span><button type="button" class="dsh-turn-preview-close" aria-label="关闭">✕</button></div><div class="dsh-turn-preview-toolbar"><input class="dsh-turn-preview-search" type="text" placeholder="搜索提问…" /><span class="dsh-turn-preview-goto"><span class="lab">跳到</span><input class="dsh-turn-preview-goto-input" type="number" min="1" /><span class="lab">轮</span></span></div><div class="dsh-turn-preview-body"></div>'
             document.body.appendChild(preview)
             return preview
           }
@@ -2249,6 +2258,30 @@ window.__ModuleLoader__.load({
             // no-op: hover styling handled entirely by CSS
           }
 
+          // 搜索过滤：输入关键词 → 只显示匹配的轮次行（不匹配的隐藏）
+          const onSearchInput = (event) => {
+            const q = (event.target.value || '').trim().toLowerCase()
+            const rows = preview ? preview.querySelectorAll('.dsh-turn-preview-row') : []
+            rows.forEach((row) => {
+              const text = (row.textContent || '').toLowerCase()
+              row.style.display = q === '' || text.includes(q) ? '' : 'none'
+            })
+          }
+
+          // 轮数定位：输入 N → 跳到第 N 轮（滚到该行顶部）
+          const onGotoInput = (event) => {
+            if (event.key !== 'Enter') return
+            const n = parseInt(event.target.value, 10)
+            if (!Number.isFinite(n) || n < 1) return
+            const idx = Math.min(n - 1, turns.length - 1)
+            if (idx >= 0) {
+              const body = preview && preview.querySelector('.dsh-turn-preview-body')
+              const target = body && body.querySelector('.dsh-turn-preview-row[data-index="' + idx + '"]')
+              if (target) body.scrollTop = Math.max(0, target.offsetTop)
+            }
+            event.target.blur()
+          }
+
           observer = new MutationObserver((mutations) => {
             if (rendering) return
             const relevant = mutations.some((m) => {
@@ -2278,6 +2311,10 @@ window.__ModuleLoader__.load({
           pv.addEventListener('mouseover', onRowOver)
           const tab = ensurePhoneTab()
           tab.addEventListener('click', onClick)
+          const searchInput = pv.querySelector('.dsh-turn-preview-search')
+          const gotoInput = pv.querySelector('.dsh-turn-preview-goto-input')
+          if (searchInput) searchInput.addEventListener('input', onSearchInput)
+          if (gotoInput) gotoInput.addEventListener('keydown', onGotoInput)
           // 列表滚动（含惯性）时同步选中视觉
           const pvBody = pv.querySelector('.dsh-turn-preview-body')
           if (pvBody) pvBody.addEventListener('scroll', onBodyScroll, { passive: true })
@@ -2313,6 +2350,8 @@ window.__ModuleLoader__.load({
             pv.removeEventListener('touchmove', onPreviewTouchMove)
             pv.removeEventListener('touchend', onPreviewTouchEnd)
             pv.removeEventListener('mouseover', onRowOver)
+            if (searchInput) searchInput.removeEventListener('input', onSearchInput)
+            if (gotoInput) gotoInput.removeEventListener('keydown', onGotoInput)
             if (scrollEl) scrollEl.removeEventListener('scroll', onSessionScroll)
             window.removeEventListener('resize', updateActive)
             if (ruler) ruler.remove()
