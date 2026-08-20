@@ -1939,20 +1939,7 @@ window.__ModuleLoader__.load({
           }
 
           // 视觉：active 行（点击切换的当前会话轮次）蓝色标记，其余不变
-          // 高亮跟随滚动位置：active 行 = 当前 scrollTop 对应的行（用户实际看到的那行）。
-          // 这样加载更早历史后（scrollTop 不变）高亮仍指向同一内容行，不会错位到第一行。
-          const updateRowVisuals = () => {
-            if (!preview) return
-            const body = preview.querySelector('.dsh-turn-preview-body')
-            const rows = preview.querySelectorAll('.dsh-turn-preview-row')
-            if (rows.length === 0) return
-            const idx = body ? focusIndex() : 0
-            const bounded = Math.max(0, Math.min(rows.length - 1, idx))
-            rows.forEach((row, i) => {
-              row.classList.toggle('active', i === bounded)
-              row.style.opacity = ''
-            })
-          }
+
 
           // 列表滚动到某行到焦点位（无动画直接定位）
           const scrollListTo = (index) => {
@@ -1963,12 +1950,40 @@ window.__ModuleLoader__.load({
             body.scrollTop = Math.max(0, Math.min(max, index * h))
           }
 
-          // 选中某行：滚到焦点 + 更新视觉
+          // 选中某行：滚到该行真实 offsetTop + 直接高亮目标行（不依赖 scrollTop 反推，
+          // 避免行高缓存偏差导致高亮错位）
           const selectRow = (index) => {
             if (turns.length === 0) return
             curIndex = Math.max(0, Math.min(turns.length - 1, index))
-            scrollListTo(curIndex)
-            updateRowVisuals()
+            const body = preview && preview.querySelector('.dsh-turn-preview-body')
+            if (body) {
+              const target = body.children[curIndex]
+              if (target) {
+                body.scrollTop = Math.max(0, target.offsetTop)
+              }
+            }
+            updateRowVisuals(true)
+          }
+
+          // 高亮：可指定显式行（selectRow 用），否则按 scrollTop 反推（滚动用）
+          const updateRowVisuals = (explicitIndex) => {
+            if (!preview) return
+            const rows = preview.querySelectorAll('.dsh-turn-preview-row')
+            if (rows.length === 0) return
+            const idx = explicitIndex !== undefined
+              ? Math.max(0, Math.min(rows.length - 1, explicitIndex))
+              : (() => {
+                  const body = preview.querySelector('.dsh-turn-preview-body')
+                  const st = body ? body.scrollTop : 0
+                  for (let i = 0; i < rows.length; i++) {
+                    if (rows[i].offsetTop + rows[i].offsetHeight > st) return i
+                  }
+                  return rows.length - 1
+                })()
+            rows.forEach((row, i) => {
+              row.classList.toggle('active', i === idx)
+              row.style.opacity = ''
+            })
           }
 
           const syncPreviewHighlight = (index) => {
@@ -2152,7 +2167,7 @@ window.__ModuleLoader__.load({
               setTimeout(() => {
                 if (chain === loadChain && preview && preview.classList.contains('open')) {
                   const body = preview.querySelector('.dsh-turn-preview-body')
-                  if (body && body.scrollTop <= rowHeightOf() * 1.5) tryLoadOlder()
+                  if (body && body.scrollTop <= rowHeightOf() * 3) tryLoadOlder()
                 }
               }, 120)
               return true
@@ -2214,14 +2229,14 @@ window.__ModuleLoader__.load({
             if (loadingOlder) return
             dampedScrollTo(body.scrollTop + event.deltaY * 0.3)
             // 接近顶部（1.5 行内）且继续向上滚 → 提前自动加载更早历史
-            if (body.scrollTop <= rowHeightOf() * 1.5 && event.deltaY < 0) tryLoadOlder()
+            if (body.scrollTop <= rowHeightOf() * 3 && event.deltaY < 0) tryLoadOlder()
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
             if (body.scrollTop <= 2) tryLoadOlder()
           }
           // 触摸滚动后也检查顶部 → 自动加载
           const onPreviewTouchEnd = () => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
-            if (body && body.scrollTop <= rowHeightOf() * 1.5) tryLoadOlder()
+            if (body && body.scrollTop <= rowHeightOf() * 3) tryLoadOlder()
           }
           // 列表 scroll 事件：仅用于滚到顶部自动加载（视觉不随滚动变化）
           const onBodyScroll = () => {
