@@ -1957,7 +1957,7 @@ window.__ModuleLoader__.load({
             curIndex = Math.max(0, Math.min(turns.length - 1, index))
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (body) {
-              const target = body.children[curIndex]
+              const target = body.querySelector('.dsh-turn-preview-row[data-index="' + curIndex + '"]')
               if (target) {
                 body.scrollTop = Math.max(0, target.offsetTop)
               }
@@ -2188,10 +2188,10 @@ window.__ModuleLoader__.load({
               const b2 = document.querySelector('[data-chat-flow] [class*="_older"] button')
               if (b2 && !b2.disabled) {
                 // 加载完成：延迟释放，让主会话加载后的滚动尘埃落定，避免覆盖预览焦点
-                setTimeout(() => { loadingOlder = false }, 500)
+                setTimeout(() => { loadingOlder = false }, 250)
                 return
               }
-              setTimeout(probe, 60)
+              setTimeout(probe, 30)
             }
             setTimeout(probe, 120)
             return true
@@ -2207,7 +2207,7 @@ window.__ModuleLoader__.load({
             const step = () => {
               const body2 = preview && preview.querySelector('.dsh-turn-preview-body')
               if (!body2 || scrollTarget < 0) { scrollTarget = -1; return }
-              const delta = (scrollTarget - body2.scrollTop) * 0.28
+              const delta = (scrollTarget - body2.scrollTop) * 0.38
               if (Math.abs(delta) < 0.5) {
                 body2.scrollTop = scrollTarget
                 scrollTarget = -1
@@ -2227,7 +2227,7 @@ window.__ModuleLoader__.load({
             if (!body) return
             // 加载更早历史期间锁定滚动，等重建完成后由锚点恢复焦点（避免震动）
             if (loadingOlder) return
-            dampedScrollTo(body.scrollTop + event.deltaY * 0.3)
+            dampedScrollTo(body.scrollTop + event.deltaY * 0.5)
             // 接近顶部（1.5 行内）且继续向上滚 → 提前自动加载更早历史
             if (body.scrollTop <= rowHeightOf() * 3 && event.deltaY < 0) tryLoadOlder()
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
