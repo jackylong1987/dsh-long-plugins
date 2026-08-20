@@ -1843,13 +1843,20 @@ window.__ModuleLoader__.load({
           // 提取一轮的摘要：取用户提问节点的文本（去图标/按钮文字）
           const summaryOf = (node) => {
             if (!node || !node.isConnected) return ''
-            let t = (node.textContent || '').replace(/\s+/g, ' ').trim()
+            const bubble = node.querySelector('[class*="_bubble"]')
+            let t = (bubble ? bubble.textContent : node.textContent || '').replace(/\s+/g, ' ').trim()
             t = t.replace(/(复制|下载|编辑|删除|预览|重试|点赞|点踩)$/i, '').trim()
             return t.slice(0, 120)
           }
-          // 完整文本：用于搜索匹配（不截断），标题仍用 summary
+          // 完整文本：用于搜索匹配（不截断）。优先取正文气泡（排除引用摘要/按钮杂讯），
+          // 类名带 hash（gdEzaW_ 等），用 [class*="_bubble"] 通配；失败回退整个节点文本
           const fullTextOf = (node) => {
             if (!node || !node.isConnected) return ''
+            const bubble = node.querySelector('[class*="_bubble"]')
+            if (bubble) {
+              const t = (bubble.textContent || '').replace(/\s+/g, ' ').trim()
+              if (t) return t
+            }
             return (node.textContent || '').replace(/\s+/g, ' ').trim()
           }
 
