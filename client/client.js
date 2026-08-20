@@ -1710,7 +1710,7 @@ window.__ModuleLoader__.load({
       .dsh-turn-ruler-dot.active{background:var(--dsw-static-deepseek-500,#4d6bfe);border-color:var(--dsw-static-deepseek-500,#4d6bfe);transform:scale(1.3)}
 
       /* 轮次列表浮窗：每行一轮的提问摘要，滚轮选择刻度，点击定位会话 */
-      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(420px,60vh);touch-action:none;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
+      .dsh-turn-preview{position:fixed;z-index:1300;pointer-events:auto;width:min(340px,46vw);height:min(210px,32vh);touch-action:none;overflow:hidden;display:flex;flex-direction:column;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 97%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:12px;box-shadow:var(--dsw-shadow-lv3);backdrop-filter:blur(10px);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
       .dsh-turn-preview.open{opacity:1;visibility:visible}
       .dsh-turn-preview-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);background:var(--dsw-alias-bg-module-platform,#141d27);flex:none}
       .dsh-turn-preview-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary,#e5e7eb);flex:1}
@@ -1731,10 +1731,11 @@ window.__ModuleLoader__.load({
       .dsh-turn-phone-tab{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:1300;pointer-events:auto;display:none;flex-direction:column;align-items:center;gap:10px;padding:14px 7px;border-radius:12px 0 0 12px;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 82%,transparent);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-right:none;backdrop-filter:blur(6px);cursor:pointer;box-shadow:var(--dsw-shadow-lv2)}
       .dsh-turn-phone-tab-dot{width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-label-tertiary,#8b98a5);flex:none;transition:all .2s}
       .dsh-turn-phone-tab:active{opacity:.7}
+      .dsh-turn-preview-loading{display:flex;align-items:center;justify-content:center;padding:5px 12px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b98a5);pointer-events:none}
       @media (max-width:1024px){
         .dsh-turn-ruler{display:none!important}
         .dsh-turn-phone-tab{display:flex}
-        .dsh-turn-preview{width:min(360px,88vw);height:min(70vh,520px);top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important}
+        .dsh-turn-preview{width:min(360px,88vw);height:min(45vh,340px);top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important}
       }
     `
     const turnRulerPlugin = {
@@ -1928,7 +1929,7 @@ window.__ModuleLoader__.load({
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body) return
             const h = rowHeightOf()
-            const pad = Math.max(0, (body.clientHeight - h) / 2)
+            const pad = Math.max(0, (body.clientHeight - h) / 4)
             body.style.paddingTop = pad + 'px'
             body.style.paddingBottom = pad + 'px'
           }
@@ -2135,26 +2136,34 @@ window.__ModuleLoader__.load({
             const btn = flow && flow.querySelector('.Md3f7G_older button, [class*="_older"] button')
             if (!btn) return false
             if (btn.disabled) {
-              // 正在加载：等待恢复后若仍滚在顶部则继续加载下一页
+              // 正在加载：等待恢复后若仍接近顶部则继续加载下一页
               const chain = ++loadChain
               setTimeout(() => {
                 if (chain === loadChain && preview && preview.classList.contains('open')) {
                   const body = preview.querySelector('.dsh-turn-preview-body')
-                  if (body && body.scrollTop <= 2) tryLoadOlder()
+                  if (body && body.scrollTop <= rowHeightOf() * 1.5) tryLoadOlder()
                 }
-              }, 300)
+              }, 120)
               return true
             }
             // 锁定：加载期间忽略新的滚动动画，避免与重建冲突
             loadingOlder = true
+            // 列表顶部立即显示加载占位（消除等待期间的空白感）
+            const pvBody = preview && preview.querySelector('.dsh-turn-preview-body')
+            if (pvBody && !pvBody.querySelector('.dsh-turn-preview-loading')) {
+              const ph = document.createElement('div')
+              ph.className = 'dsh-turn-preview-loading'
+              ph.textContent = '加载更早历史…'
+              pvBody.insertBefore(ph, pvBody.firstChild)
+            }
             btn.click()
-            // 等按钮恢复可用（加载完成）后解锁；超时兜底
+            // 等按钮恢复可用（加载完成）后解锁；快速探测
             const probe = () => {
               const b2 = document.querySelector('[data-chat-flow] [class*="_older"] button')
               if (b2 && !b2.disabled) { loadingOlder = false; return }
-              setTimeout(probe, 150)
+              setTimeout(probe, 60)
             }
-            setTimeout(probe, 400)
+            setTimeout(probe, 120)
             return true
           }
           // 阻尼滚动 scrollTop（焦点固定、内容移动的 picker 手感）
@@ -2168,7 +2177,7 @@ window.__ModuleLoader__.load({
             const step = () => {
               const body2 = preview && preview.querySelector('.dsh-turn-preview-body')
               if (!body2 || scrollTarget < 0) { scrollTarget = -1; return }
-              const delta = (scrollTarget - body2.scrollTop) * 0.18
+              const delta = (scrollTarget - body2.scrollTop) * 0.28
               if (Math.abs(delta) < 0.5) {
                 body2.scrollTop = scrollTarget
                 scrollTarget = -1
@@ -2189,15 +2198,15 @@ window.__ModuleLoader__.load({
             // 加载更早历史期间锁定滚动，等重建完成后由锚点恢复焦点（避免震动）
             if (loadingOlder) return
             dampedScrollTo(body.scrollTop + event.deltaY * 0.3)
-            // 已滚到顶部（第一行在焦点）且继续向上滚 → 自动加载更早历史
-            if (body.scrollTop <= 2 && event.deltaY < 0) tryLoadOlder()
+            // 接近顶部（1.5 行内）且继续向上滚 → 提前自动加载更早历史
+            if (body.scrollTop <= rowHeightOf() * 1.5 && event.deltaY < 0) tryLoadOlder()
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
             if (body.scrollTop <= 2) tryLoadOlder()
           }
           // 触摸滚动后也检查顶部 → 自动加载
           const onPreviewTouchEnd = () => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
-            if (body && body.scrollTop <= 2) tryLoadOlder()
+            if (body && body.scrollTop <= rowHeightOf() * 1.5) tryLoadOlder()
           }
           // 列表 scroll 事件：仅用于滚到顶部自动加载（视觉不随滚动变化）
           const onBodyScroll = () => {
