@@ -1863,12 +1863,20 @@ window.__ModuleLoader__.load({
           }
 
           // 重建列表行（turns 集合变化时调用）
-          const ROW_H = 30 // 每行估算高度（padding 6+6 + line 18）
           const buildRows = () => {
             const el = ensurePreview()
             const body = el.querySelector('.dsh-turn-preview-body')
-            // 记录重建前顶部对应的行序号（加载更早历史后保持该行仍显示在顶部）
-            const topBefore = body ? Math.floor(body.scrollTop / ROW_H) : 0
+            // 重建前：停止阻尼动画（避免与位置恢复冲突产生震动），并记录顶部可见行的序号
+            cancelAnimationFrame(scrollAnim)
+            scrollTarget = -1
+            const oldRows = body ? Array.from(body.querySelectorAll('.dsh-turn-preview-row')) : []
+            let topBefore = 0
+            if (body && oldRows.length > 0) {
+              // 找第一个下边缘越过 scrollTop 的行 = 当前顶部可见行
+              for (let i = 0; i < oldRows.length; i++) {
+                if (oldRows[i].offsetTop + oldRows[i].offsetHeight > body.scrollTop) { topBefore = i; break }
+              }
+            }
             const countBefore = turnsPrevCount >= 0 ? turnsPrevCount : turns.length
             body.innerHTML = ''
             turns.forEach((t, index) => {
@@ -1887,11 +1895,12 @@ window.__ModuleLoader__.load({
             })
             el.querySelector('.dsh-turn-preview-count').textContent = `${turns.length} 轮`
             // 行数增加（向前加载了更早历史）：原顶行 index 前移 delta 位，
-            // 恢复 scrollTop 使同一内容行仍在视口顶部，而非跳到列表末尾
+            // 用实际 offsetTop 恢复滚动位置，使同一内容行仍在视口顶部
             const delta = turns.length - countBefore
-            if (delta > 0 && body) {
+            if (delta > 0 && body && body.scrollHeight > body.clientHeight) {
               const keep = Math.min(topBefore + delta, Math.max(0, turns.length - 1))
-              body.scrollTop = keep * ROW_H
+              const targetRow = body.children[keep]
+              if (targetRow) body.scrollTop = targetRow.offsetTop
             }
             updateRowVisuals()
           }
@@ -2092,6 +2101,8 @@ window.__ModuleLoader__.load({
           // 浮窗内滚轮 → 原生滚动列表浏览轮次标题；滚到顶部且主会话还有更早历史时自动加载
           let loadChain = 0
           const tryLoadOlder = () => {
+            cancelAnimationFrame(scrollAnim)
+            scrollTarget = -1
             const flow = document.querySelector('[data-chat-flow]')
             const btn = flow && flow.querySelector('.Md3f7G_older button, [class*="_older"] button')
             if (!btn) return false
