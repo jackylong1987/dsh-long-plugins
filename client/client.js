@@ -1758,6 +1758,9 @@ window.__ModuleLoader__.load({
           let hideTimer = 0
           let phoneTab = null
           let turnsPrevCount = -1
+          let scrollAnim = 0
+          let scrollTarget = -1
+          let scrollFrom = 0
 
           const ensureRuler = () => {
             if (ruler && ruler.isConnected) return ruler
@@ -2074,13 +2077,14 @@ window.__ModuleLoader__.load({
           const onPreviewTouchStart = (event) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body || !preview.classList.contains('open') || !event.touches) return
+            cancelAnimationFrame(scrollAnim)
             touchStartY = event.touches[0].clientY
             touchBodyTop = body.scrollTop
           }
           const onPreviewTouchMove = (event) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body || !preview.classList.contains('open') || !event.touches) return
-            const dy = (touchStartY - event.touches[0].clientY) * 0.5
+            const dy = (touchStartY - event.touches[0].clientY) * 0.3
             body.scrollTop = touchBodyTop + dy
             updateRowVisuals()
             event.preventDefault()
@@ -2105,13 +2109,37 @@ window.__ModuleLoader__.load({
             btn.click()
             return true
           }
+          // 阻尼滚动：累积目标位置，rAF 每帧移动剩余距离的一部分，
+          // 与滚轮速度无关，速度恒定且平滑（18%/帧 ≈ 明显慢于原生滚动）
+          const dampedScrollTo = (target) => {
+            const body = preview && preview.querySelector('.dsh-turn-preview-body')
+            if (!body) return
+            cancelAnimationFrame(scrollAnim)
+            scrollFrom = body.scrollTop
+            scrollTarget = Math.max(0, Math.min(target, body.scrollHeight - body.clientHeight))
+            if (Math.abs(scrollTarget - scrollFrom) < 0.5) { scrollTarget = -1; return }
+            const step = () => {
+              const body2 = preview && preview.querySelector('.dsh-turn-preview-body')
+              if (!body2 || scrollTarget < 0) { scrollTarget = -1; return }
+              const delta = (scrollTarget - body2.scrollTop) * 0.18
+              if (Math.abs(delta) < 0.5) {
+                body2.scrollTop = scrollTarget
+                scrollTarget = -1
+                updateRowVisuals()
+                return
+              }
+              body2.scrollTop += delta
+              updateRowVisuals()
+              scrollAnim = requestAnimationFrame(step)
+            }
+            scrollAnim = requestAnimationFrame(step)
+          }
           const onPreviewWheel = (event) => {
             if (!preview || !preview.classList.contains('open')) return
             const body = preview.querySelector('.dsh-turn-preview-body')
             if (!body) return
-            // 减速滚动：只滚 45% 的位移，避免太快
-            body.scrollTop += event.deltaY * 0.45
-            updateRowVisuals()
+            event.preventDefault()
+            dampedScrollTo(body.scrollTop + event.deltaY * 0.25)
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
             if (body.scrollTop <= 2) tryLoadOlder()
           }
@@ -2174,6 +2202,7 @@ window.__ModuleLoader__.load({
 
           return () => {
             cancelAnimationFrame(raf)
+            cancelAnimationFrame(scrollAnim)
             if (hideTimer) clearTimeout(hideTimer)
             if (observer) observer.disconnect()
             root.removeEventListener('click', onClick)
