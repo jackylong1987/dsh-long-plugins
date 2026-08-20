@@ -2169,21 +2169,25 @@ window.__ModuleLoader__.load({
             if (pvBody && !pvBody.querySelector('.dsh-turn-preview-loading')) {
               const ph = document.createElement('div')
               ph.className = 'dsh-turn-preview-loading'
-              ph.textContent = '加载更早历史…'
+              ph.textContent = '加载中…'
               pvBody.insertBefore(ph, pvBody.firstChild)
             }
             btn.click()
-            // 等按钮恢复可用（加载完成）后解锁；快速探测
+            // 等按钮先变 disabled（DSH 开始加载）再恢复可用（加载完成）后解锁
+            let sawBusy = false
             const probe = () => {
               const b2 = document.querySelector('[data-chat-flow] [class*="_older"] button')
-              if (b2 && !b2.disabled) {
-                // 加载完成：延迟释放，让主会话加载后的滚动尘埃落定，避免覆盖预览焦点
-                setTimeout(() => { loadingOlder = false }, 250)
-                return
+              if (b2) {
+                if (b2.disabled) sawBusy = true
+                else if (sawBusy) {
+                  // 加载完成：延迟释放，让主会话加载后的滚动尘埃落定，避免覆盖预览焦点
+                  setTimeout(() => { loadingOlder = false }, 100)
+                  return
+                }
               }
-              setTimeout(probe, 30)
+              setTimeout(probe, 15)
             }
-            setTimeout(probe, 120)
+            probe()
             return true
           }
           // 阻尼滚动 scrollTop（焦点固定、内容移动的 picker 手感）
