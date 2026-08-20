@@ -1885,13 +1885,10 @@ window.__ModuleLoader__.load({
           const buildRows = () => {
             const el = ensurePreview()
             const body = el.querySelector('.dsh-turn-preview-body')
-            // 重建前：停止动画；用「焦点行的文本」做内容锚点（比索引稳，索引会随插入前移）
+            // 重建前：停止动画；记录当前 scrollTop（用户操作的位置）
             cancelAnimationFrame(scrollAnim)
             scrollTarget = -1
-            const oldRows = body ? Array.from(body.querySelectorAll('.dsh-turn-preview-row')) : []
-            const focusBefore = focusIndex()
-            const anchorText = oldRows[focusBefore] ? oldRows[focusBefore].querySelector('.t').textContent : ''
-            const countBefore = turnsPrevCount >= 0 ? turnsPrevCount : turns.length
+            const scrollBefore = body ? body.scrollTop : 0
             body.innerHTML = ''
             turns.forEach((t, index) => {
               const row = document.createElement('div')
@@ -1912,22 +1909,11 @@ window.__ModuleLoader__.load({
             rowHeightOf()
             // 列表上下加 padding：第一行和最后一行都能滚到中心焦点位
             applyFocusPadding()
-            // 加载更早历史后：按内容锚点找回同一行，精确恢复焦点位置（无震动、不跳跃）
-            const delta = turns.length - countBefore
-            if (delta > 0 && anchorText !== '') {
-              const rows = body.querySelectorAll('.dsh-turn-preview-row')
-              let keep = -1
-              for (let i = 0; i < rows.length; i++) {
-                if (rows[i].querySelector('.t').textContent === anchorText) { keep = i; break }
-              }
-              if (keep >= 0) {
-                // 锚点命中：让该行回到焦点（真实 offsetTop 居中，避免行高估算误差）
-                const tr = rows[keep]
-                body.scrollTop = Math.max(0, tr.offsetTop - (body.clientHeight - tr.offsetHeight) / 2)
-              } else {
-                // 锚点未命中（重复文本等极少数情况）：只补偿新增高度，保持原视觉位置，绝不跳尾
-                body.scrollTop = Math.min(body.scrollTop + delta * rowHeightOf(), Math.max(0, (turns.length - 1) * rowHeightOf()))
-              }
+            // 原则：预览窗位置只由用户操作控制。重建后保持原 scrollTop 完全不变
+            // （加载更早历史 = 新行插在顶部，用户不操作，位置就不动；需要看新内容自己往上滚）
+            if (body) {
+              const max = Math.max(0, (turns.length - 1) * rowHeightOf())
+              body.scrollTop = Math.max(0, Math.min(scrollBefore, max))
             }
             updateRowVisuals()
           }
