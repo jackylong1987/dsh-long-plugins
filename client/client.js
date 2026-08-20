@@ -1863,20 +1863,22 @@ window.__ModuleLoader__.load({
           }
 
           // 重建列表行（turns 集合变化时调用）
+          // 焦点行 = 中心行：scrollTop=0 时第 0 行在焦点；scrollTop=(n-1)*rowH 时最后一行在焦点
+          const focusIndex = () => {
+            const body = preview && preview.querySelector('.dsh-turn-preview-body')
+            if (!body) return 0
+            const h = rowHeightOf()
+            if (h <= 0) return 0
+            const max = Math.max(0, turns.length - 1)
+            return Math.round(body.scrollTop / h)
+          }
           const buildRows = () => {
             const el = ensurePreview()
             const body = el.querySelector('.dsh-turn-preview-body')
-            // 重建前：停止阻尼动画（避免与位置恢复冲突产生震动），并记录顶部可见行的序号
+            // 重建前：停止动画；记录焦点行（中心行）序号，重建后保持同一内容行仍在焦点
             cancelAnimationFrame(scrollAnim)
             scrollTarget = -1
-            const oldRows = body ? Array.from(body.querySelectorAll('.dsh-turn-preview-row')) : []
-            let topBefore = 0
-            if (body && oldRows.length > 0) {
-              // 找第一个下边缘越过 scrollTop 的行 = 当前顶部可见行
-              for (let i = 0; i < oldRows.length; i++) {
-                if (oldRows[i].offsetTop + oldRows[i].offsetHeight > body.scrollTop) { topBefore = i; break }
-              }
-            }
+            const focusBefore = focusIndex()
             const countBefore = turnsPrevCount >= 0 ? turnsPrevCount : turns.length
             body.innerHTML = ''
             turns.forEach((t, index) => {
@@ -1894,15 +1896,24 @@ window.__ModuleLoader__.load({
               body.appendChild(row)
             })
             el.querySelector('.dsh-turn-preview-count').textContent = `${turns.length} 轮`
-            // 行数增加（向前加载了更早历史）：原顶行 index 前移 delta 位，
-            // 用实际 offsetTop 恢复滚动位置，使同一内容行仍在视口顶部
+            // 列表上下加 padding：第一行和最后一行都能滚到中心焦点位
+            applyFocusPadding()
+            // 加载更早历史后：原焦点行前移 delta 位，恢复 scrollTop 使其仍在焦点（无震动）
             const delta = turns.length - countBefore
-            // 加载更早历史后：原选中行前移 delta 位，直接选中它（保持内容位置，无震动）
             if (delta > 0) {
-              selectRow(Math.min(topBefore + delta, turns.length - 1))
-            } else {
-              updateRowVisuals()
+              const keep = Math.min(focusBefore + delta, Math.max(0, turns.length - 1))
+              body.scrollTop = keep * rowHeightOf()
             }
+            updateRowVisuals()
+          }
+          // 上下 padding = (视口高 - 行高)/2：首行 scrollTop=0 时中心恰在焦点线，末行同理
+          const applyFocusPadding = () => {
+            const body = preview && preview.querySelector('.dsh-turn-preview-body')
+            if (!body) return
+            const h = rowHeightOf()
+            const pad = Math.max(0, (body.clientHeight - h) / 2)
+            body.style.paddingTop = pad + 'px'
+            body.style.paddingBottom = pad + 'px'
           }
 
           const rowHeightOf = () => {
@@ -1911,13 +1922,15 @@ window.__ModuleLoader__.load({
             return first ? first.offsetHeight || 30 : 30
           }
 
-          // 滚动视觉：按 curIndex 更新（选中行悬浮，其余按行距渐变）
+          // 滚动视觉：焦点（中心）行为选中悬浮，其余按到焦点的行距渐变
           const updateRowVisuals = () => {
             if (!preview) return
             const rows = preview.querySelectorAll('.dsh-turn-preview-row')
+            if (rows.length === 0) return
+            const center = focusIndex()
             rows.forEach((row, i) => {
-              const dist = Math.abs(i - curIndex)
-              const isActive = i === curIndex
+              const dist = Math.abs(i - center)
+              const isActive = i === center
               row.classList.toggle('active', isActive)
               // 距离 0 → 1.0；距离 1 → ~0.8；距离 2 → ~0.62；更远 → 0.4 下限
               const opacity = Math.max(0.4, 1 - dist * 0.2)
@@ -1925,22 +1938,21 @@ window.__ModuleLoader__.load({
             })
           }
 
-          // 列表滚动到某行尽量居中（无动画，直接定位；fixed 浮窗内不用 scrollIntoView）
+          // 列表滚动到某行到焦点位（无动画直接定位）
           const scrollListTo = (index) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body) return
             const h = rowHeightOf()
-            const max = Math.max(0, body.scrollHeight - body.clientHeight)
-            const target = Math.max(0, Math.min(max, index * h - (body.clientHeight - h) / 2))
-            body.scrollTop = target
+            const max = Math.max(0, (turns.length - 1) * h)
+            body.scrollTop = Math.max(0, Math.min(max, index * h))
           }
 
-          // 选中某行：更新 curIndex + 视觉 + 列表定位
+          // 选中某行：滚到焦点 + 更新视觉
           const selectRow = (index) => {
             if (turns.length === 0) return
             curIndex = Math.max(0, Math.min(turns.length - 1, index))
-            updateRowVisuals()
             scrollListTo(curIndex)
+            updateRowVisuals()
           }
 
           const syncPreviewHighlight = (index) => {
@@ -1952,6 +1964,7 @@ window.__ModuleLoader__.load({
             const el = ensurePreview()
             if (turns.length === 0) { el.classList.remove('open'); return }
             el.classList.add('open')
+            applyFocusPadding()
             selectRow(index)
             const pr = el.getBoundingClientRect()
             const rulerRect = ruler.getBoundingClientRect()
@@ -2083,27 +2096,22 @@ window.__ModuleLoader__.load({
           // 触摸滚动：预览窗 touch-action:none，手指滑动只驱动列表，页面不动
           let touchStartY = 0
           let touchBodyTop = 0
-          let touchStartIdx = 0
           const onPreviewTouchStart = (event) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body || !preview.classList.contains('open') || !event.touches) return
             cancelAnimationFrame(scrollAnim)
             touchStartY = event.touches[0].clientY
-            touchStartIdx = curIndex
+            touchBodyTop = body.scrollTop
           }
           const onPreviewTouchMove = (event) => {
-            if (!preview || !preview.classList.contains('open') || !event.touches || turns.length === 0) return
+            const body = preview && preview.querySelector('.dsh-turn-preview-body')
+            if (!body || !preview.classList.contains('open') || !event.touches || turns.length === 0) return
             event.preventDefault()
-            const h = rowHeightOf()
-            // 手指位移换算行数：约 1.2 倍行高滑一行，可滑到任意行（含首尾）
+            // 跟手滚动：焦点固定，内容随手指移动（1:1）
             const dy = touchStartY - event.touches[0].clientY
-            const steps = Math.round(dy / (h * 1.2))
-            const next = Math.max(0, Math.min(turns.length - 1, touchStartIdx + steps))
-            if (next !== curIndex) {
-              curIndex = next
-              updateRowVisuals()
-              scrollListTo(curIndex)
-            }
+            const max = Math.max(0, (turns.length - 1) * rowHeightOf())
+            body.scrollTop = Math.max(0, Math.min(max, touchBodyTop + dy))
+            updateRowVisuals()
           }
           // 浮窗内滚轮 → 原生滚动列表浏览轮次标题；滚到顶部且主会话还有更早历史时自动加载
           let loadChain = 0
@@ -2127,16 +2135,13 @@ window.__ModuleLoader__.load({
             btn.click()
             return true
           }
-          // 滚轮：索引驱动——直接切换选中行（可到首尾），列表做平滑居中
-          const dampedScrollListTo = (index) => {
+          // 阻尼滚动 scrollTop（焦点固定、内容移动的 picker 手感）
+          const dampedScrollTo = (target) => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (!body) return
-            const h = rowHeightOf()
-            const max = Math.max(0, body.scrollHeight - body.clientHeight)
-            const target = Math.max(0, Math.min(max, index * h - (body.clientHeight - h) / 2))
             cancelAnimationFrame(scrollAnim)
             scrollFrom = body.scrollTop
-            scrollTarget = target
+            scrollTarget = Math.max(0, Math.min(target, Math.max(0, (turns.length - 1) * rowHeightOf())))
             if (Math.abs(scrollTarget - scrollFrom) < 0.5) { scrollTarget = -1; return }
             const step = () => {
               const body2 = preview && preview.querySelector('.dsh-turn-preview-body')
@@ -2145,9 +2150,11 @@ window.__ModuleLoader__.load({
               if (Math.abs(delta) < 0.5) {
                 body2.scrollTop = scrollTarget
                 scrollTarget = -1
+                updateRowVisuals()
                 return
               }
               body2.scrollTop += delta
+              updateRowVisuals()
               scrollAnim = requestAnimationFrame(step)
             }
             scrollAnim = requestAnimationFrame(step)
@@ -2155,14 +2162,11 @@ window.__ModuleLoader__.load({
           const onPreviewWheel = (event) => {
             if (!preview || !preview.classList.contains('open') || turns.length === 0) return
             event.preventDefault()
-            // 每 ~40px 位移切换一行；始终允许滚到 0 和 n-1（含首尾）
-            const steps = Math.max(1, Math.round(Math.abs(event.deltaY) / 40))
-            const next = Math.max(0, Math.min(turns.length - 1, curIndex + (event.deltaY > 0 ? steps : -steps)))
-            if (next !== curIndex) {
-              curIndex = next
-              updateRowVisuals()
-              dampedScrollListTo(curIndex)
-            }
+            const body = preview.querySelector('.dsh-turn-preview-body')
+            if (!body) return
+            dampedScrollTo(body.scrollTop + event.deltaY * 0.3)
+            // 已滚到顶部（第一行在焦点）且继续向上滚 → 自动加载更早历史
+            if (body.scrollTop <= 2 && event.deltaY < 0) tryLoadOlder()
             // 已到列表顶部：尝试在主会话触发「加载更早」（按钮在 [data-chat-flow] 内、消息之前）
             if (body.scrollTop <= 2) tryLoadOlder()
           }
@@ -2170,7 +2174,11 @@ window.__ModuleLoader__.load({
           const onPreviewTouchEnd = () => {
             const body = preview && preview.querySelector('.dsh-turn-preview-body')
             if (body && body.scrollTop <= 2) tryLoadOlder()
-
+          }
+          // 列表 scroll 事件（wheel/触摸/惯性）→ 更新焦点视觉
+          const onBodyScroll = () => {
+            if (rendering) return
+            updateRowVisuals()
           }
 
           // 浮窗行 hover 只高亮，不定位主会话（定位仅在点击时发生）
@@ -2217,10 +2225,14 @@ window.__ModuleLoader__.load({
           tab.addEventListener('click', onClick)
           // 列表滚动（含惯性）时同步选中视觉
           const pvBody = pv.querySelector('.dsh-turn-preview-body')
-          if (pvBody) pvBody.addEventListener('scroll', updateRowVisuals, { passive: true })
+          if (pvBody) pvBody.addEventListener('scroll', onBodyScroll, { passive: true })
           render()
           if (scrollEl) scrollEl.addEventListener('scroll', updateActive, { passive: true })
-          window.addEventListener('resize', updateActive)
+          window.addEventListener('resize', () => {
+            applyFocusPadding()
+            updateActive()
+            updateRowVisuals()
+          })
 
           return () => {
             cancelAnimationFrame(raf)
@@ -2233,7 +2245,7 @@ window.__ModuleLoader__.load({
             pv.removeEventListener('click', onClick)
             pv.removeEventListener('wheel', onPreviewWheel)
             const _pvBody = pv.querySelector('.dsh-turn-preview-body')
-            if (_pvBody) _pvBody.removeEventListener('scroll', updateRowVisuals)
+            if (_pvBody) _pvBody.removeEventListener('scroll', onBodyScroll)
             pv.removeEventListener('touchstart', onPreviewTouchStart)
             pv.removeEventListener('touchmove', onPreviewTouchMove)
             pv.removeEventListener('touchend', onPreviewTouchEnd)
