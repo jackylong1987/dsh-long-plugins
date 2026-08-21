@@ -1231,7 +1231,8 @@ window.__ModuleLoader__.load({
 			"files.truncated": "（内容过大，仅显示前 256KB）",
 			"files.close": "关闭预览",
 			"skills.hint": "技能文档（各技能的 SKILL.md），可预览",
-			"balance": "余额"
+			"balance": "余额",
+			"spend": "本会话约"
 		};
 		const en = {
 			"nav": "Output files",
@@ -1246,7 +1247,8 @@ window.__ModuleLoader__.load({
 			"files.truncated": "(Large file — showing first 256KB)",
 			"files.close": "Close preview",
 			"skills.hint": "Skill documents (per-skill SKILL.md), previewable",
-			"balance": "Balance"
+			"balance": "Balance",
+			"spend": "~session"
 		};
 		/** Settings section: list the plugin's files with preview / download / delete. */
 		function FilesSection({ t }) {
@@ -1413,12 +1415,60 @@ window.__ModuleLoader__.load({
 			}, []);
 			return balance;
 		}
+		/** Format a CNY figure compactly (up to 4 decimal places for small spends). */
+		function formatCny(value) {
+			if (value == null || !Number.isFinite(value)) return null;
+			if (value >= 1) return `¥${Math.round(value)}`;
+			if (value >= 0.01) return `¥${value.toFixed(2)}`;
+			return `¥${value.toFixed(3)}`;
+		}
+		/** Poll the backend session-cost route (peak/off-peak aware, V4-Flash
+		 * official pricing) for the given session id. Returns the parsed JSON
+		 * `{tokens, cny:{peak,offPeak,total}}` or null while unavailable. */
+		function useSessionCost(sessionId) {
+			const [cost, setCost] = react.useState(null);
+			react.useEffect(() => {
+				let cancelled = false;
+				if (!sessionId) { setCost(null); return void 0; }
+				const load = async () => {
+					try {
+						const controller = new AbortController();
+						const timer = setTimeout(() => controller.abort(), 8000);
+						const response = await fetch("/dsh-token-usage/session-cost?session=" + encodeURIComponent(sessionId), {
+							signal: controller.signal,
+							headers: { Accept: "application/json" }
+						});
+						clearTimeout(timer);
+						if (cancelled) return;
+						if (!response.ok) { setCost(null); return; }
+						const data = await response.json();
+						if (!cancelled) setCost(data && data.ok === true ? data : null);
+					}
+					catch {
+						if (!cancelled) setCost(null);
+					}
+				};
+				load();
+				const interval = setInterval(load, 60000);
+				return () => {
+					cancelled = true;
+					clearInterval(interval);
+				};
+			}, [sessionId]);
+			return cost;
+		}
 		/** Composer-dock balance chip: one muted line under the input card,
-		 * rendered BEFORE the built-in stats footer (dock order -10). */
-		function BalanceChip({ t }) {
+		 * rendered BEFORE the built-in stats footer (dock order -10).
+		 * Shows account balance, plus the current session's spend (computed
+		 * server-side with peak/off-peak V4-Flash pricing) on its right. */
+		function BalanceChip({ useSession, t }) {
 			const balance = useApiBalance();
 			const text = balanceSummaryText(balance);
-			if (text === void 0) return null;
+			const sessionId = useSession((s) => s.sessionId);
+			const cost = useSessionCost(sessionId);
+			const spendCny = cost && cost.cny && Number.isFinite(cost.cny.total) ? cost.cny.total : null;
+			const spendText = spendCny === null || spendCny <= 0 ? null : `${t("spend")}${formatCny(spendCny)}`;
+			if (text === void 0 && spendText === null) return null;
 			return react_jsx_runtime.jsx("div", {
 				style: {
 					textAlign: "center",
@@ -1428,7 +1478,7 @@ window.__ModuleLoader__.load({
 					lineHeight: "18px",
 					color: "var(--dsw-alias-label-tertiary)"
 				},
-				children: `${t("balance")} ${text}`
+				children: [text === void 0 ? null : `${t("balance")} ${text}`, spendText].filter(Boolean).join(" | ")
 			});
 		}
 		/** Reduce the DeepSeek /user/balance payload to a short display string. */
