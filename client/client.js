@@ -2338,114 +2338,6 @@ window.__ModuleLoader__.load({
       },
     }
 
-    // ===== dsh-long-plugins: 插件管理（列出已安装 / 卸载 / 启用禁用） =====
-    // 依赖 dsh-plugin hub 的本地路由（/dsh-plugin-hub/installed + /uninstall）——
-    // 若未装 hub 则静默降级为「未检测到插件中心」。
-    const PLUGIN_MGR_CSS = `
-      .dsh-pm-wrap{display:flex;flex-direction:column;gap:8px;min-width:0;padding:2px 0 12px}
-      .dsh-pm-hint{font-size:12px;color:var(--dsw-alias-label-tertiary,#8b98a5);line-height:18px}
-      .dsh-pm-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:8px;background:var(--dsw-alias-bg-module-platform,transparent);font-size:13px}
-      .dsh-pm-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary,#e5e7eb)}
-      .dsh-pm-spec{flex:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary,#8b98a5);font-size:11px}
-      .dsh-pm-btn{flex:none;border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary,#c2cad4);font:inherit;font-size:12px;padding:3px 10px;cursor:pointer}
-      .dsh-pm-btn:hover{color:var(--dsw-alias-label-primary,#e5e7eb);border-color:var(--dsw-static-deepseek-500,#4d6bfe)}
-      .dsh-pm-btn.danger{color:var(--dsw-alias-state-error-primary,#e5484d)}
-      .dsh-pm-btn.danger:hover{border-color:var(--dsw-alias-state-error-primary,#e5484d)}
-      .dsh-pm-btn:disabled{opacity:.5;cursor:wait}
-      .dsh-pm-empty{padding:16px;text-align:center;color:var(--dsw-alias-label-tertiary,#8b98a5);font-size:12px;border:1px dashed var(--dsw-alias-border-l2,#2c3a47);border-radius:8px}
-    `
-    const pluginManagerPlugin = {
-      inject: ['slots'],
-      apply(ctx) {
-        ctx.effect(() => {
-          const style = document.createElement('style')
-          style.dataset.plugin = 'dsh-long-plugins'
-          style.dataset.pluginCss = 'dsh-long-plugins/plugin-manager'
-          style.textContent = PLUGIN_MGR_CSS
-          document.head.appendChild(style)
-          return () => style.remove()
-        }, 'dsh-long-plugins: plugin manager styles')
-
-        function PluginManagerSection() {
-          const [installed, setInstalled] = React.useState(null)
-          const [error, setError] = React.useState(null)
-          const [busy, setBusy] = React.useState('')
-
-          const refresh = React.useCallback(async () => {
-            setError(null)
-            try {
-              const res = await fetch('/dsh-plugin-hub/installed', { cache: 'no-store' })
-              if (!res.ok) { setInstalled({}); return }
-              const data = await res.json()
-              setInstalled(data.installed ?? {})
-            } catch (e) {
-              setInstalled({})
-            }
-          }, [])
-
-          React.useEffect(() => { refresh() }, [refresh])
-
-          const doUninstall = async (name) => {
-            if (!window.confirm(`确认卸载插件 ${name}？卸载后重启 dsh 生效。`)) return
-            setBusy(name)
-            try {
-              const res = await fetch('/dsh-plugin-hub/uninstall', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ name }),
-              })
-              const data = await res.json().catch(() => ({}))
-              if (data.ok === true) {
-                // 卸载任务后台执行；稍后刷新列表
-                setTimeout(refresh, 2000)
-              } else {
-                setError((data && data.error) || `HTTP ${res.status}`)
-              }
-            } catch (e) {
-              setError(String((e && e.message) || e))
-            }
-            setBusy('')
-          }
-
-          const entries = installed === null ? null : Object.entries(installed)
-
-          return React.createElement(
-            'div',
-            { className: 'dsh-pm-wrap' },
-            React.createElement('div', { className: 'dsh-pm-hint' }, '已安装的社区插件（dsh plugin 安装的，不含 DSH 内置）。卸载后需重启 dsh 生效。'),
-            error !== null && React.createElement('div', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)' } }, error),
-            installed === null && React.createElement('div', { className: 'dsh-pm-empty' }, '加载中…'),
-            entries !== null && entries.length === 0 && React.createElement('div', { className: 'dsh-pm-empty' }, '未检测到插件中心（dsh-plugin）或没有已安装的社区插件。'),
-            entries !== null && entries.map(([name, spec]) => React.createElement(
-              'div',
-              { key: name, className: 'dsh-pm-row' },
-              React.createElement('span', { className: 'dsh-pm-name', title: name }, name),
-              React.createElement('span', { className: 'dsh-pm-spec', title: spec }, spec),
-              React.createElement('button', {
-                type: 'button',
-                className: 'dsh-pm-btn danger',
-                disabled: busy !== '',
-                onClick: () => doUninstall(name),
-              }, busy === name ? '卸载中…' : '卸载'),
-            )),
-            React.createElement('button', {
-              type: 'button',
-              className: 'dsh-pm-btn',
-              disabled: busy !== '',
-              onClick: refresh,
-            }, '刷新'),
-          )
-        }
-
-        ctx.slots.inject('settings.section', () => ctx.slots.register({
-          name: 'settings.section',
-          id: 'plugin-manager',
-          order: 25,
-          label: '插件管理',
-        }, PluginManagerSection))
-      },
-    }
-
     const inject = Array.from(new Set([
       ...uploadPlugin.inject,
       ...skillDocsPlugin.inject,
@@ -2453,7 +2345,6 @@ window.__ModuleLoader__.load({
       ...mobilePlugin.inject,
       ...workspaceFilesPlugin.inject,
       ...turnRulerPlugin.inject,
-      ...pluginManagerPlugin.inject,
     ]))
 
     function apply(ctx) {
@@ -2470,7 +2361,6 @@ window.__ModuleLoader__.load({
       safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
       safeApply('workspace-files', (c) => workspaceFilesPlugin.apply(c))
       safeApply('turn-ruler', (c) => turnRulerPlugin.apply(c))
-      safeApply('plugin-manager', (c) => pluginManagerPlugin.apply(c))
     }
 
     exports.apply = apply
