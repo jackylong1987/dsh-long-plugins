@@ -840,6 +840,10 @@ window.__ModuleLoader__.load({
                 setPreview(null)
                 triggerDownload('/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(path) + '&download=1', data.name)
               }
+            } else if (/\.(md|markdown)$/i.test(path)) {
+              // Markdown：走 workspace-preview 渲染页（服务端把 md 渲染成 HTML），
+              // 弹窗内 iframe 展示真实效果而非源码文本。
+              setPreview({ path, name: data.name, url: '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(path) })
             } else {
               setPreview(data)
             }
