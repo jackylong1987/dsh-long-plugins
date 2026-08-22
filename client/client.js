@@ -97,6 +97,7 @@ window.__ModuleLoader__.load({
         this.expiry = new Map()
         this.serializing = new Set()
         this.migrated = new Set()
+        this.sinkHooked = new Set()
         this.counter = 0
       }
 
@@ -153,9 +154,9 @@ window.__ModuleLoader__.load({
         const key = String(sessionId)
         this.clearInFlight(key)
         const entry = { ...file, ref: `${key}-${++this.counter}` }
-        if (!this.insertReference(sessionId, entry)) {
-          throw new Error('输入框正忙，请稍后重新选择该文件')
-        }
+        // 不再往草稿插入引用 token；文件仅以卡片形式显示在输入区上方，
+        // 发送时由 ensureSinkHook 安装的 defaultSink 包装统一拼进消息。
+        this.ensureSinkHook(key)
         const next = [...this.pendingFor(key), entry]
         this.pending.set(key, next)
         this.refIndex.set(entry.ref, { sessionId: key, entry })
@@ -163,17 +164,49 @@ window.__ModuleLoader__.load({
         return entry
       }
 
+      ensureSinkHook(key) {
+        const k = String(key)
+        if (this.sinkHooked.has(k)) return
+        let shell
+        try {
+          shell = this.scope(k).shell
+        } catch (error) {
+          return
+        }
+        const deps = shell.deps
+        const original = deps && deps.defaultSink
+        if (typeof original !== 'function') return
+        this.sinkHooked.add(k)
+        const controller = this
+        deps.defaultSink = function (text, imageIds, mode, signal) {
+          const entries = controller.pendingFor(k)
+          let extra = ''
+          for (const entry of entries) extra += serializedFile(entry)
+          if (entries.length > 0) {
+            controller.pending.delete(k)
+            controller.inFlight.set(k, entries)
+            controller.publish(k)
+          }
+          const result = original(text + extra, imageIds, mode, signal)
+          if (entries.length === 0) return result
+          return Promise.resolve(result).then((outcome) => {
+            if (outcome && outcome.kind === 'success') {
+              const expiry = controller.expiry.get(k)
+              if (expiry) expiry()
+              controller.expiry.delete(k)
+              controller.inFlight.delete(k)
+              for (const entry of entries) controller.refIndex.delete(entry.ref)
+            }
+            return outcome
+          })
+        }
+      }
+
       remove(sessionId, ref) {
         const key = String(sessionId)
         const entries = this.pendingFor(key)
         const entry = entries.find((item) => item.ref === ref)
         if (!entry) return
-        const { shell } = this.scope(sessionId)
-        const input = shell.snapshot
-        const occurrence = input.occurrences.find((item) => item.source === SOURCE && item.ref === ref)
-        if (occurrence) {
-          shell.setDraft(input.draft.slice(0, occurrence.offset) + input.draft.slice(occurrence.offset + 1))
-        }
         const next = entries.filter((item) => item.ref !== ref)
         if (next.length > 0) this.pending.set(key, next)
         else this.pending.delete(key)
@@ -191,32 +224,10 @@ window.__ModuleLoader__.load({
       }
 
       reconcile(sessionId, occurrences) {
-        const key = String(sessionId)
-        const entries = this.pendingFor(key)
-        if (entries.length === 0) return
-        const refs = new Set(
-          (occurrences || [])
-            .filter((item) => item.source === SOURCE)
-            .map((item) => item.ref),
-        )
-        const missing = entries.filter((entry) => !refs.has(entry.ref))
-        if (missing.length === 0) return
-
-        if (this.serializing.delete(key)) {
-          this.pending.delete(key)
-          this.inFlight.set(key, entries)
-          const previous = this.expiry.get(key)
-          if (previous) previous()
-          this.expiry.set(key, this.ctx.timeout(() => this.clearInFlight(key), 30_000))
-          this.publish(key)
-          return
-        }
-
-        for (const entry of missing) this.refIndex.delete(entry.ref)
-        const next = entries.filter((entry) => refs.has(entry.ref))
-        if (next.length > 0) this.pending.set(key, next)
-        else this.pending.delete(key)
-        this.publish(key)
+        // 卡片模式：文件不再以草稿引用/occurrence 形式存在，[pending] 的发送与失败
+        // 恢复改由 ensureSinkHook 的 defaultSink 包装 + restoreFailed 负责；这里不再按
+        // occurrence 对账，避免草稿一变就把待发送卡片误判为已发送而提前清空。
+        return
       }
 
       restoreFailed(sessionId) {
@@ -227,17 +238,9 @@ window.__ModuleLoader__.load({
         if (expiry) expiry()
         this.expiry.delete(key)
         this.inFlight.delete(key)
-
-        const { shell } = this.scope(sessionId)
-        const cleaned = stripSerializedFiles(shell.snapshot.draft, entries)
-        shell.setDraft(cleaned)
-
-        const restored = []
-        for (const entry of entries) {
-          if (this.insertReference(sessionId, entry)) restored.push(entry)
-          else this.refIndex.delete(entry.ref)
-        }
-        if (restored.length > 0) this.pending.set(key, restored)
+        // 卡片模式：失败时只把文件恢复为待发送卡片（不再回写草稿/插入引用）。
+        this.pending.set(key, entries)
+        for (const entry of entries) this.refIndex.set(entry.ref, { sessionId: key, entry })
         this.publish(key)
       }
 
@@ -276,6 +279,7 @@ window.__ModuleLoader__.load({
         this.listeners.clear()
         this.serializing.clear()
         this.migrated.clear()
+        this.sinkHooked.clear()
       }
     }
 
