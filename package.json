@@ -1,6 +1,6 @@
 {
   "name": "dsh-long-plugins",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Merged DSH web plugins: upload manager, workspace 输出文件, 技能文档, account balance, mobile layout, and turn-ruler history navigation.",
   "type": "module",
   "license": "MIT",

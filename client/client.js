@@ -49,6 +49,36 @@ window.__ModuleLoader__.load({
       return `${PREVIEW_PATH}?name=${encodeURIComponent(name)}`
     }
 
+    /** Extensions the browser can render inline (image/office handled separately). */
+    const INLINE_PREVIEW_EXTS = new Set([
+      '.pdf', '.txt', '.md', '.markdown', '.json', '.yml', '.yaml', '.xml', '.html', '.htm',
+      '.csv', '.tsv', '.log', '.ini', '.conf', '.env', '.toml', '.rtf',
+      '.py', '.js', '.mjs', '.cjs', '.ts', '.sh', '.css', '.sql', '.rs', '.go', '.c', '.h', '.cpp',
+      '.java', '.kt', '.swift', '.rb', '.php', '.vue', '.jsx', '.tsx',
+    ])
+
+    /** Whether a file can be previewed inline in the browser. */
+    function isInlinePreviewable(name) {
+      return INLINE_PREVIEW_EXTS.has(extnameOf(name).toLowerCase())
+    }
+
+    /** Extension of a file name (with dot), or '' when none. */
+    function extnameOf(name) {
+      const i = String(name).lastIndexOf('.')
+      return i > 0 ? String(name).slice(i) : ''
+    }
+
+    /** Trigger a browser download for a URL (no navigation, keeps the page). */
+    function triggerDownload(url, name) {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = name || ''
+      a.style.display = 'none'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+
     function modelLine(file) {
       return `上传文件：\`${file.path}\``
     }
@@ -489,6 +519,8 @@ window.__ModuleLoader__.load({
         try {
           const isOffice = /\.(docx|xlsx|pptx)$/i.test(name)
           if (isOffice) {
+            // 先打开弹窗并提示转换中（NAS 上 docx/xlsx 转换可能耗时 1~2 秒）
+            setPreview({ name, officeLoading: true })
             const response = await fetch(previewUrl(name), { cache: 'no-store' })
             if (!response.ok) {
               const body = await response.json().catch(() => ({}))
@@ -499,6 +531,11 @@ window.__ModuleLoader__.load({
               name,
               officeHtml: data.officeHtml ?? '<p style="font-family:sans-serif;padding:12px">（无法渲染此文档）</p>',
             })
+            return
+          }
+          // 无法内嵌预览的类型（压缩包、程序、视频、字体等）：点预览直接下载。
+          if (!isInlinePreviewable(name)) {
+            triggerDownload(downloadUrl(name), name)
             return
           }
           const response = await fetch(previewUrl(name), { cache: 'no-store' })
@@ -513,7 +550,9 @@ window.__ModuleLoader__.load({
             setPreview({ url, name })
             return
           }
-          window.open(previewUrl(name), '_blank', 'noopener')
+          // PDF / txt / 其它可内嵌文件：弹窗内嵌预览（iframe 指向预览端点），
+          // 只有用户点「打开」才在新浏览器标签中打开。
+          setPreview({ url: previewUrl(name), name })
         } catch (error) {
           setState((current) => ({ ...current, error: errorMessage(error) }))
         }
@@ -603,12 +642,29 @@ window.__ModuleLoader__.load({
                   'div',
                   { className: 'dsh-upload-preview-head' },
                   React.createElement('strong', null, preview.name),
-                  React.createElement('button', { type: 'button', onClick: () => setPreviewMaximized((m) => !m) }, previewMaximized ? '还原' : '放大'),
-                  React.createElement('button', { type: 'button', onClick: closePreview }, '关闭'),
+                  React.createElement(
+                    'div',
+                    { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                    !preview.officeLoading && !(preview.url && preview.url.startsWith('blob:')) && preview.name !== void 0
+                      ? React.createElement('a', { href: preview.officeHtml !== void 0 ? downloadUrl(preview.name) : previewUrl(preview.name), target: '_blank', rel: 'noopener noreferrer', className: 'dsh-upload-preview-open' }, '打开')
+                      : null,
+                    React.createElement('button', { type: 'button', onClick: () => setPreviewMaximized((m) => !m) }, previewMaximized ? '还原' : '放大'),
+                    React.createElement('button', { type: 'button', onClick: closePreview }, '关闭'),
+                  ),
                 ),
-                preview.url
+                preview.url && preview.url.startsWith('blob:')
                   ? React.createElement('img', { src: preview.url, alt: preview.name, className: 'dsh-upload-preview-img' })
-                  : React.createElement('iframe', { title: preview.name, srcDoc: preview.officeHtml ?? '', style: previewMaximized ? { width: '100%', height: 'calc(100vh - 60px)', border: 'none', background: '#fff', flex: 1 } : { width: '100%', height: '70vh', border: 'none', background: '#fff' }, sandbox: 'allow-same-origin' }),
+                  : React.createElement(
+                      'div',
+                      { style: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#fff' } },
+                      preview.officeLoading === true
+                        ? React.createElement('div', { className: 'dsh-upload-preview-loading' }, '转换中…')
+                        : preview.officeHtml !== void 0
+                          ? React.createElement('iframe', { title: preview.name, srcDoc: preview.officeHtml, style: previewMaximized ? { width: '100%', height: 'calc(100vh - 60px)', border: 'none', background: '#fff', flex: 1 } : { width: '100%', height: '70vh', border: 'none', background: '#fff' } })
+                          : preview.url && /\.pdf$/i.test(preview.name)
+                            ? React.createElement('embed', { src: preview.url, type: 'application/pdf', title: preview.name, style: previewMaximized ? { width: '100%', height: 'calc(100vh - 60px)', border: 'none', background: '#fff', flex: 1 } : { width: '100%', height: '70vh', border: 'none', background: '#fff' } })
+                            : React.createElement('iframe', { title: preview.name, src: preview.url, style: previewMaximized ? { width: '100%', height: 'calc(100vh - 60px)', border: 'none', background: '#fff', flex: 1 } : { width: '100%', height: '70vh', border: 'none', background: '#fff' } }),
+                    ),
               ),
             )
           : null,
@@ -708,7 +764,10 @@ window.__ModuleLoader__.load({
       .dsh-upload-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--dsw-alias-border-l2)}
       .dsh-upload-preview-head strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
       .dsh-upload-preview-head button{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:5px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;flex:none}
+      .dsh-upload-preview-open{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-state-business-primary);padding:5px 12px;font:inherit;font-size:12px;text-decoration:none;cursor:pointer;white-space:nowrap;flex:none}
+      .dsh-upload-preview-open:hover{background:var(--dsw-alias-interactive-bg-hover)}
       .dsh-upload-preview-img{max-width:100%;max-height:70vh;object-fit:contain;display:block}
+      .dsh-upload-preview-loading{display:flex;align-items:center;justify-content:center;flex:1;min-height:120px;color:var(--dsw-alias-label-secondary);font-size:13px}
     `
 
     const inject = ['slots', 'sessions', 'inputTriggers', 'conversation', 'timer']
@@ -738,11 +797,28 @@ window.__ModuleLoader__.load({
       React.useEffect(() => { load() }, [load])
 
       const openPreview = async (path) => {
-        setPreview({ path, loading: true })
+        const isOffice = /\.(docx|xlsx|pptx)$/i.test(path)
+        setPreview({ path, loading: true, officeLoading: isOffice })
         try {
           const res = await fetch('/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(path), { headers: { Accept: 'application/json' } })
           const data = await res.json()
-          setPreview(data.ok === true ? data : { path, error: data.error })
+          if (data.ok === true) {
+            const isBinaryOther = data.binary === true && data.officeHtml === void 0
+            if (isBinaryOther) {
+              // 二进制且非 Office：PDF 等浏览器可直接渲染的类型 → 弹窗 iframe
+              // 直接嵌原始文件流（inline）；否则（压缩包/程序等）直接下载。
+              if (isInlinePreviewable(path)) {
+                setPreview({ path, name: data.name, url: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(path) + '&inline=1' })
+              } else {
+                setPreview(null)
+                triggerDownload('/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(path) + '&download=1', data.name)
+              }
+            } else {
+              setPreview(data)
+            }
+          } else {
+            setPreview({ path, error: data.error })
+          }
         } catch (e) { setPreview({ path, error: String((e && e.message) || e) }) }
       }
       const doDelete = async (path) => {
@@ -892,11 +968,13 @@ window.__ModuleLoader__.load({
             { className: 'dsh-ws-preview-card', style: previewCardStyle, onClick: (e) => e.stopPropagation() },
             React.createElement(
               'div',
-              { style: previewHeadStyle },
+              { className: 'dsh-ws-preview-head', style: previewHeadStyle },
               React.createElement('strong', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 } }, `${preview.name ?? preview.path}`),
-              preview.binary !== true && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => { if (editing) { setEdited(preview.content !== void 0 ? preview.content : ''); setEditing(false); } else setEditing(true); } }, editing ? '取消编辑' : '编辑'),
+              preview.binary !== true && preview.loading !== true && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => { if (editing) { setEdited(preview.content !== void 0 ? preview.content : ''); setEditing(false); } else setEditing(true); } }, editing ? '取消编辑' : '编辑'),
               editing && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: doSave }, savedFlash ? '已保存' : '保存'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: copyContent }, copied ? '已复制' : '复制全部'),
+              (preview.url !== void 0 || preview.officeHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(preview.path) + '&download=1', download: preview.name, style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '下载'),
+              (preview.url !== void 0 || preview.officeHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(preview.path), target: '_blank', rel: 'noopener noreferrer', style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '打开'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setPreview(null) }, '关闭'),
             ),
@@ -905,8 +983,12 @@ window.__ModuleLoader__.load({
               { style: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'auto' } },
               preview.loading === true && React.createElement('div', { style: { ...metaStyle, padding: 10 } }, '加载中…'),
               preview.error !== void 0 && preview.loading !== true && React.createElement('div', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)', padding: 10 } }, preview.error),
-              preview.binary === true && preview.officeHtml === void 0 && React.createElement('div', { style: { ...metaStyle, padding: 10 } }, '二进制文件，无法预览，请下载后查看'),
-              preview.officeHtml !== void 0 && React.createElement('iframe', { title: preview.name ?? preview.path, srcDoc: preview.officeHtml, style: { width: '100%', flex: 1, minHeight: 0, border: 'none', background: '#fff' }, sandbox: 'allow-same-origin' }),
+              preview.officeLoading === true && preview.loading !== true && React.createElement('div', { style: { ...metaStyle, padding: 10 } }, '转换中…'),
+              preview.url !== void 0 && preview.loading !== true && (preview.name && /\.pdf$/i.test(preview.name)
+                ? React.createElement('embed', { src: preview.url, type: 'application/pdf', title: preview.name ?? preview.path, style: { width: '100%', height: '70vh', minHeight: 0, border: 'none', background: '#fff', flex: 1 } })
+                : React.createElement('iframe', { title: preview.name ?? preview.path, src: preview.url, style: { width: '100%', height: '70vh', minHeight: 0, border: 'none', background: '#fff', flex: 1 } })),
+              preview.binary === true && preview.officeHtml === void 0 && preview.url === void 0 && React.createElement('div', { style: { ...metaStyle, padding: 10 } }, '二进制文件，无法预览，请下载后查看'),
+              preview.officeHtml !== void 0 && React.createElement('iframe', { title: preview.name ?? preview.path, srcDoc: preview.officeHtml, style: { width: '100%', flex: 1, minHeight: 0, border: 'none', background: '#fff' } }),
               editing && preview.binary !== true && React.createElement('textarea', { style: textareaStyle, value: edited, onChange: (e) => setEdited(e.target.value), spellCheck: false }),
               !editing && preview.binary !== true && preview.content !== void 0 && React.createElement('pre', { style: preStyle }, preview.content),
               preview.truncated === true && React.createElement('div', { style: { ...metaStyle, padding: '4px 12px 10px' } }, '（内容过大，仅显示前 256KB）'),
@@ -1656,11 +1738,22 @@ window.__ModuleLoader__.load({
 
     // ===== dsh-long-plugins: workspace file browser + inline preview =====
     // 共享内联面板状态：标题栏「📂 文件」、消息文件徽章、工具卡片文件名共用
+    // history：从列表页进入预览时压栈，「关闭」回到列表；「✕ 关闭」才真正关面板
     const wsOverlay = {
-      url: null, title: '',
+      url: null, title: '', history: [],
       listeners: new Set(),
-      open(url, title) { this.url = url; this.title = title || ''; this.emit(); },
-      close() { this.url = null; this.emit(); },
+      open(url, title, keepHistory = false) {
+        if (keepHistory && this.url !== null && this.url !== url) {
+          this.history.push({ url: this.url, title: this.title })
+        }
+        this.url = url; this.title = title || ''; this.emit();
+      },
+      back() {
+        const prev = this.history.pop()
+        if (prev) { this.url = prev.url; this.title = prev.title; this.emit(); return true }
+        return false
+      },
+      close() { this.url = null; this.title = ''; this.history = []; this.emit(); },
       emit() { this.listeners.forEach((fn) => fn()); },
       subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
     }
@@ -1669,12 +1762,15 @@ window.__ModuleLoader__.load({
       .dsh-ws-files-btn:hover{background:var(--dsw-alias-border-l2,#2c3a47)}
       .dsh-ws-files-overlay{position:fixed;inset:0;z-index:1200;background:rgba(5,10,16,.66);display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
       .dsh-ws-files-panel{width:min(1080px,96vw);height:min(820px,92vh);background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2,#2c3a47);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55)}
-      .dsh-ws-files-panel-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--dsw-alias-bg-module-platform,#1a2530);border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);flex:none}
-      .dsh-ws-files-panel-head .t{font-weight:600;font-size:14px;color:var(--dsw-alias-label-primary,#e5e7eb);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .dsh-ws-files-panel-head .sp{flex:1}
-      .dsh-ws-files-close{border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:transparent;color:var(--dsw-alias-label-primary,#e5e7eb);border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer}
+      .dsh-ws-files-panel-head{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--dsw-alias-bg-module-platform,#1a2530);border-bottom:1px solid var(--dsw-alias-border-l2,#2c3a47);flex:none;flex-wrap:nowrap}
+      .dsh-ws-files-panel-head .t{flex:1;min-width:0;font-weight:600;font-size:14px;color:var(--dsw-alias-label-primary,#e5e7eb);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .dsh-ws-files-panel-head .sp{display:none}
+      .dsh-ws-files-close{flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--dsw-alias-border-l2,#2c3a47);background:transparent;color:var(--dsw-alias-label-primary,#e5e7eb);border-radius:8px;padding:5px 10px;font-size:12px;line-height:1;cursor:pointer;text-decoration:none;white-space:nowrap}
       .dsh-ws-files-close:hover{background:var(--dsw-alias-interactive-bg-hover,#2c3a47)}
       .dsh-ws-files-frame{flex:1;border:none;width:100%;background:var(--dsw-specific-input-major,#0f1720)}
+      /* 最大化：面板全屏，iframe 撑满 */
+      .dsh-ws-files-overlay-max{padding:0}
+      .dsh-ws-files-overlay-max .dsh-ws-files-panel{width:100vw;height:100vh;max-width:none;max-height:none;border:none;border-radius:0}
       /* 浅色模式下即使主题变量缺失也保证跟随系统 */
       @media (prefers-color-scheme: light) {
         .dsh-ws-files-panel{background:#ffffff}
@@ -1686,6 +1782,19 @@ window.__ModuleLoader__.load({
       }
       /* 会话 markdown 里的预览/下载图标：内联显示在文件名后面（默认 markdown 图片是 block 独占一行） */
       img[src*="/api/dsh-uploads/icons/"]{display:inline!important;width:14px!important;height:14px!important;vertical-align:-2px!important;border-radius:0!important;background:transparent!important;margin:0 1px!important}
+      @media (max-width: 640px){
+        .dsh-ws-files-overlay{padding:10px}
+        .dsh-ws-files-panel-head{gap:6px;padding:8px 10px}
+        .dsh-ws-files-close{padding:5px 8px;font-size:12px}
+        .dsh-ws-files-panel-head .t{font-size:13px}
+      }
+      /* 输出文件预览弹窗头部：手机端按钮换行铺开 */
+      .dsh-ws-preview-head{flex-wrap:nowrap}
+      @media (max-width: 640px){
+        .dsh-ws-preview-head{flex-wrap:wrap;gap:6px;padding:8px 10px}
+        .dsh-ws-preview-head strong{flex-basis:100%}
+        .dsh-ws-preview-head button,.dsh-ws-preview-head a{padding:4px 8px;font-size:12px;flex:1;text-align:center}
+      }
     `
     const workspaceFilesPlugin = {
       inject: ['slots'],
@@ -1726,46 +1835,69 @@ window.__ModuleLoader__.load({
             ? raw
             : (lastCwd ? lastCwd.replace(/\/+$/, '') + '/' + raw.replace(/^\/+/, '') : raw)
           getWorkspaceRoot().then((root) => {
-            if (!root) { wsOverlay.open('/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(abs.replace(/^\/+/, '')), '👁 预览 · ' + (raw.split('/').pop() || raw)); return }
-            const rel = abs.startsWith(root + '/') ? abs.slice(root.length + 1) : abs.replace(/^\/+/, '')
-            wsOverlay.open('/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(rel), '👁 预览 · ' + (raw.split('/').pop() || raw))
+            const rawName = raw.split('/').pop() || raw
+            const rel = root && abs.startsWith(root + '/')
+              ? abs.slice(root.length + 1)
+              : (root ? abs.replace(/^\/+/, '') : abs.replace(/^\/+/, ''))
+            // PDF 直接嵌原始流（单层 iframe，浏览器原生查看器可滚动翻页）；
+            // 其它类型走 workspace-preview 渲染页。
+            const isPdf = /\.pdf$/i.test(rawName)
+            const url = isPdf
+              ? '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(rel) + '&inline=1'
+              : '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(rel)
+            wsOverlay.open(url, '👁 预览 · ' + rawName)
           })
         }
         ctx.effect(() => {
           document.addEventListener('click', onFileClick, true)
           return () => document.removeEventListener('click', onFileClick, true)
         }, 'dsh-long-plugins: file mention preview interceptor')
-        // 预览页在 iframe 里点「关闭」时，通过 postMessage 关闭内联面板
+        // 预览页在 iframe 里点「关闭」时，通过 postMessage 关闭内联面板；
+        // 浏览页点「预览」时，通过 postMessage 让父窗口打开（embed/iframe 渲染）。
         ctx.effect(() => {
           const onMessage = (event) => {
             if (event.origin !== window.location.origin) return
-            if (event.data && event.data.type === 'dsh-close-preview') wsOverlay.close()
+            if (event.data && event.data.type === 'dsh-close-preview') {
+              // 渲染页里的「关闭」：有历史（来自列表）→ 回列表；否则关面板
+              if (!wsOverlay.back()) wsOverlay.close()
+            }
+            if (event.data && event.data.type === 'dsh-open-preview' && typeof event.data.url === 'string') {
+              wsOverlay.open(event.data.url, '👁 预览 · ' + (event.data.title || '文件'), true)
+            }
           }
           window.addEventListener('message', onMessage)
           return () => window.removeEventListener('message', onMessage)
         }, 'dsh-long-plugins: preview close message listener')
         const useOverlay = () => {
-          const [state, setState] = React.useState({ url: wsOverlay.url, title: wsOverlay.title })
-          React.useEffect(() => wsOverlay.subscribe(() => setState({ url: wsOverlay.url, title: wsOverlay.title })), [])
+          const [state, setState] = React.useState({ url: wsOverlay.url, title: wsOverlay.title, canBack: wsOverlay.history.length > 0 })
+          React.useEffect(() => wsOverlay.subscribe(() => setState({ url: wsOverlay.url, title: wsOverlay.title, canBack: wsOverlay.history.length > 0 })), [])
           return state
         }
         const WorkspaceFilesOverlay = () => {
           const { url, title } = useOverlay()
+          const [maximized, setMaximized] = React.useState(false)
           React.useEffect(() => {
             if (!url) return undefined
-            const onKey = (event) => { if (event.key === 'Escape') wsOverlay.close() }
+            const onKey = (event) => { if (event.key === 'Escape') { if (maximized) setMaximized(false); else wsOverlay.back() || wsOverlay.close() } }
             window.addEventListener('keydown', onKey)
             return () => window.removeEventListener('keydown', onKey)
-          }, [url])
+          }, [url, maximized])
           if (!url) return null
-          return React.createElement('div', { className: 'dsh-ws-files-overlay' },
+          // inline 预览（PDF 原生查看器）：头部补 打开/下载；其它渲染页自带按钮。
+          const isInline = url.indexOf('&inline=1') !== -1 || url.indexOf('?inline=1') !== -1
+          return React.createElement('div', { className: 'dsh-ws-files-overlay' + (maximized ? ' dsh-ws-files-overlay-max' : '') },
             React.createElement('div', { className: 'dsh-ws-files-panel' },
               React.createElement('div', { className: 'dsh-ws-files-panel-head' },
                 React.createElement('span', { className: 't' }, title || '工作区文件'),
                 React.createElement('span', { className: 'sp' }),
-                React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => wsOverlay.close() }, '✕ 关闭'),
+                isInline && React.createElement('a', { className: 'dsh-ws-files-close', href: url, target: '_blank', rel: 'noopener noreferrer' }, '打开'),
+                isInline && React.createElement('a', { className: 'dsh-ws-files-close', href: url.replace(/[?&]inline=1/, '') + (url.indexOf('?') !== -1 ? '&download=1' : '?download=1'), download: true }, '下载'),
+                React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
+                React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => { if (!wsOverlay.back()) wsOverlay.close() } }, '✕ 关闭'),
               ),
-              React.createElement('iframe', { className: 'dsh-ws-files-frame', src: url, title: '文件预览' }),
+              isInline
+                ? React.createElement('embed', { className: 'dsh-ws-files-frame', src: url, type: 'application/pdf', title: '文件预览' })
+                : React.createElement('iframe', { className: 'dsh-ws-files-frame', src: url, title: '文件预览' }),
             ),
           )
         }
