@@ -445,6 +445,7 @@ window.__ModuleLoader__.load({
       const [deleting, setDeleting] = React.useState('')
       const [preview, setPreview] = React.useState(null)
       const [previewMaximized, setPreviewMaximized] = React.useState(false)
+      const [groupByDate, setGroupByDate] = React.useState(false)
 
       async function refresh() {
         setState((current) => ({ ...current, loading: true, error: '' }))
@@ -523,6 +524,26 @@ window.__ModuleLoader__.load({
         setPreview(null)
       }
 
+      /** Group files by calendar day of their modifiedAt (YYYY-MM-DD, desc). */
+      function groupFilesByDate(files) {
+        const groups = []
+        const byDay = new Map()
+        for (const file of files) {
+          let day = ''
+          try {
+            day = new Date(file.modifiedAt).toISOString().slice(0, 10)
+          } catch {
+            day = '未知日期'
+          }
+          if (!byDay.has(day)) byDay.set(day, [])
+          byDay.get(day).push(file)
+        }
+        const days = [...byDay.keys()].sort((a, b) => b.localeCompare(a))
+        for (const day of days) groups.push({ day, files: byDay.get(day) })
+        return groups
+      }
+      const dateGroups = groupByDate ? groupFilesByDate(state.files) : null
+
       return React.createElement(
         'section',
         { className: 'dsh-upload-settings' },
@@ -536,9 +557,23 @@ window.__ModuleLoader__.load({
             React.createElement('p', null, '管理从输入框上传到 Harness 容器中的文件。'),
           ),
           React.createElement(
-            'button',
-            { type: 'button', className: 'dsh-upload-refresh', disabled: state.loading, onClick: refresh },
-            state.loading ? '刷新中…' : '刷新',
+            'div',
+            { className: 'dsh-upload-head-actions' },
+            React.createElement(
+              'button',
+              {
+                type: 'button',
+                className: 'dsh-upload-refresh',
+                disabled: state.loading,
+                onClick: () => setGroupByDate((g) => !g),
+              },
+              groupByDate ? '日期 ✓' : '日期',
+            ),
+            React.createElement(
+              'button',
+              { type: 'button', className: 'dsh-upload-refresh', disabled: state.loading, onClick: refresh },
+              state.loading ? '刷新中…' : '刷新',
+            ),
           ),
         ),
         React.createElement(
@@ -580,22 +615,34 @@ window.__ModuleLoader__.load({
         React.createElement(
           'div',
           { className: 'dsh-upload-list' },
-          state.files.map((file) => React.createElement(
+          (dateGroups === null ? [{ day: null, files: state.files }] : dateGroups).map((group) => React.createElement(
             'div',
-            { className: 'dsh-upload-row', key: file.name },
-            React.createElement('span', { className: 'dsh-upload-file-name', title: file.path }, file.name),
-            React.createElement('span', { className: 'dsh-upload-file-meta' }, `${sizeText(file.size)} · ${dateText(file.modifiedAt)}`),
-            React.createElement(
+            { key: group.day ?? '__all__', className: 'dsh-upload-group' },
+            group.day !== null
+              ? React.createElement(
+                  'div',
+                  { className: 'dsh-upload-group-day' },
+                  group.day,
+                  React.createElement('span', null, `${group.files.length} 个文件`),
+                )
+              : null,
+            group.files.map((file) => React.createElement(
               'div',
-              { className: 'dsh-upload-actions' },
-              React.createElement('button', { type: 'button', className: 'dsh-upload-preview', onClick: () => previewFile(file.name) }, '预览'),
-              React.createElement('a', { href: downloadUrl(file.name), download: file.name }, '下载'),
+              { className: 'dsh-upload-row', key: file.name },
+              React.createElement('span', { className: 'dsh-upload-file-name', title: file.path }, file.name),
+              React.createElement('span', { className: 'dsh-upload-file-meta' }, `${sizeText(file.size)} · ${dateText(file.modifiedAt)}`),
               React.createElement(
-                'button',
-                { type: 'button', disabled: deleting === file.name, onClick: () => remove(file.name) },
-                deleting === file.name ? '删除中…' : '删除',
+                'div',
+                { className: 'dsh-upload-actions' },
+                React.createElement('button', { type: 'button', className: 'dsh-upload-preview', onClick: () => previewFile(file.name) }, '预览'),
+                React.createElement('a', { href: downloadUrl(file.name), download: file.name }, '下载'),
+                React.createElement(
+                  'button',
+                  { type: 'button', disabled: deleting === file.name, onClick: () => remove(file.name) },
+                  deleting === file.name ? '删除中…' : '删除',
+                ),
               ),
-            ),
+            )),
           )),
         ),
       )
@@ -623,6 +670,7 @@ window.__ModuleLoader__.load({
       .dsh-upload-chip>button:hover{background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary)}
       .dsh-upload-settings{display:flex;flex-direction:column;gap:16px;min-width:0;padding:4px 2px 24px;color:var(--dsw-alias-label-primary)}
       .dsh-upload-settings-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+      .dsh-upload-head-actions{display:flex;gap:8px;align-items:center;flex:none}
       .dsh-upload-settings h2{margin:0;font-size:20px;line-height:28px}
       .dsh-upload-settings p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px}
       .dsh-upload-refresh,.dsh-upload-actions button,.dsh-upload-actions a{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:6px 11px;font:inherit;font-size:12px;line-height:18px;text-decoration:none;cursor:pointer}
@@ -634,12 +682,16 @@ window.__ModuleLoader__.load({
       .dsh-upload-error{padding:10px 12px;border-radius:8px;background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary);font-size:12px}
       .dsh-upload-empty{padding:24px;text-align:center;color:var(--dsw-alias-label-secondary);border:1px dashed var(--dsw-alias-border-l2);border-radius:10px}
       .dsh-upload-list{display:flex;flex-direction:column;border-top:1px solid var(--dsw-alias-border-l2)}
+      .dsh-upload-group{display:flex;flex-direction:column}
+      .dsh-upload-group+.dsh-upload-group{margin-top:14px}
+      .dsh-upload-group-day{display:flex;align-items:baseline;gap:8px;padding:8px 4px 4px;font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary)}
+      .dsh-upload-group-day span{font-weight:400;color:var(--dsw-alias-label-tertiary)}
       .dsh-upload-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l2);border-radius:8px;font-size:13px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform,transparent);margin-bottom:4px}
       .dsh-upload-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary)}
       .dsh-upload-file-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px}
       .dsh-upload-actions{display:flex;flex:none;gap:7px}
       .dsh-upload-actions button{color:var(--dsw-alias-state-error-primary)}
-      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center}.dsh-upload-chip{min-width:160px}}
+      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center}.dsh-upload-chip{min-width:160px}.dsh-upload-settings-head{flex-direction:column;align-items:stretch;gap:10px}.dsh-upload-head-actions{width:100%;justify-content:flex-end}.dsh-upload-head-actions .dsh-upload-refresh{flex:1;text-align:center;padding:7px 8px;max-width:none}}
       .dsh-ws-folder:hover{background:var(--dsw-alias-interactive-bg-hover)}
       @media (max-width: 767px){ .dsh-upload-preview-head{padding:8px 10px;gap:8px} .dsh-upload-preview-head button{padding:4px 8px;font-size:11px}
         .dsh-ws-row{flex-direction:column!important;align-items:stretch!important;gap:4px!important}
