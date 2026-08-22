@@ -77,7 +77,7 @@ window.__ModuleLoader__.load({
 
     /** Basename of a path without its final extension (keeps the folder prefix intact). */
     function basenameWithoutExt(path) {
-      const base = String(path).split('/').pop() || String(path)
+      const base = String(path).split(/[\\/]/).pop() || String(path)
       return base.replace(/\.[^.]+$/, '')
     }
 
@@ -1876,11 +1876,21 @@ window.__ModuleLoader__.load({
         const getWorkspaceRoot = () => {
           workspaceRootPromise ??= fetch('/api/dsh-uploads/workspace', { headers: { Accept: 'application/json' } })
             .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-            .then((d) => (d && d.ok && typeof d.root === 'string') ? d.root.replace(/\/+$/, '') : '')
+            .then((d) => (d && d.ok && typeof d.root === 'string') ? stripTrailingSlash(normPath(d.root)) : '')
             .catch(() => '')
           return workspaceRootPromise
         }
         let lastCwd = ''
+        // 跨平台路径工具：Windows 用反斜杠 \，Unix 用正斜杠 /。统一规范化为正斜杠，
+        // 并识别两种系统的绝对路径（Unix「/」开头；Windows「X:\」盘符或「\\」UNC），
+        // 避免 Windows 下把绝对路径误当相对路径去拼 lastCwd（导致双重路径、500）。
+        const normPath = (p) => String(p == null ? '' : p).replace(/\\/g, '/').replace(/\/+/g, '/')
+        const isAbsPath = (p) => /^(\/|[A-Za-z]:\/|\/\/)/.test(p)
+        const stripTrailingSlash = (p) => String(p || '').replace(/\/+$/, '')
+        const baseName = (p) => {
+          const s = String(p == null ? '' : p).replace(/[\\/]+$/, '')
+          return s.split(/[\\/]/).pop() || ''
+        }
         const onFileClick = (event) => {
           const target = event.target
           // 匹配 DSH 消息文件引用 chip 的稳定语义属性（data-ref-chip），
@@ -1906,21 +1916,23 @@ window.__ModuleLoader__.load({
           const raw = (t && t.length > 0) ? t.trim() : text
           if (!raw) return
           // 兜底匹配到的元素需像文件路径才拦截，避免误伤含 "/" 的工具提示/面包屑。
-          if (!/\.(docx?|md|txt|pdf|xlsx?|pptx?|png|jpe?g|gif|webp|json|ya?ml|html?|css|js|ts|py|sh)$/i.test(raw) && !(raw.startsWith('/') && raw.includes('/'))) return
+          const rawNorm = normPath(raw)
+          if (!/\.(docx?|md|txt|pdf|xlsx?|pptx?|png|jpe?g|gif|webp|json|ya?ml|html?|css|js|ts|py|sh)$/i.test(rawNorm) && !(isAbsPath(rawNorm) && rawNorm.includes('/'))) return
           event.preventDefault()
           event.stopImmediatePropagation()
           event.stopPropagation()
-          const abs = raw.startsWith('/')
-            ? raw
-            : (lastCwd ? lastCwd.replace(/\/+$/, '') + '/' + raw.replace(/^\/+/, '') : raw)
+          // 绝对路径（Windows 盘符或 Unix / 开头）不再拼 lastCwd，避免生成「双重路径」。
+          const abs = isAbsPath(rawNorm)
+            ? rawNorm
+            : (lastCwd ? stripTrailingSlash(normPath(lastCwd)) + '/' + rawNorm.replace(/^\/+/, '') : rawNorm)
           getWorkspaceRoot().then((root) => {
-            const rawName = raw.split('/').pop() || text || raw
+            const rawName = baseName(rawNorm) || text || raw
             // 优先直接用 root 定位；若 raw 本身已含 root 前缀则剥离；否则回退 lastCwd。
             let rel
             if (root) {
-              if (raw.startsWith(root + '/')) rel = raw.slice(root.length + 1)
-              else if (raw.startsWith('/')) rel = raw.replace(/^\/+/, '')
-              else if (abs.startsWith(root + '/')) rel = abs.slice(root.length + 1)
+              if (rawNorm.startsWith(root + '/')) rel = rawNorm.slice(root.length + 1).replace(/^\/+/, '')
+              else if (isAbsPath(rawNorm)) rel = rawNorm.replace(/^\/+/, '')
+              else if (abs.startsWith(root + '/')) rel = abs.slice(root.length + 1).replace(/^\/+/, '')
               else rel = abs.replace(/^\/+/, '')
             } else {
               rel = abs.replace(/^\/+/, '')
@@ -1928,7 +1940,7 @@ window.__ModuleLoader__.load({
             const isPdf = /\.pdf$/i.test(rawName)
             // 标题用剥离后的真实文件名（rel 的 basename）而非 chip 的 title/文本，
             // 避免工具卡片「预览」按钮被误当成文件名（出现「预览 · 预览」）。
-            const titleName = rel.split('/').pop() || rawName || '文件'
+            const titleName = baseName(rel) || rawName || '文件'
             const url = isPdf
               ? '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(rel) + '&inline=1'
               : '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(rel)
@@ -1990,8 +2002,9 @@ window.__ModuleLoader__.load({
         }
         const WorkspaceFilesButton = ({ sessionId, useSessions }) => {
           const cur = useSessions((s) => (sessionId === void 0 ? void 0 : s.byId[sessionId]?.cwd))
-          React.useEffect(() => { if (cur) lastCwd = cur }, [cur])
-          const ws = cur ? cur.split('/').filter(Boolean).pop() : ''
+          React.useEffect(() => { if (cur) lastCwd = normPath(cur) }, [cur])
+          // Windows 下 cwd 是反斜杠路径（C:\...\jacky），按 / 与 \ 都能切，取末段文件夹名。
+          const ws = cur ? normPath(cur).split('/').filter(Boolean).pop() : ''
           return React.createElement(
             React.Fragment,
             null,

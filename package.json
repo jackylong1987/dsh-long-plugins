@@ -1,6 +1,6 @@
 {
   "name": "dsh-long-plugins",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Merged DSH web plugins: upload manager, workspace output files, skill docs, account balance, Markdown-to-Word (md2docx), and polished file preview (rendered Markdown, type labels, preview/delete/download).",
   "type": "module",
   "license": "MIT",
