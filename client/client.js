@@ -823,6 +823,20 @@ window.__ModuleLoader__.load({
       }, [])
       React.useEffect(() => { load() }, [load])
 
+      // md 预览是 iframe 内嵌 workspace-preview 页面，页面自带「关闭」按钮，
+      // 通过 postMessage 通知本组件关闭预览窗（放大态下同样生效）。
+      // 仅当本组件预览窗开着且内容来自 iframe 时才响应，避免误关其它内联预览。
+      React.useEffect(() => {
+        const onMessage = (event) => {
+          if (event.origin !== window.location.origin) return
+          if (event.data && event.data.type === 'dsh-close-preview') {
+            setPreview((current) => (current !== null && current.url !== void 0 ? null : current))
+          }
+        }
+        window.addEventListener('message', onMessage)
+        return () => window.removeEventListener('message', onMessage)
+      }, [])
+
       const openPreview = async (path) => {
         const isOffice = /\.(docx|xlsx|pptx)$/i.test(path)
         setPreview({ path, loading: true, officeLoading: isOffice })
@@ -841,9 +855,10 @@ window.__ModuleLoader__.load({
                 triggerDownload('/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(path) + '&download=1', data.name)
               }
             } else if (/\.(md|markdown)$/i.test(path)) {
-              // Markdown：走 workspace-preview 渲染页（服务端把 md 渲染成 HTML），
-              // 弹窗内 iframe 展示真实效果而非源码文本。
-              setPreview({ path, name: data.name, url: '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(path) })
+              // Markdown：用服务端渲染的 mdHtml（srcDoc 进外层 iframe），外层标题栏
+              // 完全控制（编辑/复制/删除/放大/关闭）；放大=外层真正全屏，按钮不重复。
+              // content 保留源码供「编辑/复制」使用（mdHtml 只用于预览展示）。
+              setPreview({ path, name: data.name, mdHtml: data.mdHtml, content: data.content })
             } else {
               setPreview(data)
             }
@@ -906,7 +921,16 @@ window.__ModuleLoader__.load({
           })
           const data = await res.json().catch(() => ({}))
           if (data.ok === true) {
-            setPreview((prev) => prev === null ? prev : { ...prev, content: edited, truncated: false })
+            // 保存后：更新 content，并重新渲染 mdHtml（若为 markdown），保证预览同步。
+            const updated = { ...preview, content: edited, truncated: false }
+            if (preview.mdHtml !== void 0) {
+              try {
+                const res2 = await fetch('/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(preview.path), { headers: { Accept: 'application/json' } })
+                const d2 = await res2.json().catch(() => ({}))
+                if (d2.ok === true && typeof d2.mdHtml === 'string') updated.mdHtml = d2.mdHtml
+              } catch { /* 刷新失败则保留现状 */ }
+            }
+            setPreview(updated)
             setEditing(false)
             setSavedFlash(true)
             setTimeout(() => setSavedFlash(false), 1500)
@@ -1006,11 +1030,11 @@ window.__ModuleLoader__.load({
               'div',
               { className: 'dsh-ws-preview-head', style: previewHeadStyle },
               React.createElement('strong', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 } }, `${preview.name ?? preview.path}`),
-              preview.binary !== true && preview.loading !== true && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => { if (editing) { setEdited(preview.content !== void 0 ? preview.content : ''); setEditing(false); } else setEditing(true); } }, editing ? '取消编辑' : '编辑'),
+              preview.binary !== true && preview.loading !== true && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => { if (editing) { setEdited(preview.content !== void 0 ? preview.content : ''); setEditing(false); } else { setEdited(preview.content !== void 0 ? preview.content : ''); setEditing(true); } } }, editing ? '取消编辑' : '编辑'),
               editing && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: doSave }, savedFlash ? '已保存' : '保存'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: copyContent }, copied ? '已复制' : '复制全部'),
-              (preview.url !== void 0 || preview.officeHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(preview.path) + '&download=1', download: preview.name, style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '下载'),
-              (preview.url !== void 0 || preview.officeHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(preview.path), target: '_blank', rel: 'noopener noreferrer', style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '打开'),
+              (preview.url !== void 0 || preview.officeHtml !== void 0 || preview.mdHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(preview.path) + '&download=1', download: preview.name, style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '下载'),
+              (preview.url !== void 0 || preview.officeHtml !== void 0 || preview.mdHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(preview.path), target: '_blank', rel: 'noopener noreferrer', style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '打开'),
               React.createElement('button', { type: 'button', style: delStyle, disabled: busy, onClick: () => doDelete(preview.path) }, '删除'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setPreview(null) }, '关闭'),
@@ -1026,8 +1050,9 @@ window.__ModuleLoader__.load({
                 : React.createElement('iframe', { title: preview.name ?? preview.path, src: preview.url, style: { width: '100%', height: '70vh', minHeight: 0, border: 'none', background: '#fff', flex: 1 } })),
               preview.binary === true && preview.officeHtml === void 0 && preview.url === void 0 && React.createElement('div', { style: { ...metaStyle, padding: 10 } }, '二进制文件，无法预览，请下载后查看'),
               preview.officeHtml !== void 0 && React.createElement('iframe', { title: preview.name ?? preview.path, srcDoc: preview.officeHtml, style: { width: '100%', flex: 1, minHeight: 0, border: 'none', background: '#fff' } }),
+              preview.mdHtml !== void 0 && editing !== true && React.createElement('iframe', { title: preview.name ?? preview.path, srcDoc: preview.mdHtml, style: { width: '100%', flex: 1, minHeight: 0, border: 'none', background: '#fff' } }),
               editing && preview.binary !== true && React.createElement('textarea', { style: textareaStyle, value: edited, onChange: (e) => setEdited(e.target.value), spellCheck: false }),
-              !editing && preview.binary !== true && preview.content !== void 0 && React.createElement('pre', { style: preStyle }, preview.content),
+              !editing && preview.binary !== true && preview.content !== void 0 && preview.mdHtml === void 0 && React.createElement('pre', { style: preStyle }, preview.content),
               preview.truncated === true && React.createElement('div', { style: { ...metaStyle, padding: '4px 12px 10px' } }, '（内容过大，仅显示前 256KB）'),
             ),
           ),
@@ -1775,7 +1800,7 @@ window.__ModuleLoader__.load({
 
     // ===== dsh-long-plugins: workspace file browser + inline preview =====
     // 共享内联面板状态：标题栏「📂 文件」、消息文件徽章、工具卡片文件名共用
-    // history：从列表页进入预览时压栈，「关闭」回到列表；「✕ 关闭」才真正关面板
+    // 关闭：直接关掉整个面板（一步退出，不残留 history 返回行为）。
     const wsOverlay = {
       url: null, title: '', history: [],
       listeners: new Set(),
@@ -1901,10 +1926,13 @@ window.__ModuleLoader__.load({
               rel = abs.replace(/^\/+/, '')
             }
             const isPdf = /\.pdf$/i.test(rawName)
+            // 标题用剥离后的真实文件名（rel 的 basename）而非 chip 的 title/文本，
+            // 避免工具卡片「预览」按钮被误当成文件名（出现「预览 · 预览」）。
+            const titleName = rel.split('/').pop() || rawName || '文件'
             const url = isPdf
               ? '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(rel) + '&inline=1'
               : '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(rel)
-            wsOverlay.open(url, '👁 预览 · ' + rawName)
+            wsOverlay.open(url, titleName)
           })
         }
         ctx.effect(() => {
@@ -1917,11 +1945,11 @@ window.__ModuleLoader__.load({
           const onMessage = (event) => {
             if (event.origin !== window.location.origin) return
             if (event.data && event.data.type === 'dsh-close-preview') {
-              // 渲染页里的「关闭」：有历史（来自列表）→ 回列表；否则关面板
-              if (!wsOverlay.back()) wsOverlay.close()
+              // 渲染页里的「关闭」：直接关掉整个面板（用户期望一步退出）。
+              wsOverlay.close()
             }
             if (event.data && event.data.type === 'dsh-open-preview' && typeof event.data.url === 'string') {
-              wsOverlay.open(event.data.url, '👁 预览 · ' + (event.data.title || '文件'), true)
+              wsOverlay.open(event.data.url, event.data.title || '文件', true)
             }
           }
           window.addEventListener('message', onMessage)
@@ -1937,7 +1965,7 @@ window.__ModuleLoader__.load({
           const [maximized, setMaximized] = React.useState(false)
           React.useEffect(() => {
             if (!url) return undefined
-            const onKey = (event) => { if (event.key === 'Escape') { if (maximized) setMaximized(false); else wsOverlay.back() || wsOverlay.close() } }
+            const onKey = (event) => { if (event.key === 'Escape') { if (maximized) setMaximized(false); else wsOverlay.close() } }
             window.addEventListener('keydown', onKey)
             return () => window.removeEventListener('keydown', onKey)
           }, [url, maximized])
@@ -1952,7 +1980,7 @@ window.__ModuleLoader__.load({
                 isInline && React.createElement('a', { className: 'dsh-ws-files-close', href: url, target: '_blank', rel: 'noopener noreferrer' }, '打开'),
                 isInline && React.createElement('a', { className: 'dsh-ws-files-close', href: url.replace(/[?&]inline=1/, '') + (url.indexOf('?') !== -1 ? '&download=1' : '?download=1'), download: true }, '下载'),
                 React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
-                React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => { if (!wsOverlay.back()) wsOverlay.close() } }, '✕ 关闭'),
+                React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => wsOverlay.close() }, '✕ 关闭'),
               ),
               isInline
                 ? React.createElement('embed', { className: 'dsh-ws-files-frame', src: url, type: 'application/pdf', title: '文件预览' })

@@ -1,7 +1,7 @@
 {
   "name": "dsh-long-plugins",
-  "version": "1.2.4",
-  "description": "Merged DSH web plugins: upload manager, workspace 输出文件, 技能文档, account balance, mobile layout, and turn-ruler history navigation.",
+  "version": "1.2.5",
+  "description": "Merged DSH web plugins: upload manager, workspace output files, skill docs, account balance, Markdown-to-Word (md2docx), and polished file preview (rendered Markdown, type labels, preview/delete/download).",
   "type": "module",
   "license": "MIT",
   "main": "lib/index.js",
@@ -18,9 +18,16 @@
     "dsh.plugin.json"
   ],
   "dependencies": {
-    "@deepseek-ai/dsh-tools": "*",
     "mammoth": "^1.12.1",
     "exceljs": "^4.4.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    }
   },
   "dsh": {
     "bundle": {
