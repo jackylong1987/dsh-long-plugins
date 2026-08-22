@@ -14,6 +14,7 @@ DeepSeek account balance — all in one installable plugin.
 | Workspace output files | 设置面板「输出文件」：按工作区文件夹分组、预览、**编辑/保存**、复制全部、**放大窗口** |
 | Skill docs | 设置面板「技能文档」：按技能目录浏览 SKILL.md、弹窗预览、编辑/保存、复制、放大窗口 |
 | Account balance | 输入框下方显示 DeepSeek 账户余额（60s 自动刷新） |
+| md2docx | DSH 工具：把 Markdown 一键转成带页码页脚的 Word（`.docx`），标题/表格/加粗/列表/引用，生成的文件作为可点击交付物出现在消息里 |
 | Turn ruler | 会话右侧轮次导航：3 个比例刻度（最早/中间/最新）+ 预览窗列出全部轮次标题，光标点亮、点击蓝色标记并定位会话，滚到顶部自动加载更早历史，手机端竖向把手打开预览窗 |
 | Mobile layout | 手机端布局优化（输入栏、设置面板、主题选择、模型选择器） |
 
@@ -64,6 +65,17 @@ Add to the profile's `cordis.patch.yml`:
 
 - `trustedHosts` — required for the browser trust fence (same as the built-in Web API).
 - `skillsRoot` — root directory browsed by the「技能文档」section. Defaults to `<DSH_HOME>/skills`.
+- `md2docxScript` — (optional) override the Markdown→Word script path. Defaults to the bundled `lib/md2docx.py`.
+
+## md2docx 工具（Markdown → Word）
+
+Agent 可直接调用 `md2docx` 工具，把 Markdown 转成带页码页脚的 Word 文档：
+
+- 输入 `input`（必填）：`.md` 文件绝对路径。
+- 输出 `output`（可选）：`.docx` 路径；缺省为同目录同名 `.docx`。
+- 生成的文件会作为可点击交付物卡片出现在消息里（复用插件内置预览/打开链路）。
+
+**前置依赖：** 宿主需安装 `python3` 与 `python-docx`（`pip install python-docx`）。转换脚本随包分发（`lib/md2docx.py`），无需额外安装脚本；也无需 pandoc。
 
 ## Server routes / 服务端路由
 

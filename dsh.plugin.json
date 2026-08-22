@@ -1,7 +1,7 @@
 {
   "name": "dsh-long-plugins",
   "description": "Merged DSH web plugins: upload manager, workspace 输出文件, 技能文档, DeepSeek account balance.",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "entry": {
     "name": "dsh-long-plugins",
     "inject": [

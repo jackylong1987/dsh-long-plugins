@@ -55,6 +55,7 @@ window.__ModuleLoader__.load({
       '.csv', '.tsv', '.log', '.ini', '.conf', '.env', '.toml', '.rtf',
       '.py', '.js', '.mjs', '.cjs', '.ts', '.sh', '.css', '.sql', '.rs', '.go', '.c', '.h', '.cpp',
       '.java', '.kt', '.swift', '.rb', '.php', '.vue', '.jsx', '.tsx',
+      '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.avif',
     ])
 
     /** Whether a file can be previewed inline in the browser. */
@@ -66,6 +67,18 @@ window.__ModuleLoader__.load({
     function extnameOf(name) {
       const i = String(name).lastIndexOf('.')
       return i > 0 ? String(name).slice(i) : ''
+    }
+
+    /** Upper-case type label for a file name (e.g. 'PDF', 'DOCX', 'MD'), or 'FILE' when unknown. */
+    function fileTypeLabel(name) {
+      const ext = extnameOf(name).replace(/^\./, '')
+      return ext ? ext.toUpperCase() : 'FILE'
+    }
+
+    /** Basename of a path without its final extension (keeps the folder prefix intact). */
+    function basenameWithoutExt(path) {
+      const base = String(path).split('/').pop() || String(path)
+      return base.replace(/\.[^.]+$/, '')
     }
 
     /** Trigger a browser download for a URL (no navigation, keeps the page). */
@@ -506,6 +519,7 @@ window.__ModuleLoader__.load({
         try {
           const response = await fetch(`${API_PATH}?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
           await responseJson(response)
+          if (preview !== null && preview.name === name) closePreview()
           await refresh()
         } catch (error) {
           setState((current) => ({ ...current, error: errorMessage(error) }))
@@ -644,11 +658,15 @@ window.__ModuleLoader__.load({
                   React.createElement('strong', null, preview.name),
                   React.createElement(
                     'div',
-                    { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                    { className: 'dsh-upload-preview-actions', style: { display: 'flex', gap: 8, alignItems: 'center' } },
                     !preview.officeLoading && !(preview.url && preview.url.startsWith('blob:')) && preview.name !== void 0
                       ? React.createElement('a', { href: preview.officeHtml !== void 0 ? downloadUrl(preview.name) : previewUrl(preview.name), target: '_blank', rel: 'noopener noreferrer', className: 'dsh-upload-preview-open' }, '打开')
                       : null,
+                    !preview.officeLoading && !(preview.url && preview.url.startsWith('blob:')) && preview.name !== void 0
+                      ? React.createElement('a', { href: downloadUrl(preview.name), download: preview.name, className: 'dsh-upload-preview-open' }, '下载')
+                      : null,
                     React.createElement('button', { type: 'button', onClick: () => setPreviewMaximized((m) => !m) }, previewMaximized ? '还原' : '放大'),
+                    React.createElement('button', { type: 'button', className: 'dsh-upload-preview-del', disabled: deleting === preview.name, onClick: () => remove(preview.name) }, deleting === preview.name ? '删除中…' : '删除'),
                     React.createElement('button', { type: 'button', onClick: closePreview }, '关闭'),
                   ),
                 ),
@@ -685,7 +703,12 @@ window.__ModuleLoader__.load({
             group.files.map((file) => React.createElement(
               'div',
               { className: 'dsh-upload-row', key: file.name },
-              React.createElement('span', { className: 'dsh-upload-file-name', title: file.path }, file.name),
+              React.createElement(
+                'span',
+                { className: 'dsh-upload-file-name', title: file.path },
+                React.createElement('span', { className: 'dsh-upload-file-label' }, file.name.replace(/\.[^.]+$/, '')),
+                React.createElement('span', { className: 'dsh-upload-file-type' }, fileTypeLabel(file.name)),
+              ),
               React.createElement('span', { className: 'dsh-upload-file-meta' }, `${sizeText(file.size)} · ${dateText(file.modifiedAt)}`),
               React.createElement(
                 'div',
@@ -743,13 +766,17 @@ window.__ModuleLoader__.load({
       .dsh-upload-group-day{display:flex;align-items:baseline;gap:8px;padding:8px 4px 4px;font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary)}
       .dsh-upload-group-day span{font-weight:400;color:var(--dsw-alias-label-tertiary)}
       .dsh-upload-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l2);border-radius:8px;font-size:13px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform,transparent);margin-bottom:4px}
-      .dsh-upload-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary)}
+      .dsh-upload-file-name{flex:1;min-width:0;display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-primary)}
+      .dsh-upload-file-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .dsh-upload-file-type{flex:none;font-size:10px;line-height:14px;padding:1px 6px;border-radius:5px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover);white-space:nowrap}
       .dsh-upload-file-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px}
       .dsh-upload-actions{display:flex;flex:none;gap:7px}
       .dsh-upload-actions button{color:var(--dsw-alias-state-error-primary)}
       @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center}.dsh-upload-chip{min-width:160px}.dsh-upload-settings-head{flex-direction:column;align-items:stretch;gap:10px}.dsh-upload-head-actions{width:100%;justify-content:flex-end}.dsh-upload-head-actions .dsh-upload-refresh{flex:1;text-align:center;padding:7px 8px;max-width:none}}
       .dsh-ws-folder:hover{background:var(--dsw-alias-interactive-bg-hover)}
-      @media (max-width: 767px){ .dsh-upload-preview-head{padding:8px 10px;gap:8px} .dsh-upload-preview-head button{padding:4px 8px;font-size:11px}
+      .dsh-ws-file-type{flex:none;font-size:10px;line-height:14px;padding:1px 6px;border-radius:5px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover);white-space:nowrap}
+      .dsh-upload-preview-del{color:var(--dsw-alias-state-error-primary)!important}
+      @media (max-width: 767px){ .dsh-upload-preview-head{padding:8px 10px;gap:8px;flex-direction:column;align-items:stretch!important} .dsh-upload-preview-head strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .dsh-upload-preview-actions{flex-wrap:wrap;justify-content:flex-start} .dsh-upload-preview-actions a,.dsh-upload-preview-actions button{flex:1 1 auto;min-width:56px;text-align:center;padding:5px 8px;font-size:11px}
         .dsh-ws-row{flex-direction:column!important;align-items:stretch!important;gap:4px!important}
         .dsh-ws-name{white-space:normal!important;word-break:break-all}
         .dsh-ws-meta{font-size:11px}
@@ -949,7 +976,12 @@ window.__ModuleLoader__.load({
           !collapsed[group.folder] && group.files.map((f) => React.createElement(
             'div',
             { key: f.path, className: 'dsh-ws-row', style: rowStyle },
-            React.createElement('span', { className: 'dsh-ws-name', style: nameStyle, title: f.path }, f.path),
+            React.createElement(
+              'span',
+              { className: 'dsh-ws-name', style: { ...nameStyle, display: 'flex', alignItems: 'center', gap: 6 }, title: f.path },
+              React.createElement('span', { className: 'dsh-ws-file-label', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, basenameWithoutExt(f.path)),
+              React.createElement('span', { className: 'dsh-ws-file-type', style: { flex: 'none' } }, fileTypeLabel(f.path)),
+            ),
             React.createElement('span', { className: 'dsh-ws-meta', style: metaStyle }, `${sizeText(f.size)} · ${dateText(f.mtime)}`),
             React.createElement(
               'div',
@@ -975,6 +1007,7 @@ window.__ModuleLoader__.load({
               React.createElement('button', { type: 'button', style: btnStyle, onClick: copyContent }, copied ? '已复制' : '复制全部'),
               (preview.url !== void 0 || preview.officeHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(preview.path) + '&download=1', download: preview.name, style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '下载'),
               (preview.url !== void 0 || preview.officeHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(preview.path), target: '_blank', rel: 'noopener noreferrer', style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '打开'),
+              React.createElement('button', { type: 'button', style: delStyle, disabled: busy, onClick: () => doDelete(preview.path) }, '删除'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setPreview(null) }, '关闭'),
             ),
@@ -1807,8 +1840,8 @@ window.__ModuleLoader__.load({
           document.head.appendChild(style)
           return () => style.remove()
         }, 'dsh-long-plugins: workspace files button styles')
-        // 全局点击拦截：消息文件徽章 + 工具卡片文件名 + 产物文件芯片 → 内联预览
-        // 类名随 DSH 版本（升级后需核对）：._fileMention_* 徽章 / .o3BgMG_fileLink 工具卡片 / .P4kPIW_file 产物芯片
+        // 全局点击拦截：消息文件引用 chip（data-ref-chip）+ 工具卡片文件名 + 产物芯片 → 内联预览。
+        // 类名随 DSH 版本变化，故用稳定的 data-ref-chip 语义属性匹配（旧版 _fileMention_*/o3BgMG_* 已失效）；
         // 工作区根路径运行时从服务端获取（避免硬编码本机路径）
         let workspaceRootPromise = null
         const getWorkspaceRoot = () => {
@@ -1821,26 +1854,48 @@ window.__ModuleLoader__.load({
         let lastCwd = ''
         const onFileClick = (event) => {
           const target = event.target
-          const el = target && target.closest
-            ? target.closest('.o3BgMG_fileLink, ._fileMention_1nba0_249, .P4kPIW_file')
+          // 匹配 DSH 消息文件引用 chip 的稳定语义属性（data-ref-chip），
+          // 而非随 DSH 版本变化的 CSS 哈希类名（旧版 _fileMention_* / o3BgMG_* 已失效）。
+          let el = target && target.closest
+            ? target.closest('[data-ref-chip], .o3BgMG_fileLink, .P4kPIW_file')
             : null
+          // 兜底：匹配看起来像文件路径的可点击元素。
+          // 通用判定，不硬编码本机目录（如 /volume1/、workspace/，换机器会失效）：
+          // 绝对路径（title 以 / 开头）或以常见文档/办公扩展名结尾。
+          // 「是否真的在可打开工作区内」交给下方 rel 解析 + 运行时 workspaceRoot 判定。
+          if (!el && target) {
+            const t = target.closest
+              ? target.closest('[title^="/"], [title$=".docx"], [title$=".md"]')
+              : null
+            if (t) el = t
+          }
           if (!el) return
-          // 优先用 title 里的完整路径（产物芯片/徽章带 title=完整路径），否则用文字
+          // chip 的 title 是完整引用 label（含路径），是获取路径的稳定来源；
+          // 否则退回 displayLabel 文字（可能只有文件名）。
           const t = el.getAttribute ? el.getAttribute('title') : null
-          const raw = (t && (t.startsWith('/') || t.indexOf('/') !== -1) ? t.trim() : (el.textContent || '').trim())
+          const text = (el.textContent || '').trim().replace(/^[📁📄🗂\u200b]/, '')
+          const raw = (t && t.length > 0) ? t.trim() : text
           if (!raw) return
+          // 兜底匹配到的元素需像文件路径才拦截，避免误伤含 "/" 的工具提示/面包屑。
+          if (!/\.(docx?|md|txt|pdf|xlsx?|pptx?|png|jpe?g|gif|webp|json|ya?ml|html?|css|js|ts|py|sh)$/i.test(raw) && !(raw.startsWith('/') && raw.includes('/'))) return
           event.preventDefault()
+          event.stopImmediatePropagation()
           event.stopPropagation()
           const abs = raw.startsWith('/')
             ? raw
             : (lastCwd ? lastCwd.replace(/\/+$/, '') + '/' + raw.replace(/^\/+/, '') : raw)
           getWorkspaceRoot().then((root) => {
-            const rawName = raw.split('/').pop() || raw
-            const rel = root && abs.startsWith(root + '/')
-              ? abs.slice(root.length + 1)
-              : (root ? abs.replace(/^\/+/, '') : abs.replace(/^\/+/, ''))
-            // PDF 直接嵌原始流（单层 iframe，浏览器原生查看器可滚动翻页）；
-            // 其它类型走 workspace-preview 渲染页。
+            const rawName = raw.split('/').pop() || text || raw
+            // 优先直接用 root 定位；若 raw 本身已含 root 前缀则剥离；否则回退 lastCwd。
+            let rel
+            if (root) {
+              if (raw.startsWith(root + '/')) rel = raw.slice(root.length + 1)
+              else if (raw.startsWith('/')) rel = raw.replace(/^\/+/, '')
+              else if (abs.startsWith(root + '/')) rel = abs.slice(root.length + 1)
+              else rel = abs.replace(/^\/+/, '')
+            } else {
+              rel = abs.replace(/^\/+/, '')
+            }
             const isPdf = /\.pdf$/i.test(rawName)
             const url = isPdf
               ? '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(rel) + '&inline=1'

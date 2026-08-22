@@ -1,6 +1,6 @@
 {
   "name": "dsh-long-plugins",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Merged DSH web plugins: upload manager, workspace 输出文件, 技能文档, account balance, mobile layout, and turn-ruler history navigation.",
   "type": "module",
   "license": "MIT",
@@ -12,11 +12,13 @@
   },
   "files": [
     "lib",
+    "lib/md2docx.py",
     "client",
     "cordis.patch.yml",
     "dsh.plugin.json"
   ],
   "dependencies": {
+    "@deepseek-ai/dsh-tools": "*",
     "mammoth": "^1.12.1",
     "exceljs": "^4.4.0"
   },
