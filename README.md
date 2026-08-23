@@ -27,52 +27,38 @@ DeepSeek account balance — all in one installable plugin.
 
 ## Install / 安装
 
-> ⚠️ **目录约定（先看再装）**：插件源码应放在 **`$DSH_HOME/plugins/dsh-long-plugins`**（DSH_HOME 默认 `~/.dsh`，即 `~/.dsh/plugins/dsh-long-plugins`）——这是**后续所有 DSH 插件的统一安装目录**；DSH 运行脚本（含 `restart-dsh.ps1`、`python3.exe` shim）放 **`$DSH_HOME/bin`**。**不要把插件/bin 放到你的工作目录或当前目录**（如 `C:\dsh\workspace`）。你的**工作目录**（名字不固定，可能叫 `workspace`/`jobs`/`project` 等）由你指定，其中 `upload` 子目录是上传根（`DSH_UPLOAD_DIR`）。这些目录缺失时请先创建（`mkdir -p`）。
+> **目录约定**：插件放 `$DSH_HOME/plugins/dsh-long-plugins`，DSH 运行脚本（`bin`）放 `$DSH_HOME/bin`，都别放工作目录。你的**工作目录**（名字任意）由用户指定，其下 `upload` 为上传根（`DSH_UPLOAD_DIR`）。目录缺失用 `mkdir -p` 补建。
 
 ### 方式 A：`install.sh`（Unix/Linux/NAS）
-clone 到 DSH 插件目录（不是当前目录），然后运行脚本：
 ```sh
-mkdir -p "$HOME/.dsh/plugins" "$HOME/.dsh/bin"
 git clone https://github.com/jackylong1987/dsh-long-plugins.git "$HOME/.dsh/plugins/dsh-long-plugins"
 cd "$HOME/.dsh/plugins/dsh-long-plugins"
 ./install.sh web "$HOME/.dsh" "$HOME/.dsh/plugins/dsh-long-plugins"
 ```
-`install.sh` 会把 `file:` 依赖 + bundle 写入该 profile 的 `package.json`，`pnpm install`，追加 `cordis.patch.yml` 配置示例，**并自动把仓库内的部署 skill（`skill/dsh-long-plugins-install/SKILL.md`）复制到 `$DSH_HOME/skills/`** —— 之后在 DSH 会话里说"帮我安装 dsh-long-plugins"，agent 就会按这个 skill 指引执行。
 
-### 方式 B：Windows（PowerShell，不走 install.sh）
-`install.sh` 是 shell 脚本，Windows 用 DSH CLI + 绝对路径：
+### 方式 B：Windows（PowerShell）
 ```powershell
-mkdir -p "$env:USERPROFILE\.dsh\plugins" | Out-Null
-mkdir -p "$env:USERPROFILE\.dsh\bin" | Out-Null
 git clone https://github.com/jackylong1987/dsh-long-plugins.git "$env:USERPROFILE\.dsh\plugins\dsh-long-plugins"
 dsh plugin --profile web add "file:$env:USERPROFILE\.dsh\plugins\dsh-long-plugins"
-# 手动把 "dsh-long-plugins" 追加到 profile package.json 的 dsh.profile.bundles
+# 把 "dsh-long-plugins" 追加到 profile package.json 的 dsh.profile.bundles
 ```
-> **Windows 注意**：① `python3` 常是 Windows Store 的坏 stub，md2docx 需要把真实 python 拷贝为 `python3.exe` 放进 `$env:USERPROFILE\.dsh\bin` 并加入 DSH 服务的 PATH；② 若 `github.com` 连不上，可用 codeload tarball：`Invoke-WebRequest https://codeload.github.com/jackylong1987/dsh-long-plugins/tar.gz/refs/heads/main -OutFile p.tgz` + `tar -xzf`，把内层目录移到 `$env:USERPROFILE\.dsh\plugins\dsh-long-plugins`。
+Windows 不跑 `install.sh`，skill 需手动放到 `$env:USERPROFILE\.dsh\skills\`。
 
-### 方式 C：用 skill 安装（推荐，让 agent 按指引一键装）
-**前置：把部署 skill 放进 DSH。** 如 `$DSH_HOME/skills/`（安装后见方式 A/B 已自动放好；若没有，手动放一次 skill 文件）。
+### 方式 C：用 skill 安装（推荐）
+前置把 skill 放进 `$DSH_HOME/skills/`。之后在 DSH 会话中：安装 `dsh-long-plugins`，agent 按 skill 指引自动完成。
 
-**在 DSH 会话中：** 安装 `dsh-long-plugins`，agent 会加载该 skill 自动完成安装（关键决策点会停下来问你）。
-
-### 手动（任意平台）
-把 `file:` 依赖（**用绝对路径**）和 bundle 加进 `<DSH_HOME>/profiles/<profile>/package.json`：
+### 手动
+在 `<DSH_HOME>/profiles/<profile>/package.json` 加 `file:` 依赖与 bundle，然后 `pnpm install`：
 ```json
-{
-  "dependencies": { "dsh-long-plugins": "file:/home/me/.dsh/plugins/dsh-long-plugins" },
-  "dsh": { "profile": { "bundles": ["dsh-long-plugins"] } }
-}
+{ "dependencies": { "dsh-long-plugins": "file:/home/me/.dsh/plugins/dsh-long-plugins" }, "dsh": { "profile": { "bundles": ["dsh-long-plugins"] } } }
 ```
-然后 `pnpm install`。
 
 ### 工作目录 / 上传目录
-- 用户指定**真实工作目录**（名字任意），在其下（或指定位置）设上传根：
-  ```sh
-  mkdir -p "/home/me/project/upload"
-  export DSH_UPLOAD_DIR="/home/me/project/upload"    # 工作区根自动 = /home/me/project
-  ```
-  把它写进你的启动脚本（start.sh / restart-dsh.ps1），并确认 DSH 进程对 `DSH_UPLOAD_DIR` 可写。
-- 目录缺失用 `mkdir -p` 补建，不要默认落到当前目录。
+按你的工作目录设上传根（目录缺失 `mkdir -p` 补建），并写进启动脚本、确认可写：
+```sh
+mkdir -p "/home/me/project/upload"
+export DSH_UPLOAD_DIR="/home/me/project/upload"   # 工作区根 = /home/me/project
+```
 
 ## Configuration / 配置
 
@@ -114,13 +100,6 @@ Agent 可直接调用 `md2docx` 工具，把 Markdown 转成带页码页脚的 W
 ```
 
 Plus the upload manager's core routes (`/api/dsh-uploads`, download, preview).
-
-## Important / 注意
-
-- The web server must be started with `--expose-internals` (the bundled
-  `start.sh` already does) so the plugin can be resolved from the profile.
-- The bundle patch declares `inject: [webRuntime]` so `trustedHosts` is
-  evaluated only after the web runtime mounts.
 
 ## License
 
