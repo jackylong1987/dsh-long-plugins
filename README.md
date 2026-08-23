@@ -2,9 +2,10 @@
 
 Merged plugin bundle for [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (DSH) Web:
 upload manager, workspace **输出文件** section, **技能文档** (skill docs) browser, and
-DeepSeek account balance — all in one installable plugin.
+DeepSeek account balance — all in one installable plugin. Also ships an auto-repair
+install that relinks DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink).
 
-一个插件整合 DSH Web 的常用增强：上传管理、工作区「输出文件」面板、技能文档浏览、账户余额显示。
+一个插件整合 DSH Web 的常用增强：上传管理、工作区「输出文件」面板、技能文档浏览、账户余额显示。并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。
 
 ## Features / 功能
 
@@ -16,6 +17,7 @@ DeepSeek account balance — all in one installable plugin.
 | Account balance | 输入框下方显示 DeepSeek 账户余额（60s 自动刷新） |
 | md2docx | DSH 工具：把 Markdown 一键转成带页码页脚的 Word（`.docx`），标题/表格/加粗/列表/引用，生成的文件作为可点击交付物出现在消息里 |
 | Turn ruler | 会话右侧轮次导航：3 个比例刻度（最早/中间/最新）+ 预览窗列出全部轮次标题，光标点亮、点击蓝色标记并定位会话，滚到顶部自动加载更早历史，手机端竖向把手打开预览窗 |
+| Auto-repair install | 安装时自动重打 DSH 核心补丁：反代 WebSocket 心跳（修复提问窗口自己消失）、升级后重连 |
 | Mobile layout | 手机端布局优化（输入栏、设置面板、主题选择、模型选择器） |
 
 ## Turn ruler / 轮次导航
