@@ -1,6 +1,6 @@
 {
   "name": "dsh-long-plugins",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "Merged DSH web plugins: upload manager, workspace output files, skill docs, account balance, Markdown-to-Word (md2docx), polished file preview, and an auto-repair install for DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink).",
   "type": "module",
   "license": "MIT",
@@ -18,6 +18,8 @@
     "dsh.plugin.json",
     "skill/dsh-long-plugins-install/SKILL.md",
     "skill/dsh-upgrade/SKILL.md",
+    "skill/dsh-common-plugins-install/SKILL.md",
+    "skill/dsh-web-win-service-install/SKILL.md",
     "patches/dsh-client-connection-heartbeat.sh"
   ],
   "dependencies": {
