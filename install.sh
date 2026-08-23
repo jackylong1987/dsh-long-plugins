@@ -116,18 +116,31 @@ echo "  - DSH 运行脚本（restart-dsh.ps1 / python3.exe shim）放 $DSH_HOME/
 echo "  - 上传根 DSH_UPLOAD_DIR：默认 <DSH_HOME>/uploads；如你有工作目录（如 workspace/jobs），"
 echo "    可设 export DSH_UPLOAD_DIR=<你的工作目录>/upload（工作区根自动=该工作目录），并确认 DSH 对其可写。"
 
-# 附带安装部署 skill（若仓库带 skill/dsh-long-plugins-install/SKILL.md）
+# 附带安装仓库自带的 skill（若存在对应的 SKILL.md）
 # 复制到 $DSH_HOME/skills/ 下，DSH 会自动发现并热加载。这样安装机器上即可用
-# skill 在会话里让 agent 按指引安装/排障。
-SKILL_SRC="$PLUGIN_DIR/skill/dsh-long-plugins-install/SKILL.md"
-SKILL_DST_DIR="$DSH_HOME/skills/dsh-long-plugins-install"
-if [ -f "$SKILL_SRC" ]; then
-  mkdir -p "$SKILL_DST_DIR"
-  cp "$SKILL_SRC" "$SKILL_DST_DIR/SKILL.md"
+# skill 在会话里让 agent 按对应指引安装/排障/升级。
+for skill_name in dsh-long-plugins-install dsh-upgrade; do
+  SKILL_SRC="$PLUGIN_DIR/skill/$skill_name/SKILL.md"
+  SKILL_DST_DIR="$DSH_HOME/skills/$skill_name"
+  if [ -f "$SKILL_SRC" ]; then
+    mkdir -p "$SKILL_DST_DIR"
+    cp "$SKILL_SRC" "$SKILL_DST_DIR/SKILL.md"
+    echo
+    echo "✅ 已安装 skill 到 $SKILL_DST_DIR/SKILL.md"
+  else
+    echo
+    echo "（未发现仓库 skill 文件 $SKILL_SRC，跳过 skill 安装）"
+  fi
+done
+
+# 附带重打核心心跳补丁（装插件顺带修「反代下提问窗口自己消失」）
+# 该补丁改的是 DSH 核心 dsh-client-connection，升级 DSH 会覆盖，需重跑。
+HB_PATCH="$PLUGIN_DIR/patches/dsh-client-connection-heartbeat.sh"
+if [ -f "$HB_PATCH" ]; then
   echo
-  echo "✅ 已安装部署 skill 到 $SKILL_DST_DIR/SKILL.md"
-  echo "   在 DSH 会话里说\"帮我安装 dsh-long-plugins\"即可让 agent 按 skill 指引操作。"
+  echo "== 重打核心心跳补丁（提问窗口不再消失）=="
+  ( sh "$HB_PATCH" ) || echo "   心跳补丁暂未应用（可稍后手动重跑 $HB_PATCH）"
 else
   echo
-  echo "（未发现仓库 skill 文件 $SKILL_SRC，跳过 skill 安装）"
+  echo "（未发现心跳补丁脚本 $HB_PATCH，跳过）"
 fi
