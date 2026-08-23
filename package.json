@@ -15,7 +15,8 @@
     "lib/md2docx.py",
     "client",
     "cordis.patch.yml",
-    "dsh.plugin.json"
+    "dsh.plugin.json",
+    "skill/dsh-long-plugins-install/SKILL.md"
   ],
   "dependencies": {
     "mammoth": "^1.12.1",

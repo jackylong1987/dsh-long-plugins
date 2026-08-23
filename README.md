@@ -37,7 +37,7 @@ git clone https://github.com/jackylong1987/dsh-long-plugins.git "$HOME/.dsh/plug
 cd "$HOME/.dsh/plugins/dsh-long-plugins"
 ./install.sh web "$HOME/.dsh" "$HOME/.dsh/plugins/dsh-long-plugins"
 ```
-`install.sh` 会把 `file:` 依赖 + bundle 写入该 profile 的 `package.json`，`pnpm install`，并追加 `cordis.patch.yml` 配置示例。
+`install.sh` 会把 `file:` 依赖 + bundle 写入该 profile 的 `package.json`，`pnpm install`，追加 `cordis.patch.yml` 配置示例，**并自动把仓库内的部署 skill（`skill/dsh-long-plugins-install/SKILL.md`）复制到 `$DSH_HOME/skills/`** —— 之后在 DSH 会话里说"帮我安装 dsh-long-plugins"，agent 就会按这个 skill 指引执行。
 
 ### 方式 B：Windows（PowerShell，不走 install.sh）
 `install.sh` 是 shell 脚本，Windows 用 DSH CLI + 绝对路径：
@@ -49,6 +49,11 @@ dsh plugin --profile web add "file:$env:USERPROFILE\.dsh\plugins\dsh-long-plugin
 # 手动把 "dsh-long-plugins" 追加到 profile package.json 的 dsh.profile.bundles
 ```
 > **Windows 注意**：① `python3` 常是 Windows Store 的坏 stub，md2docx 需要把真实 python 拷贝为 `python3.exe` 放进 `$env:USERPROFILE\.dsh\bin` 并加入 DSH 服务的 PATH；② 若 `github.com` 连不上，可用 codeload tarball：`Invoke-WebRequest https://codeload.github.com/jackylong1987/dsh-long-plugins/tar.gz/refs/heads/main -OutFile p.tgz` + `tar -xzf`，把内层目录移到 `$env:USERPROFILE\.dsh\plugins\dsh-long-plugins`。
+
+### 方式 C：用 skill 安装（推荐，让 agent 按指引一键装）
+**前置：把部署 skill 放进 DSH。** 如 `$DSH_HOME/skills/`（安装后见方式 A/B 已自动放好；若没有，手动放一次 skill 文件）。
+
+**在 DSH 会话中：** 安装 `dsh-long-plugins`，agent 会加载该 skill 自动完成安装（关键决策点会停下来问你）。
 
 ### 手动（任意平台）
 把 `file:` 依赖（**用绝对路径**）和 bundle 加进 `<DSH_HOME>/profiles/<profile>/package.json`：
