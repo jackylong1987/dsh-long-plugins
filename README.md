@@ -27,29 +27,47 @@ DeepSeek account balance — all in one installable plugin.
 
 ## Install / 安装
 
-Clone anywhere, then run `install.sh` against a DSH profile:
+> ⚠️ **目录约定（先看再装）**：插件源码应放在 **`$DSH_HOME/plugins/dsh-long-plugins`**（DSH_HOME 默认 `~/.dsh`，即 `~/.dsh/plugins/dsh-long-plugins`）——这是**后续所有 DSH 插件的统一安装目录**；DSH 运行脚本（含 `restart-dsh.ps1`、`python3.exe` shim）放 **`$DSH_HOME/bin`**。**不要把插件/bin 放到你的工作目录或当前目录**（如 `C:\dsh\workspace`）。你的**工作目录**（名字不固定，可能叫 `workspace`/`jobs`/`project` 等）由你指定，其中 `upload` 子目录是上传根（`DSH_UPLOAD_DIR`）。这些目录缺失时请先创建（`mkdir -p`）。
 
+### 方式 A：`install.sh`（Unix/Linux/NAS）
+clone 到 DSH 插件目录（不是当前目录），然后运行脚本：
 ```sh
-git clone https://github.com/jackylong1987/dsh-long-plugins.git
-cd dsh-long-plugins
-./install.sh web "$HOME/.dsh"      # profile, DSH_HOME
+mkdir -p "$HOME/.dsh/plugins" "$HOME/.dsh/bin"
+git clone https://github.com/jackylong1987/dsh-long-plugins.git "$HOME/.dsh/plugins/dsh-long-plugins"
+cd "$HOME/.dsh/plugins/dsh-long-plugins"
+./install.sh web "$HOME/.dsh" "$HOME/.dsh/plugins/dsh-long-plugins"
 ```
+`install.sh` 会把 `file:` 依赖 + bundle 写入该 profile 的 `package.json`，`pnpm install`，并追加 `cordis.patch.yml` 配置示例。
 
-`install.sh` adds the `file:` dependency and bundle entry to the profile's
-`package.json`, then runs `pnpm install`.
+### 方式 B：Windows（PowerShell，不走 install.sh）
+`install.sh` 是 shell 脚本，Windows 用 DSH CLI + 绝对路径：
+```powershell
+mkdir -p "$env:USERPROFILE\.dsh\plugins" | Out-Null
+mkdir -p "$env:USERPROFILE\.dsh\bin" | Out-Null
+git clone https://github.com/jackylong1987/dsh-long-plugins.git "$env:USERPROFILE\.dsh\plugins\dsh-long-plugins"
+dsh plugin --profile web add "file:$env:USERPROFILE\.dsh\plugins\dsh-long-plugins"
+# 手动把 "dsh-long-plugins" 追加到 profile package.json 的 dsh.profile.bundles
+```
+> **Windows 注意**：① `python3` 常是 Windows Store 的坏 stub，md2docx 需要把真实 python 拷贝为 `python3.exe` 放进 `$env:USERPROFILE\.dsh\bin` 并加入 DSH 服务的 PATH；② 若 `github.com` 连不上，可用 codeload tarball：`Invoke-WebRequest https://codeload.github.com/jackylong1987/dsh-long-plugins/tar.gz/refs/heads/main -OutFile p.tgz` + `tar -xzf`，把内层目录移到 `$env:USERPROFILE\.dsh\plugins\dsh-long-plugins`。
 
-### Manual / 手动
-
-Add to `<DSH_HOME>/profiles/<profile>/package.json`:
-
+### 手动（任意平台）
+把 `file:` 依赖（**用绝对路径**）和 bundle 加进 `<DSH_HOME>/profiles/<profile>/package.json`：
 ```json
 {
-  "dependencies": { "dsh-long-plugins": "file:/path/to/dsh-long-plugins" },
+  "dependencies": { "dsh-long-plugins": "file:/home/me/.dsh/plugins/dsh-long-plugins" },
   "dsh": { "profile": { "bundles": ["dsh-long-plugins"] } }
 }
 ```
+然后 `pnpm install`。
 
-Then `pnpm install`.
+### 工作目录 / 上传目录
+- 用户指定**真实工作目录**（名字任意），在其下（或指定位置）设上传根：
+  ```sh
+  mkdir -p "/home/me/project/upload"
+  export DSH_UPLOAD_DIR="/home/me/project/upload"    # 工作区根自动 = /home/me/project
+  ```
+  把它写进你的启动脚本（start.sh / restart-dsh.ps1），并确认 DSH 进程对 `DSH_UPLOAD_DIR` 可写。
+- 目录缺失用 `mkdir -p` 补建，不要默认落到当前目录。
 
 ## Configuration / 配置
 

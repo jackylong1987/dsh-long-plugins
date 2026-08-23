@@ -29,6 +29,20 @@ PLUGIN_DIR="${3:-$DSH_HOME/plugins/dsh-long-plugins}"
 REPO_URL="https://github.com/jackylong1987/dsh-long-plugins.git"
 PROFILE_DIR="$DSH_HOME/profiles/$PROFILE"
 
+# 目录约定：插件与 DSH 运行脚本都应放 $DSH_HOME 下；缺失则主动创建，
+# 不要落到工作目录/当前目录（否则 bin、file: 引用会错位）。
+mkdir -p "$DSH_HOME/plugins" "$DSH_HOME/bin"
+
+# 防错：默认插件目录必须在 DSH_HOME 下（避免用户在工作目录跑导致落到别处）。
+# 若用户显式传入自定义 PLUGIN_DIR（第3参）且不在 DSH_HOME 下，则尊重用户且给出提示。
+case "$PLUGIN_DIR" in
+  "$DSH_HOME"/*) : ;;  # 在 DSH_HOME 下，正常
+  *)
+    echo "提示：插件目录 $PLUGIN_DIR 不在 DSH_HOME($DSH_HOME) 下。" >&2
+    echo "  尽量避免放到工作目录，建议 $DSH_HOME/plugins/dsh-long-plugins。" >&2
+    ;;
+esac
+
 [ -d "$PROFILE_DIR" ] || { echo "错误：profile 目录不存在 $PROFILE_DIR" >&2; exit 1; }
 
 # 1) 拉取插件源码
@@ -95,3 +109,9 @@ fi
 echo
 echo "✅ 安装完成。最后一步：重启 dsh web。"
 echo "   用带 --expose-internals 和原有 --trusted-host 参数的方式启动（常见做法是写进 start.sh）。"
+echo
+echo "目录约定 / 可选："
+echo "  - 插件源码放 $PLUGIN_DIR"
+echo "  - DSH 运行脚本（restart-dsh.ps1 / python3.exe shim）放 $DSH_HOME/bin"
+echo "  - 上传根 DSH_UPLOAD_DIR：默认 <DSH_HOME>/uploads；如你有工作目录（如 workspace/jobs），"
+echo "    可设 export DSH_UPLOAD_DIR=<你的工作目录>/upload（工作区根自动=该工作目录），并确认 DSH 对其可写。"
