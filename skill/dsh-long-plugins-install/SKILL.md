@@ -128,9 +128,17 @@ pnpm install        # 或用探测到的 pnpm 绝对路径
 skill根  = dshHomePath('skills') = <DSH_HOME>/skills
 ```
 
-**工作目录的名字不固定**（可能叫 `workspace`、`jobs`、`projects` 或其它），完全由用户指定；`upload` 目录也要指定。**先问用户两个信息**：
-1. **真实工作目录路径**：用户的实际工作目录（如 `C:\dsh\workspace`、`C:\dsh\jobs`、`/home/me/project`），**不管它叫什么都按用户给的用**。
-2. **upload 存放位置**：默认是工作目录下的 `upload` 子目录；用户也可以指定别处。设 `DSH_UPLOAD_DIR`。
+> ⚠️ **环境变量是进程启动那一刻定型的**。`DSH_UPLOAD_DIR` 决定「上传目录」→ `工作区根 = 它的上一级`。**改了 `DSH_UPLOAD_DIR`（或换用户工作目录）后，必须重启 dsh 进程**（从已经带上该变量的环境启动）才会生效。若 dsh 进程是在变量生效前启动的、或是裸敲 `node ...web` 起的，其进程环境里没有该变量，插件会回退到 `DSH_HOME`，导致「工作区输出文件」显示 `attachments / bin / plugins / profiles` 等 DSH 自带目录，而不是用户工作区。**判断是否生效的唯一可靠依据**：`GET http://127.0.0.1:3080/api/dsh-uploads/workspace` 返回的 `root`（不要看 agent/tool 进程的 `$env:DSH_UPLOAD_DIR`，那是不相干的独立进程）。
+
+**工作目录的名字不固定**（可能叫 `workspace`、`jobs`、`projects` 或其它），完全由用户指定。**先用 `ask_user_question` 弹出提问，让用户选择「工作根目录」**（即输出文件/工作区根 = `DSH_UPLOAD_DIR` 的上一级）——给常见默认值 + 自定义，**别硬猜**：
+
+> 弹出提问 `请选择「工作根目录」（输出文件/工作区根）`，选项（推荐项放最前）：
+> - `C:\dsh\workspace`（Windows 常用；已有则直接用，缺则 `mkdir -p` 补建）
+> - `D:\dsh\workspace`（Windows 工作区在 D 盘）
+> - `/volume1/dsh/workspace`（NAS/Linux 常用）
+> - **自定义**（选此项后再次 `ask_user_question`，按用户输入的完整路径为准）
+
+拿到「工作根目录」后：**上传目录默认 = `<工作根目录>\upload`**（如需别处，再弹出提问让用户指定），把该值设为 `DSH_UPLOAD_DIR`；`工作区根` 自动 = 用户选的工作根目录，`<工作根目录>\upload` 缺失则 `mkdir -p` 补建。
 
 ```sh
 # 例：用户工作目录 = /home/me/project，upload 放在其下
@@ -189,3 +197,4 @@ setsid nohup <node绝对路径> --expose-internals --max-old-space-size=8192 \
 | md2docx 调用失败 | 无 python3/python-docx | `pip install python-docx` 或设 `md2docxScript` |
 | agent 找不到 md2docx | 会话工具集固定 | 新建会话 |
 | 版本号显示旧 | 运行副本版本文件未同步 | 同步 package.json/dsh.plugin.json 到 node_modules 副本 + 重启 |
+| 「工作区输出文件」显示 `attachments/bin/plugins/profiles`（= DSH_HOME）而非用户工作区 | 设了 `DSH_UPLOAD_DIR`，但正在服务的 dsh 进程是旧环境启动的（启动时间在变量生效前，或裸敲 `node ...web`）；进程环境在创建时定格，不会自动刷新 | 用「带上变量」的方式重启 dsh：从已设 `DSH_UPLOAD_DIR` 的终端重跑启动命令（含 `--expose-internals`）或面板「重启 dsh web」；随后 `GET http://127.0.0.1:3080/api/dsh-uploads/workspace` 确认 `root` 变为用户工作区 |

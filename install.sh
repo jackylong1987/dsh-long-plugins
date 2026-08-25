@@ -119,7 +119,7 @@ echo "    可设 export DSH_UPLOAD_DIR=<你的工作目录>/upload（工作区�
 # 附带安装仓库自带的 skill（若存在对应的 SKILL.md）
 # 复制到 $DSH_HOME/skills/ 下，DSH 会自动发现并热加载。这样安装机器上即可用
 # skill 在会话里让 agent 按对应指引安装/排障/升级。
-for skill_name in dsh-long-plugins-install dsh-upgrade dsh-common-plugins-install dsh-web-win-service-install; do
+for skill_name in dsh-long-plugins-install dsh-upgrade dsh-common-plugins-install dsh-web-win-service-install dsh-web-start-panel-install; do
   SKILL_SRC="$PLUGIN_DIR/skill/$skill_name/SKILL.md"
   SKILL_DST_DIR="$DSH_HOME/skills/$skill_name"
   if [ -f "$SKILL_SRC" ]; then

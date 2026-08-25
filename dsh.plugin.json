@@ -1,7 +1,7 @@
 {
   "name": "dsh-long-plugins",
   "description": "Merged DSH web plugins: upload manager, workspace output files, skill docs, account balance, Markdown-to-Word (md2docx), polished file preview, and an auto-repair install for DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink).",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "entry": {
     "name": "dsh-long-plugins",
     "inject": [
