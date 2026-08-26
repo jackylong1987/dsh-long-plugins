@@ -14,6 +14,7 @@ Also ships an auto-repair install that relinks DSH core patches (reverse-proxy W
 | Upload manager | 输入框回形针按钮上传本地文件，待发送文件栏管理，设置面板「上传文件」（预览/下载/删除） |
 | Workspace output files | 设置面板「输出文件」：按工作区文件夹分组、预览、**编辑/保存**、复制全部、**放大窗口** |
 | Workspace file browser (顶栏「📂文件」) | 顶栏「📂文件」打开工作区/全部文件浏览，按文件夹分组；点文件名或「预览」在面板内预览，**Word (.docx) 用 docx-preview 浏览器端真实渲染（所见即所得）**；支持「←返回」「✕关闭」两层退出回列表，底部仅列表根时才整体退出；含下载/放大 |
+| PowerPoint (.pptx) 预览 | 预览 `.pptx` 时用 **PptxViewJS 浏览器端真实渲染**（Canvas 逐页渲染、所见即所得），支持上一页/下一页翻页与**放大/缩小/适合宽度**；随包打包前端库 `client/vendor`（pptxviewjs / chart.js） |
 | Skill docs | 设置面板「技能文档」：按技能目录浏览 SKILL.md、弹窗预览、编辑/保存、复制、放大窗口 |
 | Account balance | 输入框下方显示 DeepSeek 账户余额（60s 自动刷新） |
 | md2docx | DSH 工具：把 Markdown 一键转成带页码页脚的 Word（`.docx`），标题/表格/加粗/列表/引用，生成的文件作为可点击交付物出现在消息里 |
