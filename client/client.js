@@ -955,6 +955,10 @@ window.__ModuleLoader__.load({
               // 完全控制（编辑/复制/删除/放大/关闭）；放大=外层真正全屏，按钮不重复。
               // content 保留源码供「编辑/复制」使用（mdHtml 只用于预览展示）。
               setPreview({ path, name: data.name, mdHtml: data.mdHtml, content: data.content })
+            } else if (/\.docx$/i.test(path)) {
+              // docx：走 docx-preview 真实渲染页（浏览器端解析，所见即所得），
+              // 而非 mammoth 简化 HTML。url 指向 docx-preview 端点。
+              setPreview({ path, name: data.name, url: '/api/dsh-uploads/docx-preview?path=' + encodeURIComponent(path) })
             } else {
               setPreview(data)
             }
@@ -1903,7 +1907,7 @@ window.__ModuleLoader__.load({
 
     // ===== dsh-long-plugins: workspace file browser + inline preview =====
     // 共享内联面板状态：标题栏「📂 文件」、消息文件徽章、工具卡片文件名共用
-    // 关闭：直接关掉整个面板（一步退出，不残留 history 返回行为）。
+    // 关闭：从列表进入的预览（history 非空）→ 回到文件列表；列表根部 → 整个面板退出。
     const wsOverlay = {
       url: null, title: '', history: [],
       listeners: new Set(),
@@ -2060,8 +2064,8 @@ window.__ModuleLoader__.load({
           const onMessage = (event) => {
             if (event.origin !== window.location.origin) return
             if (event.data && event.data.type === 'dsh-close-preview') {
-              // 渲染页里的「关闭」：直接关掉整个面板（用户期望一步退出）。
-              wsOverlay.close()
+              // 渲染页里的「关闭」：从列表进入的预览 → 回到文件列表；否则整面板退出。
+              if (wsOverlay.history.length > 0) wsOverlay.back(); else wsOverlay.close()
             }
             if (event.data && event.data.type === 'dsh-open-preview' && typeof event.data.url === 'string') {
               wsOverlay.open(event.data.url, event.data.title || '文件', true)
@@ -2076,14 +2080,16 @@ window.__ModuleLoader__.load({
           return state
         }
         const WorkspaceFilesOverlay = () => {
-          const { url, title } = useOverlay()
+          const { url, title, canBack } = useOverlay()
           const [maximized, setMaximized] = React.useState(false)
+          // 预览某一文件时（history 非空）：「关闭」回到文件列表；否则整个面板退出。
+          const closeOrBack = () => { if (canBack) wsOverlay.back(); else wsOverlay.close() }
           React.useEffect(() => {
             if (!url) return undefined
-            const onKey = (event) => { if (event.key === 'Escape') { if (maximized) setMaximized(false); else wsOverlay.close() } }
+            const onKey = (event) => { if (event.key === 'Escape') { if (maximized) setMaximized(false); else closeOrBack() } }
             window.addEventListener('keydown', onKey)
             return () => window.removeEventListener('keydown', onKey)
-          }, [url, maximized])
+          }, [url, maximized, canBack])
           if (!url) return null
           // inline 预览（PDF 原生查看器）：头部补 打开/下载；其它渲染页自带按钮。
           const isInline = url.indexOf('&inline=1') !== -1 || url.indexOf('?inline=1') !== -1
@@ -2094,8 +2100,9 @@ window.__ModuleLoader__.load({
                 React.createElement('span', { className: 'sp' }),
                 isInline && React.createElement('a', { className: 'dsh-ws-files-close', href: url, target: '_blank', rel: 'noopener noreferrer' }, '打开'),
                 isInline && React.createElement('a', { className: 'dsh-ws-files-close', href: url.replace(/[?&]inline=1/, '') + (url.indexOf('?') !== -1 ? '&download=1' : '?download=1'), download: true }, '下载'),
+                canBack && React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => wsOverlay.back() }, '← 返回'),
                 React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
-                React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: () => wsOverlay.close() }, '✕ 关闭'),
+                React.createElement('button', { type: 'button', className: 'dsh-ws-files-close', onClick: closeOrBack }, '✕ 关闭'),
               ),
               isInline
                 ? React.createElement('embed', { className: 'dsh-ws-files-frame', src: url, type: 'application/pdf', title: '文件预览' })
