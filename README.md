@@ -23,24 +23,6 @@ Also ships an auto-repair install that relinks DSH core patches (reverse-proxy W
 | Mobile layout | 手机端布局优化（输入栏、设置面板、主题选择、模型选择器） |
 | Drag & drop upload | 拖任意文件到会话框直接附加为「待发送」卡片（走与回形针同一上传管线）；全屏虚线投掷遮罩提示；消除 DSH 核心"仅支持 PNG/JPG/WebP/GIF 格式的图片"误报 |
 
-## 更新记录 / Releases
-
-### v1.3.2
-
-**新增 · 顶栏「📂 文件」工作区浏览器 + Word 真实预览**：顶栏「📂文件」打开工作区/全部文件浏览，按文件夹分组；点文件名或「预览」在面板内预览。Word（`.docx`）走 `docx-preview` 浏览器端真实渲染（所见即所得，无需服务端转换），并随包打包前端库 `client/vendor`（docx-preview / jszip）。
-
-**优化 · 两层关闭**：预览某文件时「✕关闭」/ Esc / 预览页自带「关闭」都回到文件列表，仅列表根部才整体退出面板；头部新增「←返回」按钮。Word 预览页也补上自带「✕关闭」，与 md 预览一致的两层关闭。
-
-**新增 · PPT 真实预览（PptxViewJS）**：`.pptx` 也走浏览器端真实渲染（Canvas 逐页渲染、可翻页），与 docx 一致；随包打包 `client/vendor`（pptxviewjs / chart.js）。**优化 · 预览页固定顶栏**：Word / PPT / md 预览页顶部「下载 / ✕关闭」工具栏改为 sticky，滚动文档/幻灯片时不再被滚走。
-
-### v1.3.0
-
-**新增 · 拖放上传**：拖文件到网页任意位置松手即附加为「待发送」卡片；支持 `md / docx / xlsx / pptx / pdf / txt / csv` 及 `png / jpg / webp / gif`；与回形针同一条上传管线；拖放时全屏虚线投掷遮罩。
-
-**🐛 修复**：消除核心"仅支持 PNG/JPG/WebP/GIF"误报——捕获阶段接管文件拖放。
-
-**兼容性**：仅对真正拖入文件生效；拖文本/链接不受影响；标准浏览器事件，多设备通用。
-
 ## Turn ruler / 轮次导航
 
 - 桌面端：会话右侧 3 个比例刻度点，悬停打开「历史提问」预览窗
