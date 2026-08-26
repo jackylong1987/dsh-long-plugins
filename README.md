@@ -1,11 +1,11 @@
 # dsh-long-plugins
 
 Merged plugin bundle for [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (DSH) Web:
-upload manager, workspace **输出文件** section, **技能文档** (skill docs) browser, and
-DeepSeek account balance — all in one installable plugin. Also ships an auto-repair
-install that relinks DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink).
+upload manager, workspace **输出文件** section, top-bar **文件** browser with a real Word (docx) preview,
+**技能文档** (skill docs) browser, and DeepSeek account balance — all in one installable plugin.
+Also ships an auto-repair install that relinks DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink).
 
-一个插件整合 DSH Web 的常用增强：上传管理、工作区「输出文件」面板、技能文档浏览、账户余额显示。并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。
+一个插件整合 DSH Web 的常用增强：上传管理、顶栏「📂文件」工作区浏览 + Word 真实预览、工作区「输出文件」面板、技能文档浏览、账户余额显示。并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。
 
 ## Features / 功能
 
@@ -13,6 +13,7 @@ install that relinks DSH core patches (reverse-proxy WebSocket heartbeat, upgrad
 |---|---|
 | Upload manager | 输入框回形针按钮上传本地文件，待发送文件栏管理，设置面板「上传文件」（预览/下载/删除） |
 | Workspace output files | 设置面板「输出文件」：按工作区文件夹分组、预览、**编辑/保存**、复制全部、**放大窗口** |
+| Workspace file browser (顶栏「📂文件」) | 顶栏「📂文件」打开工作区/全部文件浏览，按文件夹分组；点文件名或「预览」在面板内预览，**Word (.docx) 用 docx-preview 浏览器端真实渲染（所见即所得）**；支持「←返回」「✕关闭」两层退出回列表，底部仅列表根时才整体退出；含下载/放大 |
 | Skill docs | 设置面板「技能文档」：按技能目录浏览 SKILL.md、弹窗预览、编辑/保存、复制、放大窗口 |
 | Account balance | 输入框下方显示 DeepSeek 账户余额（60s 自动刷新） |
 | md2docx | DSH 工具：把 Markdown 一键转成带页码页脚的 Word（`.docx`），标题/表格/加粗/列表/引用，生成的文件作为可点击交付物出现在消息里 |
@@ -22,6 +23,12 @@ install that relinks DSH core patches (reverse-proxy WebSocket heartbeat, upgrad
 | Drag & drop upload | 拖任意文件到会话框直接附加为「待发送」卡片（走与回形针同一上传管线）；全屏虚线投掷遮罩提示；消除 DSH 核心"仅支持 PNG/JPG/WebP/GIF 格式的图片"误报 |
 
 ## 更新记录 / Releases
+
+### v1.3.1
+
+**新增 · 顶栏「📂 文件」工作区浏览器 + Word 真实预览**：顶栏「📂文件」打开工作区/全部文件浏览，按文件夹分组；点文件名或「预览」在面板内预览。Word（`.docx`）走 `docx-preview` 浏览器端真实渲染（所见即所得，无需服务端转换），并随包打包前端库 `client/vendor`（docx-preview / jszip）。
+
+**优化 · 两层关闭**：预览某文件时「✕关闭」/ Esc / 预览页自带「关闭」都回到文件列表，仅列表根部才整体退出面板；头部新增「←返回」按钮。Word 预览页也补上自带「✕关闭」，与 md 预览一致的两层关闭。
 
 ### v1.3.0
 
@@ -103,9 +110,12 @@ Agent 可直接调用 `md2docx` 工具，把 Markdown 转成带页码页脚的 W
 
 ```
 /api/dsh-uploads/workspace               output files (grouped by folder)
+/api/dsh-uploads/workspace-browse        workspace file browser (top-bar「📂文件」)
 /api/dsh-uploads/workspace-file          preview / download
 /api/dsh-uploads/workspace-file/delete   delete (POST)
 /api/dsh-uploads/workspace-file/save     save edited content (POST)
+/api/dsh-uploads/docx-preview            Word (.docx) real render page (browser-side docx-preview)
+/api/dsh-uploads/docx-preview-asset       serve docx-preview / jszip vendor libs
 /dsh-skill-docs/skill-docs               skill docs list (grouped by skill)
 /dsh-skill-docs/skill-doc                preview / download
 /dsh-skill-docs/skill-doc/save           save (POST)
