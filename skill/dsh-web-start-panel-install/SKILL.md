@@ -43,6 +43,19 @@ where node ; ls <node套件>/bin/node # 找 node 真实路径；找不到让用�
 - 面板只做「启动 + 状态」，不提供停止；点「启动」只会执行 `start-dsh.cmd`（该脚本内部会**先停旧再启新**），不会执行任意命令。
 - 用户工作目录与上传目录与本面板无关；`start-dsh.cmd` 里会带上 `DSH_UPLOAD_DIR`，以符合 dsh-long-plugins 的目录约定（若已配置）。
 
+### 「打开会话界面」地址（用 `ask_user_question` 让用户确认/输入，通用不写死）
+面板页面上的「打开 dsh 会话界面」链接需要一个**用户实际能访问到的地址**（反代域名、局域网 IP、或仅本机）。**不要写死某台机器的域名/IP**，生成面板前用 `ask_user_question` 让用户确认或输入（通用做法）：
+
+> 弹出提问 `「打开 dsh 会话界面」用哪个地址？`（面板绿色链接会跳这里）
+> 选项（推荐项放最前，均为通用占位，用户据此填写实际值）：
+> - **反代域名**（如 `https://你的域名` 或 `http://你的域名`）——多设备/外部访问、且走反代认证时推荐
+> - **局域网 IP**（如 `http://192.168.x.x:3080`）——仅局域网内访问
+> - **仅本机** `http://127.0.0.1:3080`——只在同一台机器上的浏览器用
+> - **自定义**（选此项后再次 `ask_user_question`，按用户输入的完整地址为准）
+
+**拿到地址后**：把该值写进 `server.mjs` 的 **`DSH_OPEN_URL`**（新增，独立于健康检查地址），并让前端「打开 dsh 会话界面」链接用 `href="${DSH_OPEN_URL}"`。**健康检查地址 `DSH_WEB_URL` 保持 `http://127.0.0.1:3080/` 不变**（后端本机探测必须用它），两者**解耦**——这样反代域名访问面板时，「打开会话界面」也能跳到正确地址，而不是跳到访问者自己的 127.0.0.1。
+> 若用户明确要反代域名，直接把 `DSH_OPEN_URL` 设成反代域名；不弹窗也无妨（`DSH_OPEN_URL` 仍可被环境变量覆盖）。默认值建议 `http://127.0.0.1:3080/`（仅本机），有反代/局域网需求再由用户改。
+
 ## 关键：Windows 与 NAS/Linux 的差异
 
 `server.mjs` 原始版是 NAS 写法，**必须按目标平台改这三处**，否则面板按钮无效/状态假：
@@ -55,6 +68,8 @@ where node ; ls <node套件>/bin/node # 找 node 真实路径；找不到让用�
 | 面板管理脚本 | `start-panel.sh`（chmod +x，`start|stop|status`，用 `ps`/`kill`） | `start-panel.cmd`（`start|stop|status`，用 `taskkill`/PowerShell） |
 
 > 可用环境变量覆盖（面板已支持）：`DSH_START_PORT`（默认 3456）、`DSH_START_HOST`（默认 127.0.0.1；设 `0.0.0.0` 开放局域网）、`DSH_START_SCRIPT`。
+
+> ⚠️ **Windows 关键（实测过的坑）**：`/api/start` 用 `spawn(START_SCRIPT, {shell:true})` 去跑 `.cmd`，或手动 `start /b 跑 .cmd` 拉起 dsh，**会踩两个坑**——① cmd 控制台一关就把子进程带走；② 不等 3080 端口释放就绑端口 → `EADDRINUSE`，新 dsh 起来即崩、面板一直「正在启动」。**Windows 建议让 `server.mjs` 自己直接 `spawn(NODE, ["--expose-internals","--max-old-space-size=8192", DSH_BIN, "web", "--port","3080"], {detached:true, stdio:"ignore", windowsHide:true, env:{...process.env, DSH_HOME, DSH_WORKSPACE, DSH_UPLOAD_DIR, NODE_OPTIONS:"", PATH: DSH_PYBIN+";"+...}})`**，且 `/api/start` 内部**先 `killDsh()` → 轮询 `waitPortFree(3080)` → 再启动**，`start-dsh.cmd` 仅作手动备用。`DSH_UPLOAD_DIR`/`DSH_WORKSPACE` 等由启动脚本显式传入 env，保证输出文件目录正确。NAS 版用 `start.sh`（内建停旧+健康检查）已足够可靠，可沿用 `spawn("sh",[START_SCRIPT],…)`。
 
 ## 安装步骤
 
@@ -87,8 +102,10 @@ const PORT = Number(process.env.DSH_START_PORT ?? 3456);
 const HOST = process.env.DSH_START_HOST ?? "127.0.0.1";
 // ← 改我：本机 dsh 启动脚本（面板会去执行它）
 const START_SCRIPT = process.env.DSH_START_SCRIPT ?? "D:\\.dsh\\web-start\\start-dsh.cmd";
-// ← 改我：dsh web 实际健康检查地址
+// ← 改我：dsh web 实际健康检查地址（后端本机探测用，保持 127.0.0.1）
 const DSH_WEB_URL = "http://127.0.0.1:3080/";
+// ← 改我：前端「打开 dsh 会话界面」链接地址（用户实际访问用，可设反代域名/局域网 IP；与健康检查解耦）
+const DSH_OPEN_URL = process.env.DSH_OPEN_URL ?? "http://127.0.0.1:3080/";
 // ← 改我：检测 dsh 是否运行的进程特征串
 const WEB_PID_PATTERN = "bin.js web";
 
@@ -156,17 +173,20 @@ const PAGE = `<!DOCTYPE html>
   <div class="status"><span class="dot" id="dot"></span><span id="text">检测中…</span></div>
   <button id="btn" disabled>启动 dsh web</button>
   <div class="msg" id="msg"></div>
+  <div class="open" style="margin-top:16px"><a id="open" href="${DSH_OPEN_URL}" target="_blank" rel="noopener" style="color:#93c5fd;text-decoration:none;font-size:14px;opacity:.35;pointer-events:none">打开 dsh 会话界面</a></div>
   <div class="hint">${HOST === "0.0.0.0" && lanIp() ? `局域网：http://${lanIp()}:${PORT} · ` : ""}本机：http://127.0.0.1:${PORT}</div>
 </div>
 <script>
 const dot=document.getElementById('dot'),text=document.getElementById('text'),
-      btn=document.getElementById('btn'),msg=document.getElementById('msg');
+      btn=document.getElementById('btn'),msg=document.getElementById('msg'),
+      open=document.getElementById('open');
 let last='unknown';
+function setOpen(on){ open.classList.toggle('open-ready', !!on); open.style.opacity=on?'1':'.35'; open.style.pointerEvents=on?'auto':'none'; }
 async function poll(){
   try{
     const r=await fetch('/api/status'); const s=await r.json();
-    if(s.running){ dot.className='dot on'; text.textContent='dsh web 运行中'+(s.pid?'（PID '+s.pid+'）':''); btn.disabled=false; btn.textContent='重启 dsh web'; }
-    else { dot.className='dot off'; text.textContent='dsh web 未运行'; btn.disabled=false; btn.textContent='启动 dsh web'; }
+    if(s.running){ dot.className='dot on'; text.textContent='dsh web 运行中'+(s.pid?'（PID '+s.pid+'）':''); btn.disabled=false; btn.textContent='重启 dsh web'; setOpen(true); }
+    else { dot.className='dot off'; text.textContent='dsh web 未运行'; btn.disabled=false; btn.textContent='启动 dsh web'; setOpen(false); }
     if(last==='starting'&&s.running){ msg.className='msg ok'; msg.textContent='✅ dsh web 已就绪'; last='running'; }
     if(last==='starting'&&!s.running){ msg.className='msg'; msg.textContent='⏳ 正在重启/启动中…'; }
   }catch(e){ dot.className='dot off'; text.textContent='无法连接面板服务'; }
@@ -310,7 +330,8 @@ D:\.dsh\web-start\start-panel.cmd start
 ## 常见坑速查
 | 症状 | 原因 | 解决 |
 |---|---|---|
-| 点按钮没反应/接口 500 | `START_SCRIPT` 路径不对，或 `/api/start` 用了 Unix 的 `spawn("sh",…)` | 改 `server.mjs` 的 `START_SCRIPT`；Windows 用 `spawn(file,{shell:true})` |
+| 点按钮没反应/接口 500 | `START_SCRIPT` 路径不对，或 `/api/start` 用了 Unix 的 `spawn("sh",…)` | 改 `server.mjs` 的 `START_SCRIPT`；Windows 建议让 `server.mjs` 直接 spawn node（见上文「Windows 关键」），勿用 `spawn(file,{shell:true})` 跑 `.cmd` |
+| 点「启动/重启」dsh 起来即崩、面板一直「正在启动」 | Windows 用 `start /b 跑 .cmd` 或 `spawn(.cmd,{shell:true})`：不等 3080 释放就绑端口 → `EADDRINUSE`，且 cmd 控制台关闭带走子进程 | 让 `server.mjs` 直接 spawn node + 内部先 `killDsh()` → 轮询 `waitPortFree(3080)` → 再启动（见上文「Windows 关键」）；先 `netstat -ano | findstr :3080` 确认端口空闲 |
 | 页面一直显示「未运行」 | `WEB_PID_PATTERN` 匹配不到 dsh 进程，或 `DSH_WEB_URL` 健康检查地址不对 | 用 PowerShell `Get-CimInstance`（Windows）或 `ps aux | grep dsh`（NAS）看实际命令行，改匹配串/端口 |
 | 状态灯红/假 | 健康检查端口/地址不对 | 改 `server.mjs` 的 `DSH_WEB_URL`（默认 3080） |
 | 面板启动失败 | `NODE`/node 路径不对 | `where node`（Windows）或 `which node`（NAS）确认真实路径改 `start-panel.cmd`/`start-panel.sh` |
