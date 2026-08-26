@@ -19,6 +19,17 @@ install that relinks DSH core patches (reverse-proxy WebSocket heartbeat, upgrad
 | Turn ruler | 会话右侧轮次导航：3 个比例刻度（最早/中间/最新）+ 预览窗列出全部轮次标题，光标点亮、点击蓝色标记并定位会话，滚到顶部自动加载更早历史，手机端竖向把手打开预览窗 |
 | Auto-repair install | 安装时自动重打 DSH 核心补丁：反代 WebSocket 心跳（修复提问窗口自己消失）、升级后重连 |
 | Mobile layout | 手机端布局优化（输入栏、设置面板、主题选择、模型选择器） |
+| Drag & drop upload | 拖任意文件到会话框直接附加为「待发送」卡片（走与回形针同一上传管线）；全屏虚线投掷遮罩提示；消除 DSH 核心"仅支持 PNG/JPG/WebP/GIF 格式的图片"误报 |
+
+## 更新记录 / Releases
+
+### v1.3.0
+
+**新增 · 拖放上传**：拖文件到网页任意位置松手即附加为「待发送」卡片；支持 `md / docx / xlsx / pptx / pdf / txt / csv` 及 `png / jpg / webp / gif`；与回形针同一条上传管线；拖放时全屏虚线投掷遮罩。
+
+**🐛 修复**：消除核心"仅支持 PNG/JPG/WebP/GIF"误报——捕获阶段接管文件拖放。
+
+**兼容性**：仅对真正拖入文件生效；拖文本/链接不受影响；标准浏览器事件，多设备通用。
 
 ## Turn ruler / 轮次导航
 

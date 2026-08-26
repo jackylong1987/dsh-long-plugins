@@ -412,6 +412,97 @@ window.__ModuleLoader__.load({
       )
     }
 
+    // ===== 拖放上传：把本地文件拖到会话框任意位置即可加入本条消息 =====
+    // 复用与钉选上传完全相同的 uploadFile() + controller.attach() 管线；
+    // 监听 window 级 dragenter/dragover/dragleave/drop（仅在携带 Files 时接管），
+    // 视觉层用 fixed 全屏遮罩提示，pointer-events:none 保证不干扰拖拽本身。
+    function DragDropOverlay(props) {
+      const controller = props.controller
+      const sessionId = props.sessionId
+      const [active, setActive] = React.useState(false)
+      const counterRef = React.useRef(0)
+
+      React.useEffect(() => {
+        // 只在真正拖入「文件」时才接管；拖文本/链接等（无 Files）一律放行给 DSH 原生行为。
+        // 四个事件都用 捕获阶段(capture) + stopPropagation，让本插件成为文件拖放的
+        // 唯一所有者 —— 这样 DSH 核心的「图像拖放/粘贴」验证器不会触发（否则非图片文件
+        // 会报「仅支持 PNG、JPG、WebP、GIF」），核心自己的拖放遮罩也不会出现/卡住。
+        const hasFiles = (e) => !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'))
+        const onDragEnter = (e) => {
+          if (!hasFiles(e)) return
+          e.preventDefault()
+          e.stopPropagation()
+          counterRef.current += 1
+          setActive(true)
+        }
+        const onDragOver = (e) => {
+          if (!hasFiles(e)) return
+          e.preventDefault()
+          e.stopPropagation()
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+        }
+        const onDragLeave = (e) => {
+          if (!hasFiles(e)) return
+          e.stopPropagation()
+          counterRef.current -= 1
+          if (counterRef.current <= 0) {
+            counterRef.current = 0
+            setActive(false)
+          }
+        }
+        const onDrop = async (e) => {
+          if (!hasFiles(e)) return
+          e.preventDefault()
+          e.stopPropagation()
+          counterRef.current = 0
+          setActive(false)
+          const files = Array.from((e.dataTransfer && e.dataTransfer.files) || [])
+          if (files.length === 0) return
+          // 复用与回形针完全相同的 uploadFile + attach 管线；结果直接体现在输入区上方的
+          // 「待发送文件」卡片上。
+          for (const file of files) {
+            try {
+              const stored = await uploadFile(file)
+              controller.attach(sessionId, stored)
+            } catch (error) {
+              console.warn(`[dsh-long-plugins] 拖放上传失败：${file.name} → ${errorMessage(error)}`)
+            }
+          }
+        }
+        window.addEventListener('dragenter', onDragEnter, true)
+        window.addEventListener('dragover', onDragOver, true)
+        window.addEventListener('dragleave', onDragLeave, true)
+        window.addEventListener('drop', onDrop, true)
+        return () => {
+          window.removeEventListener('dragenter', onDragEnter, true)
+          window.removeEventListener('dragover', onDragOver, true)
+          window.removeEventListener('dragleave', onDragLeave, true)
+          window.removeEventListener('drop', onDrop, true)
+        }
+      }, [controller, sessionId])
+
+      if (!active) return null
+
+      return React.createElement(
+        'div',
+        { className: 'dsh-upload-dropzone' },
+        React.createElement(
+          'div',
+          { className: 'dsh-upload-dropzone-card' },
+          React.createElement(
+            'div',
+            { className: 'dsh-upload-dropzone-icon' },
+            React.createElement(PaperclipIcon, null)
+          ),
+          React.createElement(
+            'div',
+            { className: 'dsh-upload-dropzone-text' },
+            '松开鼠标，将文件加入本条消息'
+          )
+        )
+      )
+    }
+
     function PendingFileRail(props) {
       const input = props.useInput((state) => state)
       const promptError = props.useSession((session) => session.promptError) || null
@@ -784,6 +875,11 @@ window.__ModuleLoader__.load({
         .dsh-ws-actions button,.dsh-ws-actions a{flex:1;text-align:center;padding:5px 4px}
       }
       .dsh-upload-actions button.dsh-upload-preview{color:var(--dsw-alias-label-primary)}
+      .dsh-upload-dropzone{position:fixed;inset:0;z-index:1350;pointer-events:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 55%,transparent);backdrop-filter:blur(2px)}
+      .dsh-upload-dropzone-card{display:flex;align-items:center;gap:14px;padding:22px 30px;border:2px dashed var(--dsw-alias-state-business-primary,#3b82f6);border-radius:16px;background:color-mix(in srgb,var(--dsw-specific-input-major,#0f1720) 92%,transparent);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-primary)}
+      .dsh-upload-dropzone-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:10px;background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-state-business-primary,#3b82f6)}
+      .dsh-upload-dropzone-icon svg{width:28px;height:28px;display:block}
+      .dsh-upload-dropzone-text{font-size:15px;line-height:22px;color:var(--dsw-alias-label-primary)}
       .dsh-upload-preview-overlay{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
       .dsh-upload-preview-overlay-max{padding:0}
       .dsh-upload-preview-card{box-sizing:border-box;background:var(--dsw-specific-input-major);border-radius:14px;max-width:min(560px,100%);max-height:90%;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--dsw-shadow-lv3)}
@@ -1101,6 +1197,13 @@ window.__ModuleLoader__.load({
         order: 80,
         label: '待发送文件',
       }, (props) => React.createElement(PendingFileRail, { ...props, controller })))
+
+      ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+        name: 'conversation.input.dock',
+        id: 'local-file-upload-dropzone',
+        order: 90,
+        label: '拖放上传',
+      }, (props) => React.createElement(DragDropOverlay, { ...props, controller })))
 
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
