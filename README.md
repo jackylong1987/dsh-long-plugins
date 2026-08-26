@@ -1,11 +1,11 @@
 # dsh-long-plugins
 
 Merged plugin bundle for [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (DSH) Web:
-upload manager, workspace **输出文件** section, top-bar **文件** browser with a real Word (docx) preview,
-**技能文档** (skill docs) browser, and DeepSeek account balance — all in one installable plugin.
+upload manager, workspace **输出文件** section, top-bar **文件** browser with real **Word / PPT (docx / pptx) preview**,
+**技能文档** (skill docs) browser, DeepSeek account balance, and **turn ruler (session navigation)** — all in one installable plugin.
 Also ships an auto-repair install that relinks DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink).
 
-一个插件整合 DSH Web 的常用增强：上传管理、顶栏「📂文件」工作区浏览 + Word 真实预览、工作区「输出文件」面板、技能文档浏览、账户余额显示。并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。
+一个插件整合 DSH Web 的常用增强：上传管理、顶栏「📂文件」工作区浏览 + 文件预览（Word、PPT 格式渲染）、工作区「输出文件」面板、技能文档浏览、账户余额显示。并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。会话记录导航。
 
 ## Features / 功能
 
