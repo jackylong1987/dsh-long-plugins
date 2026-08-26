@@ -24,11 +24,13 @@ Also ships an auto-repair install that relinks DSH core patches (reverse-proxy W
 
 ## 更新记录 / Releases
 
-### v1.3.1
+### v1.3.2
 
 **新增 · 顶栏「📂 文件」工作区浏览器 + Word 真实预览**：顶栏「📂文件」打开工作区/全部文件浏览，按文件夹分组；点文件名或「预览」在面板内预览。Word（`.docx`）走 `docx-preview` 浏览器端真实渲染（所见即所得，无需服务端转换），并随包打包前端库 `client/vendor`（docx-preview / jszip）。
 
 **优化 · 两层关闭**：预览某文件时「✕关闭」/ Esc / 预览页自带「关闭」都回到文件列表，仅列表根部才整体退出面板；头部新增「←返回」按钮。Word 预览页也补上自带「✕关闭」，与 md 预览一致的两层关闭。
+
+**新增 · PPT 真实预览（PptxViewJS）**：`.pptx` 也走浏览器端真实渲染（Canvas 逐页渲染、可翻页），与 docx 一致；随包打包 `client/vendor`（pptxviewjs / chart.js）。**优化 · 预览页固定顶栏**：Word / PPT / md 预览页顶部「下载 / ✕关闭」工具栏改为 sticky，滚动文档/幻灯片时不再被滚走。
 
 ### v1.3.0
 

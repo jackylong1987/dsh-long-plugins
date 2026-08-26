@@ -959,6 +959,9 @@ window.__ModuleLoader__.load({
               // docx：走 docx-preview 真实渲染页（浏览器端解析，所见即所得），
               // 而非 mammoth 简化 HTML。url 指向 docx-preview 端点。
               setPreview({ path, name: data.name, url: '/api/dsh-uploads/docx-preview?path=' + encodeURIComponent(path) })
+            } else if (/\.pptx$/i.test(path)) {
+              // pptx：走 PptxViewJS 真实渲染页（浏览器端 Canvas 渲染，所见即所得）。
+              setPreview({ path, name: data.name, url: '/api/dsh-uploads/pptx-preview?path=' + encodeURIComponent(path) })
             } else {
               setPreview(data)
             }

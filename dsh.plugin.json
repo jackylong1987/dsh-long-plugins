@@ -1,7 +1,7 @@
 {
   "name": "dsh-long-plugins",
   "description": "Merged DSH web plugins: upload manager (drag-and-drop attach any file to the message), workspace output files, skill docs, account balance, Markdown-to-Word (md2docx), polished file preview, and an auto-repair install for DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink). ｜ 一个插件整合 DSH Web 的常用增强：上传管理（拖放上传：拖任意文件到会话框直接附加）、工作区「输出文件」面板、技能文档浏览、账户余额显示、Markdown 转 Word（md2docx）；并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "entry": {
     "name": "dsh-long-plugins",
     "inject": [

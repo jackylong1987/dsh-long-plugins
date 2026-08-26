@@ -1,0 +1,6 @@
+*.bak
+*.log
+*.tgz
+.git*
+server.mjs
+README_*.md
