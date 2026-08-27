@@ -1129,6 +1129,9 @@ window.__ModuleLoader__.load({
             } else if (/\.pptx$/i.test(path)) {
               // pptx：走 PptxViewJS 真实渲染页（浏览器端 Canvas 渲染，所见即所得）。
               setPreview({ path, name: data.name, url: '/api/dsh-uploads/pptx-preview?path=' + encodeURIComponent(path) })
+            } else if (/\.xlsx$/i.test(path)) {
+              // xlsx：走 x-spreadsheet 真实渲染页（浏览器端解析 xlsx，所见即所得）。
+              setPreview({ path, name: data.name, url: '/api/dsh-uploads/xlsx-preview?path=' + encodeURIComponent(path) })
             } else {
               setPreview(data)
             }
@@ -1320,7 +1323,7 @@ window.__ModuleLoader__.load({
               editing && React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: doSave }, savedFlash ? '已保存' : '保存'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: copyContent }, copied ? '已复制' : '复制全部'),
               (preview.url !== void 0 || preview.officeHtml !== void 0 || preview.mdHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(preview.path) + '&download=1', download: preview.name, style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '下载'),
-              (preview.url !== void 0 || preview.officeHtml !== void 0 || preview.mdHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(preview.path), target: '_blank', rel: 'noopener noreferrer', style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '打开'),
+              (preview.url !== void 0 || preview.officeHtml !== void 0 || preview.mdHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: preview.url !== void 0 ? preview.url : '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(preview.path), target: '_blank', rel: 'noopener noreferrer', style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '打开'),
               React.createElement('button', { type: 'button', style: delStyle, disabled: busy, onClick: () => doDelete(preview.path) }, '删除'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setPreview(null) }, '关闭'),
