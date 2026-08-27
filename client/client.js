@@ -3060,7 +3060,7 @@ window.__ModuleLoader__.load({
       }
       /* 会话滚动区：磨砂玻璃悬浮卡片（居中收窄，不占满宽度，四周透背景图） */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] {
-        background-color: var(--dsh-glass-cardbg, rgba(255,255,255,0.45)) !important;
+        background-color: var(--dsh-glass-session-bg, rgba(26,35,50,0.45)) !important;
         backdrop-filter: blur(var(--dsh-glass-blur, 16px));
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
         border-radius: 16px;
@@ -3076,11 +3076,11 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
       /* 底部输入卡片：深色半透明磨砂（参考图：深色玻璃卡片 + 白字，与背景区分开） */
       html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] {
-        background-color: var(--dsh-glass-darkcard, rgba(20,26,40,0.6)) !important;
+        background-color: var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
         backdrop-filter: blur(var(--dsh-glass-blur, 16px));
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
       }
-      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] * { color: rgba(255,255,255,0.92) !important; }
+      
       html[data-dsh-glass="off"] #root [class*="sidebarCol"],
       html[data-dsh-glass="off"] #root [class*="header"],
       html[data-dsh-glass="off"] #root [class*="centerCol"],
@@ -3094,6 +3094,7 @@ window.__ModuleLoader__.load({
       .dsh-glass-switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;user-select:none}
       .dsh-glass-switch input{width:34px;height:20px;accent-color:var(--dsw-alias-state-business-primary);cursor:pointer}
       .dsh-glass-card{display:grid;gap:12px;padding:14px 16px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-specific-input-major)}
+      .dsh-glass-zone-title{font-size:14px;font-weight:600;color:var(--dsw-alias-label-primary)}
       .dsh-glass-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
       .dsh-glass-row label{font-size:13px;color:var(--dsw-alias-label-primary);flex:none}
       .dsh-glass-range{flex:1;min-width:160px;max-width:320px;accent-color:var(--dsw-alias-state-business-primary)}
@@ -3129,6 +3130,26 @@ window.__ModuleLoader__.load({
         value ? React.createElement('span', { style: { width: 22, height: 22, borderRadius: 4, backgroundImage: 'url(' + value + ')', backgroundSize: 'cover', display: 'inline-block' } }) : null,
       )
     }
+    // 会话区/输入区共用设置卡：罩色 + 罩强度
+    const GlassZoneCard = ({ title, zone, onChange }) => {
+      const z = zone || { color: '#1a2332', mask: 0.45 }
+      const setPatch = (p) => onChange({ ...z, ...p })
+      return React.createElement('div', { className: 'dsh-glass-card' },
+        React.createElement('div', { className: 'dsh-glass-zone-title' }, title),
+        React.createElement('div', { className: 'dsh-glass-row' },
+          React.createElement('label', null, title + ' 罩色'),
+          React.createElement('div', { className: 'dsh-glass-swatches' },
+            GLASS_SWATCHES.map((c) => React.createElement('button', { key: c, type: 'button', className: 'dsh-glass-swatch' + ((z.color || '#1a2332') === c ? ' on' : ''), style: { background: c }, 'aria-label': '颜色 ' + c, onClick: () => setPatch({ color: c }) })),
+          ),
+          React.createElement('label', { className: 'dsh-glass-colorpicker' }, '色盘', React.createElement('input', { type: 'color', value: z.color || '#1a2332', onChange: (e) => setPatch({ color: e.target.value }) })),
+        ),
+        React.createElement('div', { className: 'dsh-glass-row' },
+          React.createElement('label', null, title + ' 罩强度'),
+          React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 0.95, step: 0.01, value: z.mask ?? 0.45, onChange: (e) => setPatch({ mask: Number(e.target.value) }) }),
+          React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(z.mask ?? 0.45)) * 100)}%`),
+        ),
+      )
+    }
     const GlassSettingsSection = () => {
       const [state, setState] = React.useState({ loading: true, saving: false, error: '', cfg: null, bgImage: '' })
       const load = React.useCallback(async () => {
@@ -3142,13 +3163,18 @@ window.__ModuleLoader__.load({
       }, [])
       React.useEffect(() => { load(); }, [load])
       const patch = React.useCallback((p) => setState((s) => ({ ...s, cfg: { ...(s.cfg || {}), ...p } })), [])
+      const patchZone = React.useCallback((key, p) => setState((s) => ({ ...s, cfg: { ...(s.cfg || {}), [key]: p } })), [])
       const save = React.useCallback(async () => {
         setState((s) => ({ ...s, saving: true, error: '' }))
         try {
           const cfg = state.cfg || {}
           const payload = {
-            enabled: !!cfg.enabled, blur: Number(cfg.blur) || 0, mask: Number(cfg.mask) || 0,
-            color: cfg.color || '#1a2332', bgImage: state.bgImage || cfg.bgImage || '',
+            enabled: !!cfg.enabled, blur: Number(cfg.blur) || 0,
+            bgImage: state.bgImage || cfg.bgImage || '',
+            zone: {
+              session: { color: (cfg.session && cfg.session.color) || '#1a2332', mask: Number((cfg.session && cfg.session.mask)) || 0.45 },
+              input: { color: (cfg.input && cfg.input.color) || '#1a2332', mask: Number((cfg.input && cfg.input.mask)) || 0.6 },
+            },
           }
           const r = await fetch('/api/dsh-uploads/glass-config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
           const b = await r.json()
@@ -3171,18 +3197,8 @@ window.__ModuleLoader__.load({
             React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 80, value: cfg.blur ?? 20, onChange: (e) => patch({ blur: Number(e.target.value) }) }),
             React.createElement('span', { className: 'dsh-glass-val' }, `${Number(cfg.blur ?? 20)} px`),
           ),
-          React.createElement('div', { className: 'dsh-glass-row' },
-            React.createElement('label', null, '透明度（卡片不透明度）'),
-            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 0.95, step: 0.01, value: cfg.mask ?? 0.45, onChange: (e) => patch({ mask: Number(e.target.value) }) }),
-            React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(cfg.mask ?? 0.45)) * 100)}%`),
-          ),
-          React.createElement('div', { className: 'dsh-glass-row' },
-            React.createElement('label', null, '叠加 / 罩色'),
-            React.createElement('div', { className: 'dsh-glass-swatches' },
-              GLASS_SWATCHES.map((c) => React.createElement('button', { key: c, type: 'button', className: 'dsh-glass-swatch' + ((cfg.color || '#1a2332') === c ? ' on' : ''), style: { background: c }, 'aria-label': '颜色 ' + c, onClick: () => patch({ color: c }) })),
-            ),
-            React.createElement('label', { className: 'dsh-glass-colorpicker' }, '色盘', React.createElement('input', { type: 'color', value: cfg.color || '#1a2332', onChange: (e) => patch({ color: e.target.value }) })),
-          ),
+          React.createElement(GlassZoneCard, { title: '会话区', zone: cfg.session, onChange: (p) => patchZone('session', p) }),
+          React.createElement(GlassZoneCard, { title: '输入区', zone: cfg.input, onChange: (p) => patchZone('input', p) }),
           React.createElement('div', { className: 'dsh-glass-row' },
             React.createElement('label', null, '共用背景图'),
             React.createElement('div', { className: 'dsh-glass-bg' }, glassImageInput(state.bgImage, (v) => setState((s) => ({ ...s, bgImage: v })))),
@@ -3229,14 +3245,13 @@ window.__ModuleLoader__.load({
             const c = cfg || {}
             root.setAttribute('data-dsh-glass', c.enabled ? 'on' : 'off')
             // ... 后续 applier 逻辑在下方
-            const mask = Number(c.mask) || 0
             const blur = Number(c.blur) || 16
-            const color = c.color || '#0f1420'
-            const rgb = hexToRgb(color)
             root.style.setProperty('--dsh-glass-blur', blur + 'px')
-            root.style.setProperty('--dsh-glass-overlay', `rgba(${rgb},${mask})`)
-            root.style.setProperty('--dsh-glass-cardbg', c.enabled ? `rgba(255,255,255,${Math.min(0.95, Math.max(0, Number(c.mask) || 0.45))})` : 'rgba(255,255,255,0)')
-            root.style.setProperty('--dsh-glass-darkcard', c.enabled ? `rgba(${rgb},${Math.min(0.75, Math.max(0.45, Number(c.mask) || 0.6))})` : 'rgba(0,0,0,0)')
+            const zs = (c.zone && c.zone.session) || { color: '#1a2332', mask: 0.45 }
+            const zi = (c.zone && c.zone.input) || { color: '#1a2332', mask: 0.6 }
+            root.style.setProperty('--dsh-glass-session-bg', `rgba(${hexToRgb(zs.color)},${Math.min(0.95, Math.max(0, Number(zs.mask) || 0.45))})`)
+            root.style.setProperty('--dsh-glass-input-bg', `rgba(${hexToRgb(zi.color)},${Math.min(0.95, Math.max(0, Number(zi.mask) || 0.6))})`)
+
             const body = document.body
             const frame = document.querySelector('#root > div > div') || document.querySelector('#root > div')
             const applyBg = (el) => {
