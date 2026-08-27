@@ -608,25 +608,26 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /** 🔍 放大镜搜索：点击图标弹出搜索框，输入即过滤；点✕清除，点击外部关闭。 */
+    /** 🔍 放大镜搜索：点击图标弹出搜索框，输入即过滤；✕ 清除并关闭。不自动隐藏（需人工关闭或刷新）。 */
     function SearchPopup({ value, onChange, placeholder }) {
       const [open, setOpen] = React.useState(false)
+      const [pos, setPos] = React.useState({ top: 72, left: 8 })
       const ref = React.useRef(null)
-      const boxRef = React.useRef(null)
       React.useEffect(() => { if (open && ref.current) { try { ref.current.focus() } catch (e) {} } }, [open])
-      React.useEffect(() => {
-        if (!open) return undefined
-        const onDoc = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
-        document.addEventListener('mousedown', onDoc)
-        return () => document.removeEventListener('mousedown', onDoc)
-      }, [open])
-      return React.createElement('div', { className: 'dsh-searchpop', ref: boxRef },
+      const toggle = (e) => {
+        if (!open && e && e.currentTarget) {
+          const r = e.currentTarget.getBoundingClientRect()
+          setPos({ top: r.bottom + 8, left: Math.max(8, Math.min(r.left, (window.innerWidth || 0) - 280)) })
+        }
+        setOpen((o) => !o)
+      }
+      return React.createElement('div', { className: 'dsh-searchpop' },
         React.createElement('button', {
           type: 'button', className: 'dsh-searchpop-btn',
-          onClick: () => setOpen((o) => !o),
+          onClick: toggle,
           title: '搜索文件名', 'aria-label': '搜索文件名',
         }, '🔍'),
-        open && React.createElement('div', { className: 'dsh-searchpop-box' },
+        open && React.createElement('div', { className: 'dsh-searchpop-box', style: { top: pos.top, left: pos.left } },
           React.createElement('input', {
             ref, type: 'text', className: 'dsh-searchpop-input', value,
             onChange: (e) => onChange(e.target.value), placeholder: placeholder || '搜索文件名…', autoFocus: true,
@@ -918,14 +919,11 @@ window.__ModuleLoader__.load({
       .dsh-searchpop{position:relative;display:inline-flex;align-items:center;flex:none}
       .dsh-searchpop-btn{width:30px;height:30px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
       .dsh-searchpop-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-      .dsh-searchpop-box{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:flex;align-items:center;gap:6px;background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:6px;box-shadow:var(--dsw-shadow-lv3)}
+      .dsh-searchpop-box{position:fixed;z-index:60;display:flex;align-items:center;gap:6px;background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:6px;box-shadow:var(--dsw-shadow-lv3);max-width:calc(100vw - 16px)}
       .dsh-searchpop-input{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:5px 9px;font:inherit;font-size:12px;line-height:18px;min-width:160px}
       .dsh-searchpop-input::placeholder{color:var(--dsw-alias-label-tertiary)}
       .dsh-searchpop-clear{background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1;cursor:pointer;padding:0 3px}
       .dsh-searchpop-clear:hover{color:var(--dsw-alias-label-primary)}
-      @media (max-width:767px){
-        .dsh-searchpop-box{position:fixed;right:auto;left:16px;top:76px;max-width:calc(100vw - 32px);width:max-content}
-      }
       .dsh-upload-settings h2{margin:0;font-size:20px;line-height:28px}
       .dsh-upload-settings p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px}
       .dsh-upload-refresh,.dsh-upload-actions button,.dsh-upload-actions a{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:6px 11px;font:inherit;font-size:12px;line-height:18px;text-decoration:none;cursor:pointer}
@@ -1385,11 +1383,40 @@ window.__ModuleLoader__.load({
 			"files.maximize": "Maximize",
 			"files.restore": "Restore"
 		};
+		/** 技能文档文件名/路径匹配：空格分词，全部命中才显示。 */
+		const skillMatch = (f, q) => {
+			const s = String(q || "").trim().toLowerCase();
+			if (!s) return true;
+			const hay = ((f.name || "") + " " + (f.path || "")).toLowerCase();
+			return s.split(/\s+/).filter(Boolean).every((tok) => hay.indexOf(tok) !== -1);
+		};
+		/** 🔍 放大镜搜索弹窗（技能文档用）：点击弹出搜索框，✕ 清除并关闭。不自动隐藏。 */
+		function SkillSearchPop({ value, onChange, placeholder }) {
+			const [open, setOpen] = react.useState(false);
+			const [pos, setPos] = react.useState({ top: 72, left: 8 });
+			const ref = react.useRef(null);
+			react.useEffect(() => { if (open && ref.current) { try { ref.current.focus(); } catch (e) {} } }, [open]);
+			const toggle = (e) => {
+				if (!open && e && e.currentTarget) {
+					const r = e.currentTarget.getBoundingClientRect();
+					setPos({ top: r.bottom + 8, left: Math.max(8, Math.min(r.left, (window.innerWidth || 0) - 280)) });
+				}
+				setOpen((o) => !o);
+			};
+			return react_jsx_runtime.jsxs("div", { className: "dsh-searchpop", children: [
+				react_jsx_runtime.jsx("button", { type: "button", className: "dsh-searchpop-btn", onClick: toggle, title: "搜索技能/文件", "aria-label": "搜索技能/文件", children: "🔍" }),
+				open && react_jsx_runtime.jsxs("div", { className: "dsh-searchpop-box", style: { top: pos.top, left: pos.left }, children: [
+					react_jsx_runtime.jsx("input", { ref, type: "text", className: "dsh-searchpop-input", value, onChange: (e) => onChange(e.target.value), placeholder: placeholder || "搜索技能/文件…", autoFocus: true }),
+					value !== "" && react_jsx_runtime.jsx("button", { type: "button", className: "dsh-searchpop-clear", title: "清除", "aria-label": "清除搜索", onMouseDown: (e) => { e.preventDefault(); e.stopPropagation(); }, onClick: (e) => { e.preventDefault(); e.stopPropagation(); onChange(""); setOpen(false); }, children: "✕" })
+				] })
+			] });
+		}
 		function SkillsSection({ t }) {
 			const [groups, setGroups] = react.useState(null);
 			const [error, setError] = react.useState(null);
 			const [preview, setPreview] = react.useState(null);
 			const [collapsed, setCollapsed] = react.useState({});
+			const [search, setSearch] = react.useState("");
 			const [maximized, setMaximized] = react.useState(false);
 			const [editing, setEditing] = react.useState(false);
 			const [edited, setEdited] = react.useState("");
@@ -1515,34 +1542,47 @@ window.__ModuleLoader__.load({
 				padding: "8px 12px", borderBottom: "1px solid var(--dsw-alias-border-l2)", flex: "none", flexWrap: "wrap"
 			};
 
+			// 检索：按名称/路径过滤各技能夹的 md 文件，隐藏空夹；检索时自动展开命中夹。
+			const shownGroups = (search && groups !== null)
+				? groups.map((g) => ({ folder: g.folder, files: g.files.filter((f) => skillMatch(f, search)) })).filter((g) => g.files.length > 0)
+				: groups;
+			const searching = !!String(search || "").trim();
+
 			return react_jsx_runtime.jsxs("div", {
 				style: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
 				children: [
-					react_jsx_runtime.jsx("div", { style: { fontSize: 13, color: "var(--dsw-alias-label-tertiary)" }, children: t("files.hint") }),
+					react_jsx_runtime.jsx("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }, children: [
+						react_jsx_runtime.jsx("span", { style: { fontSize: 13, color: "var(--dsw-alias-label-tertiary)" }, children: t("files.hint") }),
+						react_jsx_runtime.jsx(SkillSearchPop, { value: search, onChange: setSearch, placeholder: "搜索技能/文件…" })
+					] }),
 					error !== null && react_jsx_runtime.jsx("div", { style: { fontSize: 12, color: "var(--dsw-alias-state-error-primary)" }, children: error }),
 					groups === null && error === null && react_jsx_runtime.jsx("div", { style: metaStyle, children: t("files.loading") }),
 					groups !== null && groups.length === 0 && react_jsx_runtime.jsx("div", { style: metaStyle, children: t("files.empty") }),
-					groups !== null && groups.map((group) => react_jsx_runtime.jsxs("div", {
-						style: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
-						children: [
-							react_jsx_runtime.jsx("button", {
-								type: "button",
-								style: folderBtnStyle,
-								"aria-expanded": !collapsed[group.folder],
-								onClick: () => toggleFolder(group.folder),
-								children: `${collapsed[group.folder] ? "▸" : "▾"} ${group.folder} (${group.files.length})`
-							}),
-							!collapsed[group.folder] && group.files.map((f) => react_jsx_runtime.jsxs("div", {
-								style: rowStyle,
-								children: [
-									react_jsx_runtime.jsx("span", { style: nameStyle, title: f.path, children: f.path }),
-									react_jsx_runtime.jsx("span", { style: metaStyle, children: `${f.size < 1024 ? `${f.size} B` : `${(f.size / 1024).toFixed(1)} KiB`}` }),
-									react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, onClick: () => openDoc(f.path), children: t("files.preview") }),
-									react_jsx_runtime.jsx("a", { href: "/dsh-skill-docs/skill-doc?path=" + encodeURIComponent(f.path) + "&download=1", download: f.name, style: btnStyle, children: t("files.download") })
-								]
-							}, f.path))
-						]
-					}, group.folder)),
+					shownGroups !== null && shownGroups.map((group) => {
+						const isCollapsed = searching ? false : !!collapsed[group.folder];
+						return react_jsx_runtime.jsxs("div", {
+							style: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
+							children: [
+								react_jsx_runtime.jsx("button", {
+									type: "button",
+									style: folderBtnStyle,
+									"aria-expanded": !isCollapsed,
+									onClick: () => toggleFolder(group.folder),
+									children: `${isCollapsed ? "▸" : "▾"} ${group.folder} (${group.files.length})`
+								}),
+								!isCollapsed && group.files.map((f) => react_jsx_runtime.jsxs("div", {
+									style: rowStyle,
+									children: [
+										react_jsx_runtime.jsx("span", { style: nameStyle, title: f.path, children: f.path }),
+										react_jsx_runtime.jsx("span", { style: metaStyle, children: `${f.size < 1024 ? `${f.size} B` : `${(f.size / 1024).toFixed(1)} KiB`}` }),
+										react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, onClick: () => openDoc(f.path), children: t("files.preview") }),
+										react_jsx_runtime.jsx("a", { href: "/dsh-skill-docs/skill-doc?path=" + encodeURIComponent(f.path) + "&download=1", download: f.name, style: btnStyle, children: t("files.download") })
+									]
+								}, f.path))
+							]
+						}, group.folder);
+					}),
+					searching && shownGroups !== null && shownGroups.length === 0 && react_jsx_runtime.jsx("div", { style: metaStyle, children: "没有匹配的技能文档" }),
 					preview !== null && react_jsx_runtime.jsxs("div", {
 						style: overlayStyle,
 						onClick: () => setPreview(null),
