@@ -17,6 +17,7 @@
     "!client/*.bak",
     "cordis.patch.yml",
     "dsh.plugin.json",
+    "THIRD_PARTY_NOTICES.md",
     "skill/dsh-long-plugins-install/SKILL.md",
     "skill/dsh-upgrade/SKILL.md",
     "skill/dsh-common-plugins-install/SKILL.md",

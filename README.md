@@ -105,3 +105,16 @@ Plus the upload manager's core routes (`/api/dsh-uploads`, download, preview).
 ## License
 
 MIT
+
+## Third-party libraries / 第三方开源库
+
+本插件在浏览器端捆绑/打包了以下开源库用于文件预览（非回形针上传，上传为自研）：
+
+- `docx-preview`(docxjs) — Word 真实预览 — **Apache-2.0**
+- `JSZip` — 解压 Office 包 — **MIT**（或 GPLv3，本项目按 MIT 使用）
+- `Chart.js` — PPT 内图表 — **MIT**
+- `PptxViewJS` — PowerPoint 真实预览 — **MIT**
+- npm 依赖：`mammoth`（BSD-2-Clause）、`exceljs`（MIT）
+
+完整的版权声明与来源见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+
