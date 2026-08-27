@@ -573,6 +573,14 @@ window.__ModuleLoader__.load({
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
     }
 
+    /** 文件名搜索过滤：空格分隔的每个词都需命中（不区分大小写，匹配文件名+路径）。 */
+    const matchesSearch = (file, search) => {
+      const q = String(search || '').trim().toLowerCase()
+      if (!q) return true
+      const hay = ((file.name || '') + ' ' + (file.path || '')).toLowerCase()
+      return q.split(/\s+/).filter(Boolean).every((tok) => hay.indexOf(tok) !== -1)
+    }
+
     /** 自定义日期筛选控件：显示 📅 + 文字，点击/触摸打开系统日期选择器，自带 ✕ 清除。
      * 原生 input[type=date] 在手机端是空框、无图标；此处整个控件包一层 onClick，
      * 统一调用 input.showPicker()，故点图标/文字/任意位置都触发（桌面/手机一致）。 */
@@ -600,6 +608,38 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /** 🔍 放大镜搜索：点击图标弹出搜索框，输入即过滤；点✕清除，点击外部关闭。 */
+    function SearchPopup({ value, onChange, placeholder }) {
+      const [open, setOpen] = React.useState(false)
+      const ref = React.useRef(null)
+      const boxRef = React.useRef(null)
+      React.useEffect(() => { if (open && ref.current) { try { ref.current.focus() } catch (e) {} } }, [open])
+      React.useEffect(() => {
+        if (!open) return undefined
+        const onDoc = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
+        document.addEventListener('mousedown', onDoc)
+        return () => document.removeEventListener('mousedown', onDoc)
+      }, [open])
+      return React.createElement('div', { className: 'dsh-searchpop', ref: boxRef },
+        React.createElement('button', {
+          type: 'button', className: 'dsh-searchpop-btn',
+          onClick: () => setOpen((o) => !o),
+          title: '搜索文件名', 'aria-label': '搜索文件名',
+        }, '🔍'),
+        open && React.createElement('div', { className: 'dsh-searchpop-box' },
+          React.createElement('input', {
+            ref, type: 'text', className: 'dsh-searchpop-input', value,
+            onChange: (e) => onChange(e.target.value), placeholder: placeholder || '搜索文件名…', autoFocus: true,
+          }),
+          value !== '' && React.createElement('button', {
+            type: 'button', className: 'dsh-searchpop-clear', title: '清除', 'aria-label': '清除搜索',
+            onMouseDown: (e) => { e.preventDefault(); e.stopPropagation() },
+            onClick: (e) => { e.preventDefault(); e.stopPropagation(); onChange(''); setOpen(false); },
+          }, '✕'),
+        ),
+      )
+    }
+
     function UploadSettingsSection() {
       const [state, setState] = React.useState({
         loading: true,
@@ -614,6 +654,7 @@ window.__ModuleLoader__.load({
       const [preview, setPreview] = React.useState(null)
       const [previewMaximized, setPreviewMaximized] = React.useState(false)
       const [dayFilter, setDayFilter] = React.useState('')
+      const [search, setSearch] = React.useState('')
 
       async function refresh() {
         setState((current) => ({ ...current, loading: true, error: '' }))
@@ -720,9 +761,9 @@ window.__ModuleLoader__.load({
         for (const day of days) groups.push({ day, files: byDay.get(day) })
         return groups
       }
-      // 日期筛选：先按所选天过滤 state.files，再始终按天分组（空日期=全部）。
-      const shownFiles = dayFilter
-        ? state.files.filter((f) => { try { return localDay(f.modifiedAt) === dayFilter } catch { return false } })
+      // 日期筛选 + 文件名搜索：先按所选天/关键词过滤 state.files，再始终按天分组（空=全部）。
+      const shownFiles = (dayFilter || search)
+        ? state.files.filter((f) => (dayFilter ? (() => { try { return localDay(f.modifiedAt) === dayFilter } catch { return false } })() : true) && matchesSearch(f, search))
         : state.files
       const dateGroups = groupFilesByDate(shownFiles)
 
@@ -741,6 +782,7 @@ window.__ModuleLoader__.load({
           React.createElement(
             'div',
             { className: 'dsh-upload-head-actions' },
+            React.createElement(SearchPopup, { value: search, onChange: setSearch, placeholder: '搜索文件名…' }),
             React.createElement(DateFilter, { value: dayFilter, onChange: setDayFilter, placeholder: '选择日期' }),
             React.createElement(
               'button',
@@ -765,8 +807,8 @@ window.__ModuleLoader__.load({
         !state.loading && state.files.length === 0
           ? React.createElement('div', { className: 'dsh-upload-empty' }, '当前没有已上传文件。')
           : null,
-        !state.loading && dayFilter !== '' && shownFiles.length === 0 && state.files.length > 0
-          ? React.createElement('div', { className: 'dsh-upload-empty' }, '该日期没有文件。')
+        !state.loading && (dayFilter !== '' || search !== '') && shownFiles.length === 0 && state.files.length > 0
+          ? React.createElement('div', { className: 'dsh-upload-empty' }, '没有匹配的文件。')
           : null,
         preview
           ? React.createElement(
@@ -873,6 +915,17 @@ window.__ModuleLoader__.load({
       .dsh-upload-settings{display:flex;flex-direction:column;gap:16px;min-width:0;padding:4px 2px 24px;color:var(--dsw-alias-label-primary)}
       .dsh-upload-settings-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
       .dsh-upload-head-actions{display:flex;gap:8px;align-items:center;flex:none}
+      .dsh-searchpop{position:relative;display:inline-flex;align-items:center;flex:none}
+      .dsh-searchpop-btn{width:30px;height:30px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+      .dsh-searchpop-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+      .dsh-searchpop-box{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:flex;align-items:center;gap:6px;background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:6px;box-shadow:var(--dsw-shadow-lv3)}
+      .dsh-searchpop-input{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:5px 9px;font:inherit;font-size:12px;line-height:18px;min-width:160px}
+      .dsh-searchpop-input::placeholder{color:var(--dsw-alias-label-tertiary)}
+      .dsh-searchpop-clear{background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1;cursor:pointer;padding:0 3px}
+      .dsh-searchpop-clear:hover{color:var(--dsw-alias-label-primary)}
+      @media (max-width:767px){
+        .dsh-searchpop-box{position:fixed;right:auto;left:16px;top:76px;max-width:calc(100vw - 32px);width:max-content}
+      }
       .dsh-upload-settings h2{margin:0;font-size:20px;line-height:28px}
       .dsh-upload-settings p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px}
       .dsh-upload-refresh,.dsh-upload-actions button,.dsh-upload-actions a{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:6px 11px;font:inherit;font-size:12px;line-height:18px;text-decoration:none;cursor:pointer}
@@ -941,6 +994,7 @@ window.__ModuleLoader__.load({
       const [busy, setBusy] = React.useState(false)
       const [collapsed, setCollapsed] = React.useState({})
       const [dayFilter, setDayFilter] = React.useState('')
+      const [search, setSearch] = React.useState('')
       const [copied, setCopied] = React.useState(false)
       const [editing, setEditing] = React.useState(false)
       const [edited, setEdited] = React.useState('')
@@ -1124,9 +1178,12 @@ window.__ModuleLoader__.load({
       }
 
       // 日期筛选：按所选天过滤各组文件，隐藏空组（空日期=全部）。
-      const shownGroups = (dayFilter && groups !== null)
+      const shownGroups = ((dayFilter || search) && groups !== null)
         ? groups
-          .map((g) => ({ folder: g.folder, files: g.files.filter((f) => { try { return localDay(f.mtime) === dayFilter } catch { return false } }) }))
+          .map((g) => ({ folder: g.folder, files: g.files.filter((f) =>
+            (dayFilter ? (() => { try { return localDay(f.mtime) === dayFilter } catch { return false } })() : true) &&
+            matchesSearch(f, search)
+          ) }))
           .filter((g) => g.files.length > 0)
         : groups
 
@@ -1135,12 +1192,13 @@ window.__ModuleLoader__.load({
         { style: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 } },
         React.createElement('div', { style: { fontSize: 13, color: 'var(--dsw-alias-label-tertiary)' } }, '工作区输出文件（按文件夹分类，预览 / 下载 / 删除）'),
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 } },
+          React.createElement(SearchPopup, { value: search, onChange: setSearch, placeholder: '搜索文件名…' }),
           React.createElement(DateFilter, { value: dayFilter, onChange: setDayFilter, placeholder: '选择日期' }),
         ),
         error !== null && React.createElement('div', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)' } }, error),
         groups === null && error === null && React.createElement('div', { style: metaStyle }, '加载中…'),
         groups !== null && groups.length === 0 && React.createElement('div', { style: metaStyle }, '目录为空'),
-        dayFilter && groups !== null && groups.length > 0 && shownGroups !== null && shownGroups.length === 0 && React.createElement('div', { style: metaStyle }, '该日期没有文件'),
+        (dayFilter || search) && groups !== null && groups.length > 0 && shownGroups !== null && shownGroups.length === 0 && React.createElement('div', { style: metaStyle }, '没有匹配的文件'),
         shownGroups !== null && shownGroups.map((group) => React.createElement(
           'div',
           { key: group.folder, style: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 } },
