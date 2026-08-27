@@ -566,6 +566,40 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** 本地时区 YYYY-MM-DD（日期筛选/分组用，避免 toISOString 的 UTC 漂移）。 */
+    const localDay = (ts) => {
+      const d = new Date(ts)
+      const p = (v) => v < 10 ? '0' + v : v
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    }
+
+    /** 自定义日期筛选控件：显示 📅 + 文字，点击/触摸打开系统日期选择器，自带 ✕ 清除。
+     * 原生 input[type=date] 在手机端是空框、无图标；此处整个控件包一层 onClick，
+     * 统一调用 input.showPicker()，故点图标/文字/任意位置都触发（桌面/手机一致）。 */
+    function DateFilter({ value, onChange, placeholder }) {
+      const ref = React.useRef(null)
+      const label = value || placeholder || '选择日期'
+      const open = () => {
+        const el = ref.current
+        if (!el) return
+        if (typeof el.showPicker === 'function') { try { el.showPicker(); return } catch (e) {} }
+        try { el.focus() } catch (e) {}
+      }
+      return React.createElement('div', { className: 'dsh-datefilter', onClick: open },
+        React.createElement('span', { className: 'dsh-datefilter-icon' }, '📅'),
+        React.createElement('span', { className: 'dsh-datefilter-text' }, label),
+        value !== '' && React.createElement('button', {
+          type: 'button', className: 'dsh-datefilter-clear', title: '清除', 'aria-label': '清除日期',
+          onClick: (e) => { e.stopPropagation(); onChange('') },
+        }, '✕'),
+        React.createElement('input', {
+          ref, type: 'date', className: 'dsh-datefilter-native', value,
+          onChange: (e) => onChange(e.target.value),
+          tabIndex: -1, 'aria-label': placeholder || '选择日期',
+        }),
+      )
+    }
+
     function UploadSettingsSection() {
       const [state, setState] = React.useState({
         loading: true,
@@ -579,7 +613,7 @@ window.__ModuleLoader__.load({
       const [deleting, setDeleting] = React.useState('')
       const [preview, setPreview] = React.useState(null)
       const [previewMaximized, setPreviewMaximized] = React.useState(false)
-      const [groupByDate, setGroupByDate] = React.useState(false)
+      const [dayFilter, setDayFilter] = React.useState('')
 
       async function refresh() {
         setState((current) => ({ ...current, loading: true, error: '' }))
@@ -675,7 +709,7 @@ window.__ModuleLoader__.load({
         for (const file of files) {
           let day = ''
           try {
-            day = new Date(file.modifiedAt).toISOString().slice(0, 10)
+            day = localDay(file.modifiedAt)
           } catch {
             day = '未知日期'
           }
@@ -686,7 +720,11 @@ window.__ModuleLoader__.load({
         for (const day of days) groups.push({ day, files: byDay.get(day) })
         return groups
       }
-      const dateGroups = groupByDate ? groupFilesByDate(state.files) : null
+      // 日期筛选：先按所选天过滤 state.files，再始终按天分组（空日期=全部）。
+      const shownFiles = dayFilter
+        ? state.files.filter((f) => { try { return localDay(f.modifiedAt) === dayFilter } catch { return false } })
+        : state.files
+      const dateGroups = groupFilesByDate(shownFiles)
 
       return React.createElement(
         'section',
@@ -703,16 +741,7 @@ window.__ModuleLoader__.load({
           React.createElement(
             'div',
             { className: 'dsh-upload-head-actions' },
-            React.createElement(
-              'button',
-              {
-                type: 'button',
-                className: 'dsh-upload-refresh',
-                disabled: state.loading,
-                onClick: () => setGroupByDate((g) => !g),
-              },
-              groupByDate ? '日期 ✓' : '日期',
-            ),
+            React.createElement(DateFilter, { value: dayFilter, onChange: setDayFilter, placeholder: '选择日期' }),
             React.createElement(
               'button',
               { type: 'button', className: 'dsh-upload-refresh', disabled: state.loading, onClick: refresh },
@@ -735,6 +764,9 @@ window.__ModuleLoader__.load({
         state.error ? React.createElement('div', { className: 'dsh-upload-error' }, state.error) : null,
         !state.loading && state.files.length === 0
           ? React.createElement('div', { className: 'dsh-upload-empty' }, '当前没有已上传文件。')
+          : null,
+        !state.loading && dayFilter !== '' && shownFiles.length === 0 && state.files.length > 0
+          ? React.createElement('div', { className: 'dsh-upload-empty' }, '该日期没有文件。')
           : null,
         preview
           ? React.createElement(
@@ -780,7 +812,7 @@ window.__ModuleLoader__.load({
         React.createElement(
           'div',
           { className: 'dsh-upload-list' },
-          (dateGroups === null ? [{ day: null, files: state.files }] : dateGroups).map((group) => React.createElement(
+          (dateGroups === null ? [{ day: null, files: shownFiles }] : dateGroups).map((group) => React.createElement(
             'div',
             { key: group.day ?? '__all__', className: 'dsh-upload-group' },
             group.day !== null
@@ -844,6 +876,13 @@ window.__ModuleLoader__.load({
       .dsh-upload-settings h2{margin:0;font-size:20px;line-height:28px}
       .dsh-upload-settings p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px}
       .dsh-upload-refresh,.dsh-upload-actions button,.dsh-upload-actions a{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:6px 11px;font:inherit;font-size:12px;line-height:18px;text-decoration:none;cursor:pointer}
+      .dsh-datefilter{position:relative;display:inline-flex;align-items:center;gap:6px;min-width:118px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;padding:5px 8px;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:18px;cursor:pointer}
+      .dsh-datefilter:hover{border-color:var(--dsw-alias-state-business-primary)}
+      .dsh-datefilter-icon{font-size:13px;flex:none}
+      .dsh-datefilter-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .dsh-datefilter-native{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;pointer-events:auto;z-index:1}
+      .dsh-datefilter-clear{position:relative;z-index:2;background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1;cursor:pointer;padding:0 2px}
+      .dsh-datefilter-clear:hover{color:var(--dsw-alias-label-primary)}
       .dsh-upload-refresh:hover:not(:disabled),.dsh-upload-actions button:hover:not(:disabled),.dsh-upload-actions a:hover{background:var(--dsw-alias-interactive-bg-hover)}
       .dsh-upload-root{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 12px;align-items:center;padding:12px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-specific-input-major)}
       .dsh-upload-root span{font-size:12px;color:var(--dsw-alias-label-secondary)}
@@ -901,6 +940,7 @@ window.__ModuleLoader__.load({
       const [preview, setPreview] = React.useState(null)
       const [busy, setBusy] = React.useState(false)
       const [collapsed, setCollapsed] = React.useState({})
+      const [dayFilter, setDayFilter] = React.useState('')
       const [copied, setCopied] = React.useState(false)
       const [editing, setEditing] = React.useState(false)
       const [edited, setEdited] = React.useState('')
@@ -1083,14 +1123,25 @@ window.__ModuleLoader__.load({
         padding: '10px 14px', borderBottom: '1px solid var(--dsw-alias-border-l2)', flex: 'none',
       }
 
+      // 日期筛选：按所选天过滤各组文件，隐藏空组（空日期=全部）。
+      const shownGroups = (dayFilter && groups !== null)
+        ? groups
+          .map((g) => ({ folder: g.folder, files: g.files.filter((f) => { try { return localDay(f.mtime) === dayFilter } catch { return false } }) }))
+          .filter((g) => g.files.length > 0)
+        : groups
+
       return React.createElement(
         'div',
         { style: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 } },
         React.createElement('div', { style: { fontSize: 13, color: 'var(--dsw-alias-label-tertiary)' } }, '工作区输出文件（按文件夹分类，预览 / 下载 / 删除）'),
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 } },
+          React.createElement(DateFilter, { value: dayFilter, onChange: setDayFilter, placeholder: '选择日期' }),
+        ),
         error !== null && React.createElement('div', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)' } }, error),
         groups === null && error === null && React.createElement('div', { style: metaStyle }, '加载中…'),
         groups !== null && groups.length === 0 && React.createElement('div', { style: metaStyle }, '目录为空'),
-        groups !== null && groups.map((group) => React.createElement(
+        dayFilter && groups !== null && groups.length > 0 && shownGroups !== null && shownGroups.length === 0 && React.createElement('div', { style: metaStyle }, '该日期没有文件'),
+        shownGroups !== null && shownGroups.map((group) => React.createElement(
           'div',
           { key: group.folder, style: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 } },
           React.createElement(
