@@ -3034,6 +3034,280 @@ window.__ModuleLoader__.load({
       },
     }
 
+    // ===== dsh-long-plugins: 毛玻璃界面 (glass UI) =====
+    // 简洁方案：共用一张背景图铺满 body；左边栏 + 顶部各加一层半透明"罩"；
+    // 会话窗口(centerCol)做成磨砂玻璃悬浮卡片(backdrop-filter blur + 半透明背景)。
+    const GLASS_CSS = `
+      html[data-dsh-glass="on"] body { position: relative; }
+      /* 方案A：背景图铺满整页(含左栏/顶栏/底部，全透明透出)；仅会话滚动区做磨砂玻璃卡片。 */
+      /* 左栏内部容器(或其它用此变量的)也透明，让背景图透到左栏。只覆盖左栏专用变量，避免影响设置面板。 */
+      html[data-dsh-glass="on"] body {
+        --dsw-specific-sidebar-fill: transparent !important;
+      }
+      /* 左栏 / 顶栏 / 底部：完全透明，让 frame 背景图连成一张透出（不做罩/不做磨砂） */
+      html[data-dsh-glass="on"] #root [class*="sidebarCol"],
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_header"],
+      html[data-dsh-glass="on"] #root [class*="centerCol"],
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_root"] {
+        background-color: transparent !important;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+      /* 左栏内部根 / 底部容器也用透明（这些是 DSH 当前版本哈希类名；背景图要透到左栏与底部） */
+      html[data-dsh-glass="on"] #root [class*="hHd-Xa_root"],
+      html[data-dsh-glass="on"] #root [class*="FJxK0a_root"] {
+        background-color: transparent !important;
+      }
+      /* 会话滚动区：磨砂玻璃悬浮卡片（居中收窄，不占满宽度，四周透背景图） */
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] {
+        background-color: var(--dsh-glass-cardbg, rgba(255,255,255,0.45)) !important;
+        backdrop-filter: blur(var(--dsh-glass-blur, 16px));
+        -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
+        border-radius: 16px;
+        overflow: auto;
+        margin: 0 auto !important;
+        /* 柔和阴影 + 边缘渐隐，让磨砂卡片边缘过渡自然（悬浮玻璃质感） */
+        box-shadow: 0 8px 40px rgba(0,0,0,0.28), 0 2px 12px rgba(0,0,0,0.18);
+      }
+      /* 滚动条：细、半透明、圆角，且左移贴在内容区（不占卡片最右边缘），让右边缘过渡柔和 */
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar { width: 8px; }
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-track { background: transparent; }
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); border-radius: 8px; }
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+      /* 底部输入卡片：深色半透明磨砂（参考图：深色玻璃卡片 + 白字，与背景区分开） */
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] {
+        background-color: var(--dsh-glass-darkcard, rgba(20,26,40,0.6)) !important;
+        backdrop-filter: blur(var(--dsh-glass-blur, 16px));
+        -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
+      }
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] * { color: rgba(255,255,255,0.92) !important; }
+      html[data-dsh-glass="off"] #root [class*="sidebarCol"],
+      html[data-dsh-glass="off"] #root [class*="header"],
+      html[data-dsh-glass="off"] #root [class*="centerCol"],
+      html[data-dsh-glass="off"] #root [class*="wSkVaW_root"],
+      html[data-dsh-glass="off"] #root [class*="wSkVaW_scrollBody"],
+      html[data-dsh-glass="off"] #root [class*="uV2eYG_card"] { background-color: transparent !important; backdrop-filter: none; }
+      .dsh-glass-section{display:flex;flex-direction:column;gap:16px;min-width:0;padding:4px 2px 24px;color:var(--dsw-alias-label-primary)}
+      .dsh-glass-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+      .dsh-glass-head h2{margin:0;font-size:20px;line-height:28px}
+      .dsh-glass-head p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px}
+      .dsh-glass-switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;user-select:none}
+      .dsh-glass-switch input{width:34px;height:20px;accent-color:var(--dsw-alias-state-business-primary);cursor:pointer}
+      .dsh-glass-card{display:grid;gap:12px;padding:14px 16px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-specific-input-major)}
+      .dsh-glass-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+      .dsh-glass-row label{font-size:13px;color:var(--dsw-alias-label-primary);flex:none}
+      .dsh-glass-range{flex:1;min-width:160px;max-width:320px;accent-color:var(--dsw-alias-state-business-primary)}
+      .dsh-glass-val{flex:none;font-size:12px;color:var(--dsw-alias-label-secondary);min-width:56px;text-align:right;font-variant-numeric:tabular-nums}
+      .dsh-glass-swatches{display:flex;gap:8px;flex-wrap:wrap}
+      .dsh-glass-swatch{width:26px;height:26px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);cursor:pointer;padding:0;transition:transform .12s}
+      .dsh-glass-swatch:hover{transform:scale(1.12)}
+      .dsh-glass-swatch.on{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+      .dsh-glass-colorpicker{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;cursor:pointer}
+      .dsh-glass-colorpicker input[type=color]{width:30px;height:24px;border:none;background:none;padding:0;cursor:pointer}
+      .dsh-glass-bg{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .dsh-glass-file{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font-size:12px;cursor:pointer}
+      .dsh-glass-file input{display:none}
+      .dsh-glass-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+      .dsh-glass-actions button{padding:7px 16px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;cursor:pointer}
+      .dsh-glass-actions .primary{background:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary);color:#fff}
+      .dsh-glass-actions button:disabled{opacity:.55;cursor:not-allowed}
+      .dsh-glass-error{padding:10px 12px;border-radius:8px;background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary);font-size:12px}
+      .dsh-glass-note{margin:0;font-size:12px;color:var(--dsw-alias-label-tertiary)}
+    `
+    const GLASS_SWATCHES = ['#0f1420', '#14161a', '#1a2530', '#26324d', '#153a3a', '#3b2a4a', '#4a1f1f', '#2d3748']
+    const glassText = (e) => (e && e.message) ? e.message : String(e)
+    function glassImageInput(value, onChange) {
+      return React.createElement('label', { className: 'dsh-glass-file' },
+        React.createElement('span', null, '上传背景图'),
+        React.createElement('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', onChange: (e) => {
+          const f = e.target.files && e.target.files[0]
+          if (!f) return
+          const reader = new FileReader()
+          reader.onload = () => onChange(String(reader.result || ''))
+          reader.readAsDataURL(f)
+        } }),
+        value ? React.createElement('span', { style: { width: 22, height: 22, borderRadius: 4, backgroundImage: 'url(' + value + ')', backgroundSize: 'cover', display: 'inline-block' } }) : null,
+      )
+    }
+    const GlassSettingsSection = () => {
+      const [state, setState] = React.useState({ loading: true, saving: false, error: '', cfg: null, bgImage: '' })
+      const load = React.useCallback(async () => {
+        setState((s) => ({ ...s, loading: true, error: '' }))
+        try {
+          const r = await fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' })
+          const b = await r.json()
+          if (!r.ok) throw new Error(b.error || ('HTTP ' + r.status))
+          setState((s) => ({ ...s, loading: false, cfg: b.cfg, bgImage: b.bgImage || '' }))
+        } catch (e) { setState((s) => ({ ...s, loading: false, error: glassText(e) })) }
+      }, [])
+      React.useEffect(() => { load(); }, [load])
+      const patch = React.useCallback((p) => setState((s) => ({ ...s, cfg: { ...(s.cfg || {}), ...p } })), [])
+      const save = React.useCallback(async () => {
+        setState((s) => ({ ...s, saving: true, error: '' }))
+        try {
+          const cfg = state.cfg || {}
+          const payload = {
+            enabled: !!cfg.enabled, blur: Number(cfg.blur) || 0, mask: Number(cfg.mask) || 0,
+            color: cfg.color || '#1a2332', bgImage: state.bgImage || cfg.bgImage || '',
+          }
+          const r = await fetch('/api/dsh-uploads/glass-config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
+          const b = await r.json()
+          if (!r.ok) throw new Error(b.error || ('HTTP ' + r.status))
+          window.__dshGlassApply && window.__dshGlassApply(payload)
+          setState((s) => ({ ...s, saving: false, cfg: { ...(s.cfg || {}), ...payload }, bgImage: payload.bgImage, error: '' }))
+        } catch (e) { setState((s) => ({ ...s, saving: false, error: glassText(e) })) }
+      }, [state])
+      const cfg = state.cfg || {}
+      if (state.loading) return React.createElement('div', { className: 'dsh-glass-section' }, '加载中…')
+      return React.createElement('div', { className: 'dsh-glass-section' },
+        React.createElement('div', { className: 'dsh-glass-head' },
+          React.createElement('div', null, React.createElement('h2', null, '毛玻璃界面'), React.createElement('p', null, '共用一张背景图铺满整页，仅消息滚动区做居中磨砂玻璃卡片，其余区域透出背景图。')),
+          React.createElement('label', { className: 'dsh-glass-switch' }, React.createElement('input', { type: 'checkbox', checked: !!cfg.enabled, onChange: (e) => patch({ enabled: e.target.checked }) }), cfg.enabled ? '已开启' : '已关闭'),
+        ),
+        state.error ? React.createElement('div', { className: 'dsh-glass-error' }, state.error) : null,
+        React.createElement('div', { className: 'dsh-glass-card' },
+          React.createElement('div', { className: 'dsh-glass-row' },
+            React.createElement('label', null, '磨砂模糊强度'),
+            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 80, value: cfg.blur ?? 20, onChange: (e) => patch({ blur: Number(e.target.value) }) }),
+            React.createElement('span', { className: 'dsh-glass-val' }, `${Number(cfg.blur ?? 20)} px`),
+          ),
+          React.createElement('div', { className: 'dsh-glass-row' },
+            React.createElement('label', null, '透明度（卡片不透明度）'),
+            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 0.95, step: 0.01, value: cfg.mask ?? 0.45, onChange: (e) => patch({ mask: Number(e.target.value) }) }),
+            React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(cfg.mask ?? 0.45)) * 100)}%`),
+          ),
+          React.createElement('div', { className: 'dsh-glass-row' },
+            React.createElement('label', null, '叠加 / 罩色'),
+            React.createElement('div', { className: 'dsh-glass-swatches' },
+              GLASS_SWATCHES.map((c) => React.createElement('button', { key: c, type: 'button', className: 'dsh-glass-swatch' + ((cfg.color || '#1a2332') === c ? ' on' : ''), style: { background: c }, 'aria-label': '颜色 ' + c, onClick: () => patch({ color: c }) })),
+            ),
+            React.createElement('label', { className: 'dsh-glass-colorpicker' }, '色盘', React.createElement('input', { type: 'color', value: cfg.color || '#1a2332', onChange: (e) => patch({ color: e.target.value }) })),
+          ),
+          React.createElement('div', { className: 'dsh-glass-row' },
+            React.createElement('label', null, '共用背景图'),
+            React.createElement('div', { className: 'dsh-glass-bg' }, glassImageInput(state.bgImage, (v) => setState((s) => ({ ...s, bgImage: v })))),
+          ),
+          React.createElement('p', { className: 'dsh-glass-note' }, '提示：背景图铺满整页；仅消息滚动区做磨砂玻璃卡片；输入卡片与其余区域透出背景。'),
+          React.createElement('div', { className: 'dsh-glass-actions' },
+            React.createElement('button', { type: 'button', onClick: load }, '重置'),
+            React.createElement('button', { type: 'button', className: 'primary', disabled: state.saving, onClick: save }, state.saving ? '保存中…' : '保存生效'),
+          ),
+        ),
+      )
+    }
+    const glassPlugin = {
+      inject: ['slots'],
+      apply(ctx) {
+        const hexToRgb = (hex) => { const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || '')); return m ? `${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)}` : '15,20,32' }
+        ctx.effect(() => {
+          const style = document.createElement('style')
+          style.dataset.plugin = 'dsh-long-plugins'
+          style.dataset.pluginCss = 'dsh-long-plugins/glass'
+          style.textContent = GLASS_CSS
+          document.head.appendChild(style)
+          return () => style.remove()
+        }, 'dsh-long-plugins: glass styles')
+        ctx.effect(() => {
+          const root = document.documentElement
+          
+          // 磨砂卡片与底部输入卡片对齐：宽度取输入卡片宽度，translateX 补偿使左右边界对齐输入卡。
+          const centerScroll = () => {
+            const el = document.querySelector('#root [class*="wSkVaW_scrollBody"]')
+            if (!el) return
+            const card = document.querySelector('#root [class*="uV2eYG_card"]')
+            const r = el.getBoundingClientRect()
+            const target = card ? card.getBoundingClientRect() : null
+            // 不改磨砂卡片宽度（保留默认 width:min() 原始宽度），仅水平居中到输入卡片中心。
+            const diff = (target ? (target.left + target.right) / 2 : window.innerWidth / 2) - (r.left + r.right) / 2
+            el.style.transform = 'translateX(' + Math.round(diff) + 'px)'
+          }
+          window.addEventListener('resize', centerScroll)
+          window.__dshGlassCenter = centerScroll
+          // win 风格文字：给左栏/顶栏内的可见文字元素加白色+深色描边；跳过弹窗(modal/overlay/dialog/settings/panel)内元素。
+          const applyWinText = (enabled) => {
+            const mark = '__dsh_wintext'
+            const skipSel = 'modal, overlay, dialog, settings, panel, drawer, sheet'
+            if (!enabled) {
+              document.querySelectorAll('[' + mark + ']').forEach((el) => {
+                delete el.dataset[mark]; el.style.color = ''; el.style.textShadow = ''; el.style.fontWeight = ''
+              })
+              return
+            }
+            // TreeWalker 遍历 #root 内所有文本节点；父级落在"左栏 / 顶部(header类)"且不在弹窗/会话滚动区的文字加 win 白字。
+            const root = document.getElementById('root')
+            if (!root) return
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null)
+            const seen = new Set()
+            while (walker.nextNode()) {
+              const node = walker.currentNode
+              const text = (node.nodeValue || '').trim()
+              if (!text) continue
+              const el = node.parentElement
+              if (!el || seen.has(el)) continue
+              // 命中区域：左栏(sidebar) 或 顶部(header 类)，但排除弹窗与会话滚动区/内容区。
+              const inSidebar = !!el.closest('[class*="sidebarCol"], [class*="sidebar"]')
+              const inHeader = (!!el.closest('[class*="header"]') && !el.closest('[class*="scrollBody"]'))
+              const inCenter = !!el.closest('[class*="centerCol"], [class*="wSkVaW_root"], [class*="scrollBody"]')
+              const inPanel = !!el.closest(skipSel)
+              const ok = (inSidebar || inHeader) && !inCenter && !inPanel && el.children.length === 0
+              if (ok) {
+                seen.add(el)
+                el.dataset[mark] = '1'
+                el.style.color = 'rgba(255,255,255,0.96)'
+                el.style.textShadow = '-1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5)'
+                el.style.fontWeight = '600'
+              }
+            }
+          }
+          window.__dshGlassApply = (cfg) => {
+            const c = cfg || {}
+            root.setAttribute('data-dsh-glass', c.enabled ? 'on' : 'off')
+            applyWinText(!!c.enabled)
+            // ... 后续 applier 逻辑在下方
+            const mask = Number(c.mask) || 0
+            const blur = Number(c.blur) || 16
+            const color = c.color || '#0f1420'
+            const rgb = hexToRgb(color)
+            root.style.setProperty('--dsh-glass-blur', blur + 'px')
+            root.style.setProperty('--dsh-glass-overlay', `rgba(${rgb},${mask})`)
+            root.style.setProperty('--dsh-glass-cardbg', c.enabled ? `rgba(255,255,255,${Math.min(0.95, Math.max(0, Number(c.mask) || 0.45))})` : 'rgba(255,255,255,0)')
+            root.style.setProperty('--dsh-glass-darkcard', c.enabled ? `rgba(${rgb},${Math.min(0.75, Math.max(0.45, Number(c.mask) || 0.6))})` : 'rgba(0,0,0,0)')
+            const body = document.body
+            const frame = document.querySelector('#root > div > div') || document.querySelector('#root > div')
+            const applyBg = (el) => {
+              if (!el) return
+              if (c.enabled && c.bgImage) {
+                el.style.backgroundImage = `url('${c.bgImage}')`
+                el.style.backgroundSize = 'cover'
+                el.style.backgroundPosition = 'center'
+                el.style.backgroundRepeat = 'no-repeat'
+              } else {
+                el.style.backgroundImage = 'none'
+                el.style.backgroundSize = ''
+                el.style.backgroundPosition = ''
+                el.style.backgroundRepeat = ''
+              }
+            }
+            applyBg(body)
+            if (frame) { frame.style.backgroundColor = 'transparent'; applyBg(frame) }
+            centerScroll()
+          }
+          return () => {
+            window.__dshGlassApply = undefined
+            window.removeEventListener('resize', centerScroll)
+            window.__dshGlassCenter = undefined
+            applyWinText(false)
+          }
+        }, 'dsh-long-plugins: glass applier')
+        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: '毛玻璃界面' }, GlassSettingsSection))
+        ctx.effect(() => {
+          fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' }).then((r) => r.json()).then((b) => {
+            if (b && b.cfg) { window.__dshGlassApply && window.__dshGlassApply({ enabled: b.cfg.enabled, blur: b.cfg.blur, mask: b.cfg.mask, color: b.cfg.color, bgImage: b.bgImage }) }
+          }).catch(() => {})
+        }, 'dsh-long-plugins: glass boot')
+      },
+    }
+
     const inject = Array.from(new Set([
       ...uploadPlugin.inject,
       ...skillDocsPlugin.inject,
@@ -3041,6 +3315,7 @@ window.__ModuleLoader__.load({
       ...mobilePlugin.inject,
       ...workspaceFilesPlugin.inject,
       ...turnRulerPlugin.inject,
+      ...glassPlugin.inject,
     ]))
 
     function apply(ctx) {
@@ -3057,6 +3332,7 @@ window.__ModuleLoader__.load({
       safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
       safeApply('workspace-files', (c) => workspaceFilesPlugin.apply(c))
       safeApply('turn-ruler', (c) => turnRulerPlugin.apply(c))
+      safeApply('glass', (c) => glassPlugin.apply(c))
     }
 
     exports.apply = apply
