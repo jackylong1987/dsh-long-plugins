@@ -3224,45 +3224,10 @@ window.__ModuleLoader__.load({
           window.addEventListener('resize', centerScroll)
           window.__dshGlassCenter = centerScroll
           // win 风格文字：给左栏/顶栏内的可见文字元素加白色+深色描边；跳过弹窗(modal/overlay/dialog/settings/panel)内元素。
-          const applyWinText = (enabled) => {
-            const mark = '__dsh_wintext'
-            const skipSel = 'modal, overlay, dialog, settings, panel, drawer, sheet'
-            if (!enabled) {
-              document.querySelectorAll('[' + mark + ']').forEach((el) => {
-                delete el.dataset[mark]; el.style.color = ''; el.style.textShadow = ''; el.style.fontWeight = ''
-              })
-              return
-            }
-            // TreeWalker 遍历 #root 内所有文本节点；父级落在"左栏 / 顶部(header类)"且不在弹窗/会话滚动区的文字加 win 白字。
-            const root = document.getElementById('root')
-            if (!root) return
-            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null)
-            const seen = new Set()
-            while (walker.nextNode()) {
-              const node = walker.currentNode
-              const text = (node.nodeValue || '').trim()
-              if (!text) continue
-              const el = node.parentElement
-              if (!el || seen.has(el)) continue
-              // 命中区域：左栏(sidebar) 或 顶部(header 类)，但排除弹窗与会话滚动区/内容区。
-              const inSidebar = !!el.closest('[class*="sidebarCol"], [class*="sidebar"]')
-              const inHeader = (!!el.closest('[class*="header"]') && !el.closest('[class*="scrollBody"]'))
-              const inCenter = !!el.closest('[class*="centerCol"], [class*="wSkVaW_root"], [class*="scrollBody"]')
-              const inPanel = !!el.closest(skipSel)
-              const ok = (inSidebar || inHeader) && !inCenter && !inPanel && el.children.length === 0
-              if (ok) {
-                seen.add(el)
-                el.dataset[mark] = '1'
-                el.style.color = 'rgba(255,255,255,0.96)'
-                el.style.textShadow = '-1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5)'
-                el.style.fontWeight = '600'
-              }
-            }
-          }
+
           window.__dshGlassApply = (cfg) => {
             const c = cfg || {}
             root.setAttribute('data-dsh-glass', c.enabled ? 'on' : 'off')
-            applyWinText(!!c.enabled)
             // ... 后续 applier 逻辑在下方
             const mask = Number(c.mask) || 0
             const blur = Number(c.blur) || 16
@@ -3296,7 +3261,6 @@ window.__ModuleLoader__.load({
             window.__dshGlassApply = undefined
             window.removeEventListener('resize', centerScroll)
             window.__dshGlassCenter = undefined
-            applyWinText(false)
           }
         }, 'dsh-long-plugins: glass applier')
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: '毛玻璃界面' }, GlassSettingsSection))
