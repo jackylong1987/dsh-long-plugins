@@ -81,6 +81,20 @@ window.__ModuleLoader__.load({
       return base.replace(/\.[^.]+$/, '')
     }
 
+    /** 轻量 toast：短暂显示一条消息（用于「粘贴的文件格式不支持」等提示）。 */
+    function showToast(text, kind) {
+      let t = document.querySelector('.dsh-long-toast')
+      if (!t) {
+        t = document.createElement('div')
+        t.className = 'dsh-long-toast'
+        document.body.appendChild(t)
+      }
+      t.textContent = text
+      t.className = 'dsh-long-toast ' + (kind || '') + ' show'
+      clearTimeout(t._timer)
+      t._timer = setTimeout(() => { t.className = 'dsh-long-toast' }, 2800)
+    }
+
     /** Trigger a browser download for a URL (no navigation, keeps the page). */
     function triggerDownload(url, name) {
       const a = document.createElement('a')
@@ -469,15 +483,48 @@ window.__ModuleLoader__.load({
             }
           }
         }
+        // 粘贴非图片文件 → 走与回形针/拖放相同的上传管线，并阻止 DSH 核心的「仅支持图片」门；
+        // 纯文本/图片粘贴放行给 DSH 原生；上传失败（不支持的格式等）给可见提示。
+        const onPaste = async (e) => {
+          const cd = e.clipboardData
+          if (!cd) return
+          const files = []
+          const items = cd.items
+          if (items) {
+            for (const item of items) {
+              if (item.kind === 'file' && typeof item.getAsFile === 'function') {
+                const f = item.getAsFile()
+                // 只接管非图片文件；图片交给 DSH 原生（内联显示），避免改变已有行为
+                if (f && f.size > 0 && !(f.type || '').startsWith('image/')) files.push(f)
+              }
+            }
+          }
+          if (files.length === 0) return // 无「非图片文件」→ 放行给 DSH
+          // 有文件粘贴：接管整段粘贴，阻止 DSH 后续处理器报「仅支持图片」
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
+          for (const file of files) {
+            try {
+              const stored = await uploadFile(file)
+              controller.attach(sessionId, stored)
+            } catch (error) {
+              console.warn(`[dsh-long-plugins] 粘贴上传失败：${file.name} → ${errorMessage(error)}`)
+              showToast(`不支持该文件格式：${file.name}`, 'error')
+            }
+          }
+        }
         window.addEventListener('dragenter', onDragEnter, true)
         window.addEventListener('dragover', onDragOver, true)
         window.addEventListener('dragleave', onDragLeave, true)
         window.addEventListener('drop', onDrop, true)
+        window.addEventListener('paste', onPaste, true)
         return () => {
           window.removeEventListener('dragenter', onDragEnter, true)
           window.removeEventListener('dragover', onDragOver, true)
           window.removeEventListener('dragleave', onDragLeave, true)
           window.removeEventListener('drop', onDrop, true)
+          window.removeEventListener('paste', onPaste, true)
         }
       }, [controller, sessionId])
 
@@ -981,6 +1028,9 @@ window.__ModuleLoader__.load({
       .dsh-upload-preview-open:hover{background:var(--dsw-alias-interactive-bg-hover)}
       .dsh-upload-preview-img{max-width:100%;max-height:70vh;object-fit:contain;display:block}
       .dsh-upload-preview-loading{display:flex;align-items:center;justify-content:center;flex:1;min-height:120px;color:var(--dsw-alias-label-secondary);font-size:13px}
+      .dsh-long-toast{position:fixed;left:50%;bottom:36px;transform:translateX(-50%) translateY(12px);z-index:2000;max-width:min(90vw,520px);padding:10px 16px;border-radius:10px;background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;box-shadow:var(--dsw-shadow-lv3);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+      .dsh-long-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+      .dsh-long-toast.error{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
     `
 
     const inject = ['slots', 'sessions', 'inputTriggers', 'conversation', 'timer']
