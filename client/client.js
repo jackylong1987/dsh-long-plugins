@@ -948,7 +948,7 @@ window.__ModuleLoader__.load({
       .dsh-upload-group-day span{font-weight:400;color:var(--dsw-alias-label-tertiary)}
       .dsh-upload-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l2);border-radius:8px;font-size:13px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform,transparent);margin-bottom:4px}
       .dsh-upload-file-name{flex:1;min-width:0;display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-primary)}
-      .dsh-upload-file-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .dsh-upload-file-label{min-width:0;white-space:normal;word-break:break-all;overflow-wrap:anywhere}
       .dsh-upload-file-type{flex:none;font-size:10px;line-height:14px;padding:1px 6px;border-radius:5px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover);white-space:nowrap}
       .dsh-upload-file-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px}
       .dsh-upload-actions{display:flex;flex:none;gap:7px}
@@ -1139,7 +1139,7 @@ window.__ModuleLoader__.load({
         borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2)',
         background: 'var(--dsw-alias-bg-module-platform, transparent)', fontSize: 13,
       }
-      const nameStyle = { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--dsw-alias-label-primary)' }
+      const nameStyle = { flex: 1, minWidth: 0, whiteSpace: 'normal', wordBreak: 'break-all', overflowWrap: 'anywhere', color: 'var(--dsw-alias-label-primary)' }
       const metaStyle = { flex: 'none', color: 'var(--dsw-alias-label-tertiary)', fontSize: 12 }
       const btnStyle = { flex: 'none', cursor: 'pointer', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 12, background: 'var(--dsw-alias-interactive-bg-hover)', color: 'var(--dsw-alias-label-secondary)' }
       const delStyle = { ...btnStyle, color: 'var(--dsw-alias-state-error-primary)' }
@@ -1217,7 +1217,7 @@ window.__ModuleLoader__.load({
             React.createElement(
               'span',
               { className: 'dsh-ws-name', style: { ...nameStyle, display: 'flex', alignItems: 'center', gap: 6 }, title: f.path },
-              React.createElement('span', { className: 'dsh-ws-file-label', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, basenameWithoutExt(f.path)),
+              React.createElement('span', { className: 'dsh-ws-file-label', style: { flex: 1, minWidth: 0, whiteSpace: 'normal', wordBreak: 'break-all', overflowWrap: 'anywhere' } }, basenameWithoutExt(f.path)),
               React.createElement('span', { className: 'dsh-ws-file-type', style: { flex: 'none' } }, fileTypeLabel(f.path)),
             ),
             React.createElement('span', { className: 'dsh-ws-meta', style: metaStyle }, `${sizeText(f.size)} · ${dateText(f.mtime)}`),
