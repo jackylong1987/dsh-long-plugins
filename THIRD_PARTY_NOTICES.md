@@ -34,6 +34,13 @@ copyright notices and sources are listed here.
 - npm: <https://www.npmjs.com/package/pptxviewjs>
 - CDN / source build: <https://cdn.jsdelivr.net/npm/pptxviewjs@1.1.9>
 
+### SheetJS (`xlsx.full.min.js`)
+- Used for: real browser-side Excel (`.xlsx`) preview
+- License: **Apache-2.0**
+- Copyright: SheetJS Community Edition
+- npm: <https://www.npmjs.com/package/xlsx>
+- CDN / source build: <https://cdn.jsdelivr.net/npm/xlsx@0.18.5>
+
 ## Runtime npm dependencies (not vendored into the package)
 
 These are declared as `dependencies` and resolved on the host at install time;

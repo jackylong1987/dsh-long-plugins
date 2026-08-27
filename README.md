@@ -5,7 +5,7 @@ upload manager, workspace **输出文件** section, top-bar **文件** browser w
 **技能文档** (skill docs) browser, DeepSeek account balance, and **turn ruler (session navigation)** — all in one installable plugin.
 Also ships an auto-repair install that relinks DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink).
 
-一个插件整合 DSH Web 的常用增强：上传管理、顶栏「📂文件」工作区浏览 + 文件预览（Word、PPT 格式渲染）、工作区「输出文件」面板、技能文档浏览、账户余额显示。并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。会话记录导航。
+一个插件整合 DSH Web 的常用增强：上传管理、顶栏「📂文件」工作区浏览 + 文件预览（Word、PPT、Excel 格式渲染）、工作区「输出文件」面板、技能文档浏览、账户余额显示。并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。会话记录导航。
 
 ## Features / 功能
 
@@ -95,6 +95,8 @@ Agent 可直接调用 `md2docx` 工具，把 Markdown 转成带页码页脚的 W
 /api/dsh-uploads/workspace-file/save     save edited content (POST)
 /api/dsh-uploads/docx-preview            Word (.docx) real render page (browser-side docx-preview)
 /api/dsh-uploads/docx-preview-asset       serve docx-preview / jszip vendor libs
+/api/dsh-uploads/xlsx-preview             Excel (.xlsx) static render page (browser-side SheetJS → table)
+/api/dsh-uploads/xlsx-preview-asset        serve SheetJS (xlsx) vendor lib
 /dsh-skill-docs/skill-docs               skill docs list (grouped by skill)
 /dsh-skill-docs/skill-doc                preview / download
 /dsh-skill-docs/skill-doc/save           save (POST)
@@ -115,7 +117,15 @@ MIT
 - `JSZip` — 解压 Office 包 — **MIT**（或 GPLv3，本项目按 MIT 使用）
 - `Chart.js` — PPT 内图表 — **MIT**
 - `PptxViewJS` — PowerPoint 真实预览 — **MIT**
+- `SheetJS`(xlsx.full.min.js) — Excel 真实预览 — **Apache-2.0**
 - npm 依赖：`mammoth`（BSD-2-Clause）、`exceljs`（MIT）
 
 完整的版权声明与来源见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+
+## Changelog / 更新记录
+
+### v1.3.10
+- 新增 `.xlsx` 浏览器端预览：用 SheetJS 解析并显示为表格（行列标头、合并单元格、多工作表切换），预览支持 − / ＋ / 适合宽度缩放，默认整表适配。
+- 工作区浏览、工作区文件、上传文件列表中的 `.xlsx` 均接入该预览页；在浏览器端处理，不占用 NAS 本地资源。
+- `.csv` / `.tsv` 保留表格预览（首行作表头）。
 
