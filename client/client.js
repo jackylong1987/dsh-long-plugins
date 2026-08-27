@@ -718,6 +718,7 @@ window.__ModuleLoader__.load({
       const [previewMaximized, setPreviewMaximized] = React.useState(false)
       const [dayFilter, setDayFilter] = React.useState('')
       const [search, setSearch] = React.useState('')
+      const [deleteEnabled, setDeleteEnabled] = React.useState(false)
 
       async function refresh() {
         setState((current) => ({ ...current, loading: true, error: '' }))
@@ -852,6 +853,12 @@ window.__ModuleLoader__.load({
               { type: 'button', className: 'dsh-upload-refresh', disabled: state.loading, onClick: refresh },
               state.loading ? '刷新中…' : '刷新',
             ),
+            React.createElement(
+              'label',
+              { className: 'dsh-upload-del-toggle' },
+              React.createElement('input', { type: 'checkbox', checked: deleteEnabled, onChange: (e) => setDeleteEnabled(e.target.checked) }),
+              '开启删除',
+            ),
           ),
         ),
         React.createElement(
@@ -941,11 +948,9 @@ window.__ModuleLoader__.load({
               React.createElement(
                 'div',
                 { className: 'dsh-upload-actions' },
-                React.createElement('button', { type: 'button', className: 'dsh-upload-preview', onClick: () => previewFile(file.name) }, '预览'),
-                React.createElement('a', { href: downloadUrl(file.name), download: file.name }, '下载'),
                 React.createElement(
                   'button',
-                  { type: 'button', onClick: () => {
+                  { type: 'button', className: 'dsh-upload-copy', onClick: () => {
                     const s = String(file.path || file.name)
                     const base = state.root ? String(state.root).replace(/\/[^/]*$/, '') : ''
                     copyText(base && s.indexOf(base) === 0 ? s.slice(base.length).replace(/^\/+/, '') : s)
@@ -954,9 +959,11 @@ window.__ModuleLoader__.load({
                 ),
                 React.createElement(
                   'button',
-                  { type: 'button', disabled: deleting === file.name, onClick: () => remove(file.name) },
+                  { type: 'button', disabled: !deleteEnabled || deleting === file.name, onClick: () => remove(file.name) },
                   deleting === file.name ? '删除中…' : '删除',
                 ),
+                React.createElement('a', { href: downloadUrl(file.name), download: file.name }, '下载'),
+                React.createElement('button', { type: 'button', className: 'dsh-upload-preview', onClick: () => previewFile(file.name) }, '预览'),
               ),
             )),
           )),
@@ -1024,8 +1031,13 @@ window.__ModuleLoader__.load({
       .dsh-upload-file-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px}
       .dsh-upload-actions{display:flex;flex:none;gap:7px}
       .dsh-upload-actions button{color:var(--dsw-alias-state-error-primary)}
+      .dsh-upload-actions button.dsh-upload-copy{color:var(--dsw-alias-label-primary)}
+      .dsh-upload-actions button:disabled{opacity:.5;cursor:not-allowed;color:var(--dsw-alias-label-tertiary)}
+      .dsh-upload-del-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;user-select:none}
+      .dsh-upload-del-toggle input{accent-color:var(--dsw-alias-state-business-primary);cursor:pointer}
+      .dsh-ws-del:disabled{opacity:.5;cursor:not-allowed;color:var(--dsw-alias-label-tertiary)!important}
       .dsh-upload-actions a,.dsh-upload-actions button{white-space:nowrap}
-      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%;display:flex;gap:6px}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center;white-space:nowrap;padding:6px 4px}.dsh-upload-chip{min-width:160px}.dsh-upload-settings-head{flex-direction:column;align-items:stretch;gap:10px}.dsh-upload-head-actions{width:100%;justify-content:flex-end}.dsh-upload-head-actions .dsh-upload-refresh{flex:1;text-align:center;padding:7px 8px;max-width:none}}
+      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%;display:flex;gap:6px}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center;white-space:nowrap;padding:6px 4px}.dsh-upload-chip{min-width:160px}.dsh-upload-settings-head{flex-direction:column;align-items:stretch;gap:10px}.dsh-upload-head-actions{width:100%;flex-wrap:nowrap;justify-content:flex-start}.dsh-upload-head-actions .dsh-searchpop,.dsh-upload-head-actions .dsh-datefilter{flex:1 1 0;min-width:0}.dsh-upload-head-actions .dsh-upload-refresh{flex:none;text-align:center;padding:7px 8px;max-width:none}.dsh-upload-head-actions .dsh-upload-del-toggle{flex:none;white-space:nowrap;padding:0 4px}}
       .dsh-ws-folder:hover{background:var(--dsw-alias-interactive-bg-hover)}
       .dsh-ws-file-type{flex:none;font-size:10px;line-height:14px;padding:1px 6px;border-radius:5px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover);white-space:nowrap}
       .dsh-upload-preview-del{color:var(--dsw-alias-state-error-primary)!important}
@@ -1068,6 +1080,7 @@ window.__ModuleLoader__.load({
       const [collapsed, setCollapsed] = React.useState({})
       const [dayFilter, setDayFilter] = React.useState('')
       const [search, setSearch] = React.useState('')
+      const [deleteEnabled, setDeleteEnabled] = React.useState(false)
       const [copied, setCopied] = React.useState(false)
       const [editing, setEditing] = React.useState(false)
       const [edited, setEdited] = React.useState('')
@@ -1270,6 +1283,10 @@ window.__ModuleLoader__.load({
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 } },
           React.createElement(SearchPopup, { value: search, onChange: setSearch, placeholder: '搜索文件名…' }),
           React.createElement(DateFilter, { value: dayFilter, onChange: setDayFilter, placeholder: '选择日期' }),
+          React.createElement('label', { className: 'dsh-upload-del-toggle' },
+            React.createElement('input', { type: 'checkbox', checked: deleteEnabled, onChange: (e) => setDeleteEnabled(e.target.checked) }),
+            '开启删除',
+          ),
         ),
         error !== null && React.createElement('div', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)' } }, error),
         groups === null && error === null && React.createElement('div', { style: metaStyle }, '加载中…'),
@@ -1302,10 +1319,10 @@ window.__ModuleLoader__.load({
             React.createElement(
               'div',
               { className: 'dsh-ws-actions', style: { display: 'flex', gap: 6, flex: 'none' } },
-              React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => openPreview(f.path) }, '预览'),
-              React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(f.path) + '&download=1', download: f.name, style: btnStyle }, '下载'),
               React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => copyText(f.path) }, '复制路径'),
-              React.createElement('button', { type: 'button', style: delStyle, disabled: busy, onClick: () => doDelete(f.path) }, '删除'),
+              React.createElement('button', { type: 'button', className: 'dsh-ws-del', style: delStyle, disabled: !deleteEnabled || busy, onClick: () => doDelete(f.path) }, '删除'),
+              React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(f.path) + '&download=1', download: f.name, style: btnStyle }, '下载'),
+              React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => openPreview(f.path) }, '预览'),
             ),
           )),
         )),
