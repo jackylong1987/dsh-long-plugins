@@ -3060,7 +3060,7 @@ window.__ModuleLoader__.load({
       }
       /* 会话滚动区：磨砂玻璃悬浮卡片（居中收窄，不占满宽度，四周透背景图） */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] {
-        background-color: var(--dsh-glass-session-bg, rgba(26,35,50,0.45)) !important;
+        background: linear-gradient(var(--dsh-glass-session-white, rgba(255,255,255,0.5)), var(--dsh-glass-session-white, rgba(255,255,255,0.5))) var(--dsh-glass-session-bg, rgba(26,35,50,0.45)) !important;
         backdrop-filter: blur(var(--dsh-glass-blur, 16px));
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
         border-radius: 16px;
@@ -3076,7 +3076,7 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
       /* 底部输入卡片：深色半透明磨砂（参考图：深色玻璃卡片 + 白字，与背景区分开） */
       html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] {
-        background-color: var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
+        background: linear-gradient(var(--dsh-glass-input-white, rgba(255,255,255,0.55)), var(--dsh-glass-input-white, rgba(255,255,255,0.55))) var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
         backdrop-filter: blur(var(--dsh-glass-blur, 16px));
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
       }
@@ -3148,6 +3148,11 @@ window.__ModuleLoader__.load({
           React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 0.95, step: 0.01, value: z.mask ?? 0.45, onChange: (e) => setPatch({ mask: Number(e.target.value) }) }),
           React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(z.mask ?? 0.45)) * 100)}%`),
         ),
+        React.createElement('div', { className: 'dsh-glass-row' },
+          React.createElement('label', null, title + ' 透明度'),
+          React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 1, step: 0.01, value: z.opacity ?? 0.5, onChange: (e) => setPatch({ opacity: Number(e.target.value) }) }),
+          React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(z.opacity ?? 0.5)) * 100)}%`),
+        ),
       )
     }
     const GlassSettingsSection = () => {
@@ -3170,10 +3175,10 @@ window.__ModuleLoader__.load({
           const cfg = state.cfg || {}
           const payload = {
             enabled: !!cfg.enabled, blur: Number(cfg.blur) || 0,
-            bgImage: state.bgImage || cfg.bgImage || '',
+            bgImage: state.bgImage || cfg.bgImage || '', bgMask: Number(cfg.bgMask) || 0.28, bgColor: cfg.bgColor || '#1a2332',
             zone: {
-              session: { color: (cfg.session && cfg.session.color) || '#1a2332', mask: Number((cfg.session && cfg.session.mask)) || 0.45 },
-              input: { color: (cfg.input && cfg.input.color) || '#1a2332', mask: Number((cfg.input && cfg.input.mask)) || 0.6 },
+              session: { color: (cfg.session && cfg.session.color) || '#1a2332', mask: Number((cfg.session && cfg.session.mask)) || 0.45, opacity: Number((cfg.session && cfg.session.opacity)) || 0.5 },
+              input: { color: (cfg.input && cfg.input.color) || '#1a2332', mask: Number((cfg.input && cfg.input.mask)) || 0.6, opacity: Number((cfg.input && cfg.input.opacity)) || 0.55 },
             },
           }
           const r = await fetch('/api/dsh-uploads/glass-config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
@@ -3203,7 +3208,12 @@ window.__ModuleLoader__.load({
             React.createElement('label', null, '共用背景图'),
             React.createElement('div', { className: 'dsh-glass-bg' }, glassImageInput(state.bgImage, (v) => setState((s) => ({ ...s, bgImage: v })))),
           ),
-          React.createElement('p', { className: 'dsh-glass-note' }, '提示：背景图铺满整页；仅消息滚动区做磨砂玻璃卡片；输入卡片与其余区域透出背景。'),
+          React.createElement('div', { className: 'dsh-glass-row' },
+            React.createElement('label', null, '背景图罩'),
+            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 0.95, step: 0.01, value: cfg.bgMask ?? 0.28, onChange: (e) => patch({ bgMask: Number(e.target.value) }) }),
+            React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(cfg.bgMask ?? 0.28)) * 100)}%`),
+          ),
+          React.createElement('p', { className: 'dsh-glass-note' }, '提示：背景图铺满整页(可加背景图罩)；会话区/输入区各自使用自己的罩色、罩强度与透明度；左栏/顶部透出背景图。'),
           React.createElement('div', { className: 'dsh-glass-actions' },
             React.createElement('button', { type: 'button', onClick: load }, '重置'),
             React.createElement('button', { type: 'button', className: 'primary', disabled: state.saving, onClick: save }, state.saving ? '保存中…' : '保存生效'),
@@ -3243,21 +3253,41 @@ window.__ModuleLoader__.load({
 
           window.__dshGlassApply = (cfg) => {
             const c = cfg || {}
+            // 手机端/窄屏(<=768px)：不开启毛玻璃，还原 DSH 原生样式（清背景图/罩变量/磨砂）。
+            if (window.innerWidth <= 768) {
+              root.setAttribute('data-dsh-glass', 'off')
+              root.style.setProperty('--dsh-glass-blur', '')
+              root.style.setProperty('--dsh-glass-session-bg', '')
+              root.style.setProperty('--dsh-glass-input-bg', '')
+              root.style.setProperty('--dsh-glass-bg-zone', '')
+              const b = document.body
+              b.style.backgroundImage = 'none'; b.style.backgroundSize = ''; b.style.backgroundPosition = ''; b.style.backgroundRepeat = ''
+              const fr = document.querySelector('#root > div > div') || document.querySelector('#root > div')
+              if (fr) { fr.style.backgroundColor = ''; fr.style.backgroundImage = 'none'; fr.style.backgroundSize = ''; fr.style.backgroundPosition = ''; fr.style.backgroundRepeat = '' }
+              return
+            }
             root.setAttribute('data-dsh-glass', c.enabled ? 'on' : 'off')
-            // ... 后续 applier 逻辑在下方
             const blur = Number(c.blur) || 16
             root.style.setProperty('--dsh-glass-blur', blur + 'px')
-            const zs = (c.zone && c.zone.session) || { color: '#1a2332', mask: 0.45 }
-            const zi = (c.zone && c.zone.input) || { color: '#1a2332', mask: 0.6 }
+            const zs = (c.zone && c.zone.session) || { color: '#1a2332', mask: 0.45, opacity: 0.5 }
+            const zi = (c.zone && c.zone.input) || { color: '#1a2332', mask: 0.6, opacity: 0.55 }
             root.style.setProperty('--dsh-glass-session-bg', `rgba(${hexToRgb(zs.color)},${Math.min(0.95, Math.max(0, Number(zs.mask) || 0.45))})`)
             root.style.setProperty('--dsh-glass-input-bg', `rgba(${hexToRgb(zi.color)},${Math.min(0.95, Math.max(0, Number(zi.mask) || 0.6))})`)
+            root.style.setProperty('--dsh-glass-session-white', `rgba(255,255,255,${Math.min(1, Math.max(0, Number(zs.opacity) || 0.5))})`)
+            root.style.setProperty('--dsh-glass-input-white', `rgba(255,255,255,${Math.min(1, Math.max(0, Number(zi.opacity) || 0.55))})`)
+            // 背景图罩：整页背景图上叠一层半透明罩色
+            const bgc = c.bgColor || '#1a2332'
+            const bgm = Math.min(0.95, Math.max(0, Number(c.bgMask) || 0.28))
+            root.style.setProperty('--dsh-glass-bg-zone', `rgba(${hexToRgb(bgc)},${bgm})`)
 
             const body = document.body
             const frame = document.querySelector('#root > div > div') || document.querySelector('#root > div')
             const applyBg = (el) => {
               if (!el) return
               if (c.enabled && c.bgImage) {
-                el.style.backgroundImage = `url('${c.bgImage}')`
+                // 背景图 + 罩色：先叠加一层背景罩(linear-gradient)，再铺背景图，实现"背景图上有罩"。
+                const gz = root.style.getPropertyValue('--dsh-glass-bg-zone') || 'rgba(26,35,50,0.28)'
+                el.style.backgroundImage = `linear-gradient(${gz},${gz}), url('${c.bgImage}')`
                 el.style.backgroundSize = 'cover'
                 el.style.backgroundPosition = 'center'
                 el.style.backgroundRepeat = 'no-repeat'
