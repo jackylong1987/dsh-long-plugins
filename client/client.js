@@ -945,7 +945,11 @@ window.__ModuleLoader__.load({
                 React.createElement('a', { href: downloadUrl(file.name), download: file.name }, '下载'),
                 React.createElement(
                   'button',
-                  { type: 'button', onClick: () => copyText(file.path || file.name) },
+                  { type: 'button', onClick: () => {
+                    const s = String(file.path || file.name)
+                    const base = state.root ? String(state.root).replace(/\/[^/]*$/, '') : ''
+                    copyText(base && s.indexOf(base) === 0 ? s.slice(base.length).replace(/^\/+/, '') : s)
+                  } },
                   '复制路径',
                 ),
                 React.createElement(
@@ -1020,7 +1024,8 @@ window.__ModuleLoader__.load({
       .dsh-upload-file-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px}
       .dsh-upload-actions{display:flex;flex:none;gap:7px}
       .dsh-upload-actions button{color:var(--dsw-alias-state-error-primary)}
-      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center}.dsh-upload-chip{min-width:160px}.dsh-upload-settings-head{flex-direction:column;align-items:stretch;gap:10px}.dsh-upload-head-actions{width:100%;justify-content:flex-end}.dsh-upload-head-actions .dsh-upload-refresh{flex:1;text-align:center;padding:7px 8px;max-width:none}}
+      .dsh-upload-actions a,.dsh-upload-actions button{white-space:nowrap}
+      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%;display:flex;gap:6px}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center;white-space:nowrap;padding:6px 4px}.dsh-upload-chip{min-width:160px}.dsh-upload-settings-head{flex-direction:column;align-items:stretch;gap:10px}.dsh-upload-head-actions{width:100%;justify-content:flex-end}.dsh-upload-head-actions .dsh-upload-refresh{flex:1;text-align:center;padding:7px 8px;max-width:none}}
       .dsh-ws-folder:hover{background:var(--dsw-alias-interactive-bg-hover)}
       .dsh-ws-file-type{flex:none;font-size:10px;line-height:14px;padding:1px 6px;border-radius:5px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover);white-space:nowrap}
       .dsh-upload-preview-del{color:var(--dsw-alias-state-error-primary)!important}
