@@ -73,6 +73,7 @@ Add to the profile's `cordis.patch.yml`:
 - `trustedHosts` — required for the browser trust fence (same as the built-in Web API).
 - `skillsRoot` — root directory browsed by the「技能文档」section. Defaults to `<DSH_HOME>/skills`.
 - `md2docxScript` — (optional) override the Markdown→Word script path. Defaults to the bundled `lib/md2docx.py`.
+- `excludedWorkspaceNames` — (optional) extra file names to hide from the workspace file browse / 输出文件 (deployment & plugin config clutter). The plugin already hides a default blocklist (`index.html`, `serve.log`, `docker-compose.*`, `package*.json`, `*.log`, `*.lock`, `Dockerfile`, …); add your own here, e.g. `excludedWorkspaceNames: ['jackylong1987__dsh-long-plugins.yml']`. This only hides the listed names — AI-generated `.yml`/`.html`/`.json` reports still show.
 
 ## md2docx 工具（Markdown → Word）
 
