@@ -95,6 +95,21 @@ window.__ModuleLoader__.load({
       t._timer = setTimeout(() => { t.className = 'dsh-long-toast' }, 2800)
     }
 
+    /** 复制文本到剪贴板 + 轻提示。 */
+    function copyText(text) {
+      try {
+        const done = () => showToast(`已复制：${text}`)
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, () => showToast('复制失败', 'error'))
+        } else {
+          const ta = document.createElement('textarea')
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+          done()
+        }
+      } catch (e) { showToast('复制失败', 'error') }
+    }
+
     /** Trigger a browser download for a URL (no navigation, keeps the page). */
     function triggerDownload(url, name) {
       const a = document.createElement('a')
@@ -930,6 +945,11 @@ window.__ModuleLoader__.load({
                 React.createElement('a', { href: downloadUrl(file.name), download: file.name }, '下载'),
                 React.createElement(
                   'button',
+                  { type: 'button', onClick: () => copyText(file.path || file.name) },
+                  '复制路径',
+                ),
+                React.createElement(
+                  'button',
                   { type: 'button', disabled: deleting === file.name, onClick: () => remove(file.name) },
                   deleting === file.name ? '删除中…' : '删除',
                 ),
@@ -1276,6 +1296,7 @@ window.__ModuleLoader__.load({
               { className: 'dsh-ws-actions', style: { display: 'flex', gap: 6, flex: 'none' } },
               React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => openPreview(f.path) }, '预览'),
               React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(f.path) + '&download=1', download: f.name, style: btnStyle }, '下载'),
+              React.createElement('button', { type: 'button', style: btnStyle, disabled: busy, onClick: () => copyText(f.path) }, '复制路径'),
               React.createElement('button', { type: 'button', style: delStyle, disabled: busy, onClick: () => doDelete(f.path) }, '删除'),
             ),
           )),
