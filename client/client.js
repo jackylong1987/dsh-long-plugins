@@ -3333,7 +3333,7 @@ window.__ModuleLoader__.load({
       if (state.loading) return React.createElement('div', { className: 'dsh-glass-section' }, '加载中…')
       return React.createElement('div', { className: 'dsh-glass-section' },
         React.createElement('div', { className: 'dsh-glass-head' },
-          React.createElement('div', null, React.createElement('h2', null, '统一桌面'), React.createElement('p', null, '共用一张背景图铺满整页（统一桌面）：背景图、背景罩层颜色、背景模糊/透明度可调；会话区/输入区按需透明或实底。')),
+          React.createElement('div', null, React.createElement('h2', null, 'RA-Span'), React.createElement('p', null, '共用一张背景图铺满整页（RA-Span）：背景图、背景罩层颜色、背景模糊/透明度可调；会话区/输入区按需透明或实底。')),
           React.createElement('label', { className: 'dsh-glass-switch' }, React.createElement('input', { type: 'checkbox', checked: !!cfg.enabled, onChange: (e) => patch({ enabled: e.target.checked }) }), cfg.enabled ? '已开启' : '已关闭'),
         ),
         state.error ? React.createElement('div', { className: 'dsh-glass-error' }, state.error) : null,
@@ -3573,7 +3573,7 @@ window.__ModuleLoader__.load({
             window.__dshGlassApplyTheme = undefined
           }
         }, 'dsh-long-plugins: glass applier')
-        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: '统一桌面' }, GlassSettingsSection))
+        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: 'RA-Span' }, GlassSettingsSection))
         ctx.effect(() => {
           fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' }).then((r) => r.json()).then((b) => {
             if (b && b.cfg) { window.__dshGlassApply && window.__dshGlassApply({ ...b.cfg, bgImage: b.bgImage }) }
