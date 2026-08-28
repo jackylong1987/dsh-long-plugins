@@ -3074,9 +3074,18 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-track { background: transparent; }
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); border-radius: 8px; }
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+      /* 会话区禁用玻璃：scrollBody 还原为透明、无磨砂、无圆角/阴影（保持 DSH 原生会话区外观） */
+      html[data-dsh-glass="on"][data-dsh-session-glass="off"] #root [class*="wSkVaW_scrollBody"] {
+        background-color: transparent !important;
+        background-image: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
       /* 底部输入卡片：深色半透明磨砂（参考图：深色玻璃卡片 + 白字，与背景区分开） */
       html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] {
-        background: linear-gradient(var(--dsh-glass-input-white, rgba(255,255,255,0.55)), var(--dsh-glass-input-white, rgba(255,255,255,0.55))) var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
+        background: linear-gradient(var(--dsh-glass-input-white, rgba(255,255,255,0.3)), var(--dsh-glass-input-white, rgba(255,255,255,0.3))) var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
         backdrop-filter: blur(var(--dsh-glass-blur, 16px));
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
       }
@@ -3087,6 +3096,10 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="off"] #root [class*="wSkVaW_root"],
       html[data-dsh-glass="off"] #root [class*="wSkVaW_scrollBody"],
       html[data-dsh-glass="off"] #root [class*="uV2eYG_card"] { background-color: transparent !important; backdrop-filter: none; }
+      /* uV2eYG_add: composer 里随内容变化的白色衬底，玻璃开启时透明化 */
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_add"] {
+        background-color: transparent !important;
+      }
       .dsh-glass-section{display:flex;flex-direction:column;gap:16px;min-width:0;padding:4px 2px 24px;color:var(--dsw-alias-label-primary)}
       .dsh-glass-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
       .dsh-glass-head h2{margin:0;font-size:20px;line-height:28px}
@@ -3131,11 +3144,14 @@ window.__ModuleLoader__.load({
       )
     }
     // 会话区/输入区共用设置卡：罩色 + 罩强度
-    const GlassZoneCard = ({ title, zone, onChange }) => {
-      const z = zone || { color: '#1a2332', mask: 0.45 }
+    const GlassZoneCard = ({ title, zone, onChange, showGlassToggle }) => {
+      const z = zone || { color: '#1a2332', mask: 0.45, enabled: true }
       const setPatch = (p) => onChange({ ...z, ...p })
       return React.createElement('div', { className: 'dsh-glass-card' },
         React.createElement('div', { className: 'dsh-glass-zone-title' }, title),
+        showGlassToggle ? React.createElement('div', { className: 'dsh-glass-row' },
+          React.createElement('label', { className: 'dsh-glass-switch' }, React.createElement('input', { type: 'checkbox', checked: z.enabled !== false, onChange: (e) => setPatch({ enabled: e.target.checked }) }), title + ' 启用玻璃'),
+        ) : null,
         React.createElement('div', { className: 'dsh-glass-row' },
           React.createElement('label', null, title + ' 罩色'),
           React.createElement('div', { className: 'dsh-glass-swatches' },
@@ -3177,7 +3193,7 @@ window.__ModuleLoader__.load({
             enabled: !!cfg.enabled, blur: Number(cfg.blur) || 0,
             bgImage: state.bgImage || cfg.bgImage || '', bgMask: Number(cfg.bgMask) || 0.28, bgColor: cfg.bgColor || '#1a2332',
             zone: {
-              session: { color: (cfg.session && cfg.session.color) || '#1a2332', mask: Number((cfg.session && cfg.session.mask)) || 0.45, opacity: Number((cfg.session && cfg.session.opacity)) || 0.5 },
+              session: { enabled: cfg.session && cfg.session.enabled !== false, color: (cfg.session && cfg.session.color) || '#1a2332', mask: Number((cfg.session && cfg.session.mask)) || 0.45, opacity: Number((cfg.session && cfg.session.opacity)) || 0.5 },
               input: { color: (cfg.input && cfg.input.color) || '#1a2332', mask: Number((cfg.input && cfg.input.mask)) || 0.6, opacity: Number((cfg.input && cfg.input.opacity)) || 0.55 },
             },
           }
@@ -3202,7 +3218,7 @@ window.__ModuleLoader__.load({
             React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 80, value: cfg.blur ?? 20, onChange: (e) => patch({ blur: Number(e.target.value) }) }),
             React.createElement('span', { className: 'dsh-glass-val' }, `${Number(cfg.blur ?? 20)} px`),
           ),
-          React.createElement(GlassZoneCard, { title: '会话区', zone: cfg.session, onChange: (p) => patchZone('session', p) }),
+          React.createElement(GlassZoneCard, { title: '会话区', zone: cfg.session, onChange: (p) => patchZone('session', p), showGlassToggle: true }),
           React.createElement(GlassZoneCard, { title: '输入区', zone: cfg.input, onChange: (p) => patchZone('input', p) }),
           React.createElement('div', { className: 'dsh-glass-row' },
             React.createElement('label', null, '共用背景图'),
@@ -3256,6 +3272,7 @@ window.__ModuleLoader__.load({
             // 手机端/窄屏(<=768px)：不开启毛玻璃，还原 DSH 原生样式（清背景图/罩变量/磨砂）。
             if (window.innerWidth <= 768) {
               root.setAttribute('data-dsh-glass', 'off')
+              root.setAttribute('data-dsh-session-glass', 'off')
               root.style.setProperty('--dsh-glass-blur', '')
               root.style.setProperty('--dsh-glass-session-bg', '')
               root.style.setProperty('--dsh-glass-input-bg', '')
@@ -3267,6 +3284,8 @@ window.__ModuleLoader__.load({
               return
             }
             root.setAttribute('data-dsh-glass', c.enabled ? 'on' : 'off')
+            const sessOn = !(c.zone && c.zone.session && c.zone.session.enabled === false)
+            root.setAttribute('data-dsh-session-glass', sessOn ? 'on' : 'off')
             const blur = Number(c.blur) || 16
             root.style.setProperty('--dsh-glass-blur', blur + 'px')
             const zs = (c.zone && c.zone.session) || { color: '#1a2332', mask: 0.45, opacity: 0.5 }
@@ -3274,7 +3293,7 @@ window.__ModuleLoader__.load({
             root.style.setProperty('--dsh-glass-session-bg', `rgba(${hexToRgb(zs.color)},${Math.min(0.95, Math.max(0, Number(zs.mask) || 0.45))})`)
             root.style.setProperty('--dsh-glass-input-bg', `rgba(${hexToRgb(zi.color)},${Math.min(0.95, Math.max(0, Number(zi.mask) || 0.6))})`)
             root.style.setProperty('--dsh-glass-session-white', `rgba(255,255,255,${Math.min(1, Math.max(0, Number(zs.opacity) || 0.5))})`)
-            root.style.setProperty('--dsh-glass-input-white', `rgba(255,255,255,${Math.min(1, Math.max(0, Number(zi.opacity) || 0.55))})`)
+            root.style.setProperty('--dsh-glass-input-white', `rgba(255,255,255,${Math.min(1, Math.max(0, Number(zi.opacity) === 0 ? 0 : (Number(zi.opacity) || 0.3)))})`)
             // 背景图罩：整页背景图上叠一层半透明罩色
             const bgc = c.bgColor || '#1a2332'
             const bgm = Math.min(0.95, Math.max(0, Number(c.bgMask) || 0.28))
@@ -3298,6 +3317,8 @@ window.__ModuleLoader__.load({
                 el.style.backgroundRepeat = ''
               }
             }
+            // body 背景色也设透明，避免 body 白色露底形成"白色遮盖层"（背景图 cover 铺底即可）。
+            if (c.enabled && c.bgImage) { body.style.backgroundColor = 'transparent' } else { body.style.backgroundColor = '' }
             applyBg(body)
             if (frame) { frame.style.backgroundColor = 'transparent'; applyBg(frame) }
             centerScroll()
