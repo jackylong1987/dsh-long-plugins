@@ -3072,7 +3072,7 @@ window.__ModuleLoader__.load({
         margin: 0 !important;
       }
       /* 背景图独立层：铺满整页、位于内容之下，可单独设背景图模糊与透明度，不影响内容清晰度 */
-      .dsh-glass-bgimg{position:fixed;inset:0;z-index:-1;pointer-events:none;background-size:cover;background-position:center;background-repeat:no-repeat;display:none;transform:translateZ(0);}
+      .dsh-glass-bgimg{position:fixed;inset:0;z-index:-1;pointer-events:none;background-size:cover;background-position:center;background-repeat:no-repeat;display:none;}
       /* 滚动条：细、半透明、圆角，且左移贴在内容区（不占卡片最右边缘），让右边缘过渡柔和 */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar { width: 8px; }
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-track { background: transparent; }
@@ -3087,7 +3087,7 @@ window.__ModuleLoader__.load({
         border-radius: 0 !important;
         box-shadow: none !important;
       }
-      /* 输入区外围(composer根/位置座)透明透出背景；输入框盒子保留原生白/黑 */
+      /* 输入区外围(composerSeat/uV2eYG_root)透明，白块去掉、透出背景 */
       html[data-dsh-glass="on"] [class*="wSkVaW_composerSeat"],
       html[data-dsh-glass="on"] [class*="uV2eYG_root"] {
         background-color: transparent !important;
@@ -3096,7 +3096,23 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* 输入框/输入区走 DSH 原生（不再自定义实底/透明/文字色），仅 composer 外围透明透背景 */
+      /* 输入框盒子(uV2eYG_card)：实底(浅色=白/深色=深)并在背景图之上，文字随主题，保证可读。
+         加 #root 提高优先级，压过 DSH 自身把 card 背景设透明的规则 */
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"],
+      html[data-dsh-glass="on"] [class*="uV2eYG_card"] {
+        position: relative !important;
+        z-index: 0 !important;
+        background-color: #ffffff !important;
+        background-image: none !important;
+        color: #1a2332 !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      @media (prefers-color-scheme: dark) {
+        html[data-dsh-glass="on"] #root [class*="uV2eYG_card"],
+        html[data-dsh-glass="on"] [class*="uV2eYG_card"] { background: #1c2530 !important; color: #f5f7fa !important; }
+      }
       /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
       .dsh-turn-preview:not(.open){display:none !important;}
       .dsh-turn-preview-head{background:transparent !important;}
@@ -3121,10 +3137,6 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_plain"],
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_copyButton"],
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="md-code-block"] {
-        background-color: transparent !important;
-      }
-      /* uV2eYG_add: composer 里随内容变化的白色衬底，玻璃开启时透明化 */
-      html[data-dsh-glass="on"] #root [class*="uV2eYG_add"] {
         background-color: transparent !important;
       }
       /* 输入框下拉/悬浮菜单(如 / 命令、@ 提及)：背景给不透明随主题色，避免叠在会话磨砂卡上重叠看不清 */
@@ -3264,7 +3276,7 @@ window.__ModuleLoader__.load({
       if (state.loading) return React.createElement('div', { className: 'dsh-glass-section' }, '加载中…')
       return React.createElement('div', { className: 'dsh-glass-section' },
         React.createElement('div', { className: 'dsh-glass-head' },
-          React.createElement('div', null, React.createElement('h2', null, '毛玻璃界面'), React.createElement('p', null, '共用一张背景图铺满整页，仅消息滚动区做居中磨砂玻璃卡片，其余区域透出背景图。')),
+          React.createElement('div', null, React.createElement('h2', null, '统一桌面'), React.createElement('p', null, '共用一张背景图铺满整页（统一桌面）：背景图、背景罩层颜色、背景模糊/透明度可调；会话区/输入区按需透明或实底。')),
           React.createElement('label', { className: 'dsh-glass-switch' }, React.createElement('input', { type: 'checkbox', checked: !!cfg.enabled, onChange: (e) => patch({ enabled: e.target.checked }) }), cfg.enabled ? '已开启' : '已关闭'),
         ),
         state.error ? React.createElement('div', { className: 'dsh-glass-error' }, state.error) : null,
@@ -3396,15 +3408,43 @@ window.__ModuleLoader__.load({
             body.style.backgroundImage = 'none'
             if (c.enabled && c.bgImage) { body.style.backgroundColor = 'transparent' } else { body.style.backgroundColor = '' }
             if (frame) { frame.style.backgroundImage = 'none'; frame.style.backgroundColor = 'transparent' }
+            // 读 DSH 真实主题（DSH 用 inline `color-scheme` 写在 <html style> 上，非 OS 偏好）
+            const dshDark = () => /dark/i.test(getComputedStyle(document.documentElement).colorScheme)
+            // 给输入框卡片设内联实底+文字色，且用 !important，
+            // 因为 DSH 核心样式用 background-color: transparent !important 压过普通内联样式；
+            // 内联 !important 优先级最高，一定覆盖。反复调用按当前主题修正。
+            const applyInputCard = () => {
+              const inputCard = document.querySelector('#root [class*="uV2eYG_card"]')
+              if (!inputCard) return
+              const dark = dshDark()
+              const bg = dark ? '#1c2530' : '#ffffff'
+              const fg = dark ? '#f5f7fa' : '#1a2332'
+              inputCard.style.setProperty('background-color', bg, 'important')
+              inputCard.style.setProperty('color', fg, 'important')
+              // 子层(scroll/row)也是透明的，继承卡片文字色即可，确保可读
+              inputCard.querySelectorAll('[class*="uV2eYG_scroll"],[class*="uV2eYG_row"]').forEach(el => {
+                el.style.setProperty('color', fg, 'important')
+              })
+            }
+            applyInputCard()
+            // 主题切换监听：DSH 切主题会改 <html> 的 style/color-scheme，
+            // 同时兜底监听 OS 深色偏好变化
+            const styleObs = new MutationObserver(applyInputCard)
+            styleObs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
+            const schemeMq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+            const onScheme = () => applyInputCard()
+            if (schemeMq) schemeMq.addEventListener('change', onScheme)
             centerScroll()
           }
           return () => {
             window.__dshGlassApply = undefined
             window.removeEventListener('resize', centerScroll)
             window.__dshGlassCenter = undefined
+            if (styleObs) styleObs.disconnect()
+            if (schemeMq) schemeMq.removeEventListener('change', onScheme)
           }
         }, 'dsh-long-plugins: glass applier')
-        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: '毛玻璃界面' }, GlassSettingsSection))
+        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: '统一桌面' }, GlassSettingsSection))
         ctx.effect(() => {
           fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' }).then((r) => r.json()).then((b) => {
             if (b && b.cfg) { window.__dshGlassApply && window.__dshGlassApply({ ...b.cfg, bgImage: b.bgImage }) }
