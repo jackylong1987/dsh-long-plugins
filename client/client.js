@@ -3134,9 +3134,23 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="off"] #root [class*="centerCol"],
       html[data-dsh-glass="off"] #root [class*="wSkVaW_root"],
       html[data-dsh-glass="off"] #root [class*="wSkVaW_scrollBody"] { background-color: transparent !important; backdrop-filter: none; }
-      /* 用户消息气泡：浅色半透明底(随主题)，与 AI 消息(透明/磨砂)区分 */
-      html[data-dsh-glass="on"] #root [class*="ngdEzaw_bubble"]:not([class*="button"]) {
-        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 62%, transparent) !important;
+      /* 会话消息气泡：半透明底(随主题, 60%透明=40%不透明)，与 AI 消息(透明/磨砂)区分、融入背景 */
+      html[data-dsh-glass="on"] #root [class*="_bubble"]:not([class*="button"]) {
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 40%, transparent) !important;
+      }
+      /* 统一桌面 + 浅色主题：DSH 的 secondary/tertiary 文字在浅色磨砂上太浅，统一加深，覆盖状态栏/工具标签等 */
+      html[data-dsh-glass="on"][data-dsh-theme="light"] {
+        --dsw-alias-label-secondary: #33414f !important;
+        --dsw-alias-label-tertiary: #4a5866 !important;
+      }
+      /* 工具调用名(Bash/Shell等)与推理(think)标签：浅色下再显式压深，保证可读 */
+      html[data-dsh-glass="on"][data-dsh-theme="light"] #root [class*="CY-8Ka_title"],
+      html[data-dsh-glass="on"][data-dsh-theme="light"] #root [class*="QWLzLg_title"] {
+        color: #2f3d4a !important;
+      }
+      /* DSH 内置底部状态栏(步数/时长/速度等)：浅色下显式设深色，保证可读 */
+      html[data-dsh-glass="on"][data-dsh-theme="light"] #root [class*="FJXk0a_root"] {
+        color: #3a4a5a !important;
       }
       /* 会话区所有内容元素背景透明化：去掉"反底色"小块衬底，统一融入磨砂卡片 */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] *:not([class*="button"]):not([class*="bubble"]):not([class*="_menu"]) {
@@ -3502,6 +3516,7 @@ window.__ModuleLoader__.load({
               if (obs) obs.disconnect()
               try {
                 const tk = dshDark() ? 'dark' : 'light'
+                root.setAttribute('data-dsh-theme', tk)
                 const bt = bgTint(tk)
                 const v = `rgba(${hexToRgb(bt.color)},${bt.mask})`
                 root.style.setProperty('--dsh-glass-bg-zone', v)
