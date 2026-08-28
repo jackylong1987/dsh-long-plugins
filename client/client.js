@@ -3096,6 +3096,10 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="off"] #root [class*="wSkVaW_root"],
       html[data-dsh-glass="off"] #root [class*="wSkVaW_scrollBody"],
       html[data-dsh-glass="off"] #root [class*="uV2eYG_card"] { background-color: transparent !important; backdrop-filter: none; }
+      /* 用户消息气泡：浅色半透明底(随主题)，与 AI 消息(透明/磨砂)区分 */
+      html[data-dsh-glass="on"] #root [class*="ngdEzaw_bubble"]:not([class*="button"]) {
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 62%, transparent) !important;
+      }
       /* 会话区所有内容元素背景透明化：去掉"反底色"小块衬底，统一融入磨砂卡片 */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] *:not([class*="button"]):not([class*="bubble"]) {
         background-color: transparent !important;
@@ -3103,7 +3107,7 @@ window.__ModuleLoader__.load({
       /* 会话区内容衬底(代码块/提示/气泡/引用等)玻璃开启时透明化，融入磨砂卡片，去掉浅色小块衬底 */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_block"],
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_bannerWrap"],
-      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="ngdEzaw_bubble"],
+
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_plain"],
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_copyButton"],
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="md-code-block"] {
