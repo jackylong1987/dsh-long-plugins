@@ -3053,6 +3053,18 @@ window.__ModuleLoader__.load({
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
       }
+      /* 左栏顶部「新会话」按钮：去掉白/黑实底与边框，透出背景图；文字跟侧边栏一致(白+描边) */
+      html[data-dsh-glass="on"] #root [class*="newSession"] {
+        background-color: transparent !important;
+        background-image: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        color: #ffffff !important;
+        text-shadow: 0 1px 3px rgba(0,0,0,.85);
+      }
       /* 左栏内部根 / 底部容器也用透明（这些是 DSH 当前版本哈希类名；背景图要透到左栏与底部） */
       html[data-dsh-glass="on"] #root [class*="hHd-Xa_root"],
       html[data-dsh-glass="on"] #root [class*="FJxK0a_root"] {
