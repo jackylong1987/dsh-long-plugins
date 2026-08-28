@@ -3116,10 +3116,13 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* 输入框盒子(uV2eYG_card)：不再铺可调玻璃淡色底，改用随系统的基础色底，避免全透明透出背景图 */
-      html[data-dsh-glass="on"] [class*="uV2eYG_card"] {
-        background-color: var(--dsw-specific-input-major) !important;
-        box-shadow: none !important;
+      /* 输入框盒子(uV2eYG_card) + 输入区(uV2eYG_input)：用浏览器原生系统色(Canvas/CanvasText)，
+         浅色=白底、深色=黑底，随系统自动切换；不再透出背景图、也不再用 DSH 主题色 */
+      html[data-dsh-glass="on"] [class*="uV2eYG_card"],
+      .uV2eYG_card,.uV2eYG_input,.uV2eYG_mirror {
+        color-scheme: light dark;
+        background-color: Canvas !important;
+        color: CanvasText !important;
       }
       /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
       .dsh-turn-preview:not(.open){display:none !important;}
