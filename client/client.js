@@ -3058,19 +3058,21 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"] #root [class*="FJxK0a_root"] {
         background-color: transparent !important;
       }
-      /* 会话滚动区：磨砂玻璃悬浮卡片（居中收窄，不占满宽度，四周透背景图） */
+      /* 会话滚动区：去掉独立磨砂卡片，直接透出共享背景（背景图+罩层颜色+模糊） */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] {
-        background: linear-gradient(var(--dsh-glass-session-white, rgba(255,255,255,0.5)), var(--dsh-glass-session-white, rgba(255,255,255,0.5))) var(--dsh-glass-session-bg, rgba(26,35,50,0.45)) !important;
-        backdrop-filter: blur(var(--dsh-glass-blur, 16px));
-        -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
-        border-radius: 16px;
+        background-color: transparent !important;
+        background-image: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
         overflow: auto;
         width: 100% !important;
         max-width: none !important;
         margin: 0 !important;
-        /* 柔和阴影 + 边缘渐隐，让磨砂卡片边缘过渡自然（悬浮玻璃质感） */
-        box-shadow: 0 8px 40px rgba(0,0,0,0.28), 0 2px 12px rgba(0,0,0,0.18);
       }
+      /* 背景图独立层：铺满整页、位于内容之下，可单独设背景图模糊与透明度，不影响内容清晰度 */
+      .dsh-glass-bgimg{position:fixed;inset:0;z-index:-1;pointer-events:none;background-size:cover;background-position:center;background-repeat:no-repeat;display:none;transform:translateZ(0);}
       /* 滚动条：细、半透明、圆角，且左移贴在内容区（不占卡片最右边缘），让右边缘过渡柔和 */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar { width: 8px; }
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"]::-webkit-scrollbar-track { background: transparent; }
@@ -3085,12 +3087,43 @@ window.__ModuleLoader__.load({
         border-radius: 0 !important;
         box-shadow: none !important;
       }
-      /* 底部输入卡片：深色半透明磨砂（参考图：深色玻璃卡片 + 白字，与背景区分开） */
-      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] {
-        background: linear-gradient(var(--dsh-glass-input-white, rgba(255,255,255,0.3)), var(--dsh-glass-input-white, rgba(255,255,255,0.3))) var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
-        backdrop-filter: blur(var(--dsh-glass-blur, 16px));
-        -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
+      /* 底部输入区：整个 composer(uV2eYG_* / ydkMwW_*)背景/阴影/伪元素透明，直接透出共享背景（与欢迎页一致） */
+      html[data-dsh-glass="on"] [class*="uV2eYG_"],
+      html[data-dsh-glass="on"] [class*="ydkMwW_"] {
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
       }
+      html[data-dsh-glass="on"] [class*="uV2eYG_"]::before,
+      html[data-dsh-glass="on"] [class*="uV2eYG_"]::after,
+      html[data-dsh-glass="on"] [class*="ydkMwW_"]::before,
+      html[data-dsh-glass="on"] [class*="ydkMwW_"]::after {
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      /* 输入区位置座(composerSeat)：去掉大面积背景，整个底部透出共享背景 */
+      html[data-dsh-glass="on"] [class*="wSkVaW_composerSeat"] {
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      /* 输入框盒子(uV2eYG_card)：只给输入框铺一层可调的淡色底(输入区颜色/罩强度/透明度控制)，不打磨砂 */
+      html[data-dsh-glass="on"] [class*="uV2eYG_card"] {
+        background: linear-gradient(var(--dsh-glass-input-white, rgba(255,255,255,0.3)), var(--dsh-glass-input-white, rgba(255,255,255,0.3))) var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
+      .dsh-turn-preview:not(.open){display:none !important;}
+      .dsh-turn-preview-head{background:transparent !important;}
       
       html[data-dsh-glass="off"] #root [class*="sidebarCol"],
       html[data-dsh-glass="off"] #root [class*="header"],
@@ -3239,7 +3272,7 @@ window.__ModuleLoader__.load({
           const num = (v, fb) => ((typeof v === 'number' && Number.isFinite(v) && v >= 0) ? v : fb)
           const payload = {
             enabled: !!cfg.enabled, blur: num(cfg.blur, 0),
-            bgImage: state.bgImage || cfg.bgImage || '', bgMask: num(cfg.bgMask, 0.28), bgColor: cfg.bgColor || '#1a2332',
+            bgImage: state.bgImage || cfg.bgImage || '', bgMask: num(cfg.bgMask, 0.28), bgColor: cfg.bgColor || '#1a2332', bgBlur: num(cfg.bgBlur, 0), bgOpacity: num(cfg.bgOpacity, 1),
             zone: {
               session: { enabled: cfg.session && cfg.session.enabled !== false, color: (cfg.session && cfg.session.color) || '#1a2332', mask: num(cfg.session && cfg.session.mask, 0.45), opacity: num(cfg.session && cfg.session.opacity, 0.5) },
               input: { color: (cfg.input && cfg.input.color) || '#1a2332', mask: num(cfg.input && cfg.input.mask, 0.6), opacity: num(cfg.input && cfg.input.opacity, 0.55) },
@@ -3266,7 +3299,6 @@ window.__ModuleLoader__.load({
             React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 80, value: cfg.blur ?? 20, onChange: (e) => patch({ blur: Number(e.target.value) }) }),
             React.createElement('span', { className: 'dsh-glass-val' }, `${Number(cfg.blur ?? 20)} px`),
           ),
-          React.createElement(GlassZoneCard, { title: '会话区', zone: cfg.session, onChange: (p) => patchZone('session', p), showGlassToggle: true }),
           React.createElement(GlassZoneCard, { title: '输入区', zone: cfg.input, onChange: (p) => patchZone('input', p) }),
           React.createElement('div', { className: 'dsh-glass-row' },
             React.createElement('label', null, '共用背景图'),
@@ -3277,7 +3309,21 @@ window.__ModuleLoader__.load({
             React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 0.95, step: 0.01, value: cfg.bgMask ?? 0.28, onChange: (e) => patch({ bgMask: Number(e.target.value) }) }),
             React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(cfg.bgMask ?? 0.28)) * 100)}%`),
           ),
-          React.createElement('p', { className: 'dsh-glass-note' }, '提示：背景图铺满整页(可加背景图罩)；会话区/输入区各自使用自己的罩色、罩强度与透明度；左栏/顶部透出背景图。'),
+          React.createElement('div', { className: 'dsh-glass-row' },
+            React.createElement('label', null, '背景罩层颜色'),
+            React.createElement('label', { className: 'dsh-glass-colorpicker' }, '色盘', React.createElement('input', { type: 'color', value: cfg.bgColor || '#1a2332', onChange: (e) => patch({ bgColor: e.target.value }) })),
+          ),
+          React.createElement('div', { className: 'dsh-glass-row' },
+            React.createElement('label', null, '背景图模糊'),
+            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 60, value: cfg.bgBlur ?? 0, onChange: (e) => patch({ bgBlur: Number(e.target.value) }) }),
+            React.createElement('span', { className: 'dsh-glass-val' }, `${Number(cfg.bgBlur ?? 0)} px`),
+          ),
+          React.createElement('div', { className: 'dsh-glass-row' },
+            React.createElement('label', null, '背景图透明度'),
+            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 1, step: 0.01, value: cfg.bgOpacity ?? 1, onChange: (e) => patch({ bgOpacity: Number(e.target.value) }) }),
+            React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(cfg.bgOpacity ?? 1)) * 100)}%`),
+          ),
+          React.createElement('p', { className: 'dsh-glass-note' }, '提示：背景图铺满整页(可加背景图罩)；背景图模糊/透明度单独可调；会话区/输入区各自使用自己的罩色、罩强度与透明度；左栏/顶部透出背景图。'),
           React.createElement('div', { className: 'dsh-glass-actions' },
             React.createElement('button', { type: 'button', onClick: load }, '重置'),
             React.createElement('button', { type: 'button', className: 'primary', disabled: state.saving, onClick: save }, state.saving ? '保存中…' : '保存生效'),
@@ -3329,6 +3375,7 @@ window.__ModuleLoader__.load({
               b.style.backgroundImage = 'none'; b.style.backgroundSize = ''; b.style.backgroundPosition = ''; b.style.backgroundRepeat = ''
               const fr = document.querySelector('#root > div > div') || document.querySelector('#root > div')
               if (fr) { fr.style.backgroundColor = ''; fr.style.backgroundImage = 'none'; fr.style.backgroundSize = ''; fr.style.backgroundPosition = ''; fr.style.backgroundRepeat = '' }
+              const bgEl = document.querySelector('.dsh-glass-bgimg'); if (bgEl) { bgEl.style.display = 'none' }
               return
             }
             root.setAttribute('data-dsh-glass', c.enabled ? 'on' : 'off')
@@ -3354,26 +3401,27 @@ window.__ModuleLoader__.load({
 
             const body = document.body
             const frame = document.querySelector('#root > div > div') || document.querySelector('#root > div')
-            const applyBg = (el) => {
-              if (!el) return
-              if (c.enabled && c.bgImage) {
-                // 背景图 + 罩色：先叠加一层背景罩(linear-gradient)，再铺背景图，实现"背景图上有罩"。
-                const gz = root.style.getPropertyValue('--dsh-glass-bg-zone') || 'rgba(26,35,50,0.28)'
-                el.style.backgroundImage = `linear-gradient(${gz},${gz}), url('${c.bgImage}')`
-                el.style.backgroundSize = 'cover'
-                el.style.backgroundPosition = 'center'
-                el.style.backgroundRepeat = 'no-repeat'
-              } else {
-                el.style.backgroundImage = 'none'
-                el.style.backgroundSize = ''
-                el.style.backgroundPosition = ''
-                el.style.backgroundRepeat = ''
-              }
+            // 背景图独立层：铺满整页、位于内容之下；背景图模糊/透明度单独可调（不影响内容清晰度）
+            let bgimg = document.querySelector('.dsh-glass-bgimg')
+            if (!bgimg) { bgimg = document.createElement('div'); bgimg.className = 'dsh-glass-bgimg'; document.body.appendChild(bgimg) }
+            const gz = root.style.getPropertyValue('--dsh-glass-bg-zone') || `rgba(${hexToRgb(c.bgColor || '#1a2332')},0.28)`
+            if (c.enabled && c.bgImage) {
+              bgimg.style.display = 'block'
+              bgimg.style.backgroundImage = `linear-gradient(${gz},${gz}), url('${c.bgImage}')`
+              bgimg.style.backgroundSize = 'cover'
+              bgimg.style.backgroundPosition = 'center'
+              bgimg.style.backgroundRepeat = 'no-repeat'
+              const bblur = Math.max(0, Math.min(80, Number.isFinite(Number(c.bgBlur)) ? Number(c.bgBlur) : 0))
+              bgimg.style.filter = bblur > 0 ? `blur(${bblur}px)` : 'none'
+              const bop = Math.max(0, Math.min(1, Number.isFinite(Number(c.bgOpacity)) ? Number(c.bgOpacity) : 1))
+              bgimg.style.opacity = String(bop)
+            } else {
+              bgimg.style.display = 'none'
             }
-            // body 背景色也设透明，避免 body 白色露底形成"白色遮盖层"（背景图 cover 铺底即可）。
+            // 移除 body/frame 上的锐利背景图（改由独立背景层显示），避免重复/遮盖
+            body.style.backgroundImage = 'none'
             if (c.enabled && c.bgImage) { body.style.backgroundColor = 'transparent' } else { body.style.backgroundColor = '' }
-            applyBg(body)
-            if (frame) { frame.style.backgroundColor = 'transparent'; applyBg(frame) }
+            if (frame) { frame.style.backgroundImage = 'none'; frame.style.backgroundColor = 'transparent' }
             centerScroll()
           }
           return () => {
