@@ -974,8 +974,6 @@ window.__ModuleLoader__.load({
     const CSS = `
       @font-face{font-family:DshChipCellInput;src:url(data:font/ttf;base64,AAEAAAAKAIAAAwAgT1MvMkT8SmIAAAEoAAAAYGNtYXAADQBPAAABkAAAADRnbHlmAAAAAAAAAcwAAAABaGVhZCwtPGoAAACsAAAANmhoZWEDIg7bAAAA5AAAACRobXR4EZQAAAAAAYgAAAAIbG9jYQAAAAAAAAHEAAAABm1heHAAAwACAAABCAAAACBuYW1lvljk2gAAAdAAAABscG9zdNNweNQAAAI8AAAALQABAAAAAQAAdia1tV8PPPUAAwPoAAAAAOaLfcUAAAAA5ot9xQAAAAAAAAAAAAAAAwACAAAAAAAAAAEAAAMg/zgAAA+gAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAACAAEAAAACAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAwjKAZAABQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAPz8/PwAA//z//AMg/zgAAAMgAMgAAAAAAAAAAAAAAAAAAAAgAAAB9AAAAAAAAAAAAAIAAAADAAAAFAADAAEAAAAUAAQAIAAAAAQABAABAAD//P//AAD//P//AAUAAQAAAAAAAAAAAAAAAAAAAAAAAAAEADYAAQAAAAAAAQALAAAAAQAAAAAAAgAHAAsAAwABBAkAAQAWABIAAwABBAkAAgAOAChEc2hDaGlwQ2VsbFJlZ3VsYXIARABzAGgAQwBoAGkAcABDAGUAbABsAFIAZQBnAHUAbABhAHIAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAABAgZvYmpyZXAAAAA=)format("truetype")}
       .uV2eYG_input,.uV2eYG_mirror{font-family:"DshChipCellInput",var(--dsw-font-family)!important}
-      /* 输入区随系统深/浅自动切换（原生系统色，文字/背景同源始终匹配），避免深色下白字配浅底 */
-      .uV2eYG_input{color-scheme:light dark;background-color:Canvas!important;color:CanvasText!important}
       [data-decoration="chip"][title^="${HIDDEN_LABEL}"]{display:inline-block!important;width:0!important;height:0!important;overflow:hidden!important;background:transparent!important;border:none!important;box-shadow:none!important;margin:0!important;padding:0!important;font-size:0!important;line-height:0!important}
       [data-decoration="chip"][title^="${HIDDEN_LABEL}"]:before,[data-decoration="chip"][title^="${HIDDEN_LABEL}"]>*{display:none!important}
       .dsh-upload-control{display:flex;align-items:center;min-width:0}
@@ -3098,22 +3096,7 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* 输入框盒子(uV2eYG_card)：只在外层铺淡色底(可调)；里层输入区透明避免拼缝白条；文字随主题色 */
-      html[data-dsh-glass="on"] [class*="uV2eYG_card"] {
-        background: linear-gradient(var(--dsh-glass-input-white, rgba(255,255,255,0.3)), var(--dsh-glass-input-white, rgba(255,255,255,0.3))) var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
-        color: var(--dsw-alias-label-primary, #111827) !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-      }
-      html[data-dsh-glass="on"] [class*="uV2eYG_input"] {
-        background-color: transparent !important;
-        color: var(--dsw-alias-label-primary, #111827) !important;
-      }
-      @media (prefers-color-scheme: dark) {
-        html[data-dsh-glass="on"] [class*="uV2eYG_card"],
-        html[data-dsh-glass="on"] [class*="uV2eYG_input"] { color: var(--dsw-alias-label-primary, #e5e7eb) !important; }
-      }
+      /* 输入框/输入区走 DSH 原生（不再自定义实底/透明/文字色），仅 composer 外围透明透背景 */
       /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
       .dsh-turn-preview:not(.open){display:none !important;}
       .dsh-turn-preview-head{background:transparent !important;}
@@ -3122,8 +3105,7 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="off"] #root [class*="header"],
       html[data-dsh-glass="off"] #root [class*="centerCol"],
       html[data-dsh-glass="off"] #root [class*="wSkVaW_root"],
-      html[data-dsh-glass="off"] #root [class*="wSkVaW_scrollBody"],
-      html[data-dsh-glass="off"] #root [class*="uV2eYG_card"] { background-color: transparent !important; backdrop-filter: none; }
+      html[data-dsh-glass="off"] #root [class*="wSkVaW_scrollBody"] { background-color: transparent !important; backdrop-filter: none; }
       /* 用户消息气泡：浅色半透明底(随主题)，与 AI 消息(透明/磨砂)区分 */
       html[data-dsh-glass="on"] #root [class*="ngdEzaw_bubble"]:not([class*="button"]) {
         background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 62%, transparent) !important;
