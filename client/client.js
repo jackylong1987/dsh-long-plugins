@@ -3065,7 +3065,9 @@ window.__ModuleLoader__.load({
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px));
         border-radius: 16px;
         overflow: auto;
-        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
         /* 柔和阴影 + 边缘渐隐，让磨砂卡片边缘过渡自然（悬浮玻璃质感） */
         box-shadow: 0 8px 40px rgba(0,0,0,0.28), 0 2px 12px rgba(0,0,0,0.18);
       }
