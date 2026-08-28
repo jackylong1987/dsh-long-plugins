@@ -3261,6 +3261,12 @@ window.__ModuleLoader__.load({
         box[theme] = { ...((box[theme]) || { color: '', opacity: 1 }), ...p }
         return { ...s, cfg: { ...(s.cfg || {}), inputBox: box } }
       }), [])
+      // 背景罩设置：按主题合并进 cfg.bgTint[theme]
+      const patchBgTint = React.useCallback((theme, p) => setState((s) => {
+        const box = { light: { color: '#1a2332', mask: 0.28 }, dark: { color: '#1a2332', mask: 0.28 }, ...((s.cfg && s.cfg.bgTint) || {}) }
+        box[theme] = { ...((box[theme]) || { color: '#1a2332', mask: 0.28 }), ...p }
+        return { ...s, cfg: { ...(s.cfg || {}), bgTint: box } }
+      }), [])
       const save = React.useCallback(async () => {
         setState((s) => ({ ...s, saving: true, error: '' }))
         try {
@@ -3269,6 +3275,10 @@ window.__ModuleLoader__.load({
           const payload = {
             enabled: !!cfg.enabled, blur: num(cfg.blur, 0),
             bgImage: state.bgImage || cfg.bgImage || '', bgMask: num(cfg.bgMask, 0.28), bgColor: cfg.bgColor || '#1a2332', bgBlur: num(cfg.bgBlur, 0), bgOpacity: num(cfg.bgOpacity, 1),
+            bgTint: {
+              light: { color: (cfg.bgTint?.light?.color) || '#1a2332', mask: num(cfg.bgTint?.light?.mask, 0.28) },
+              dark: { color: (cfg.bgTint?.dark?.color) || '#1a2332', mask: num(cfg.bgTint?.dark?.mask, 0.28) },
+            },
             inputBox: {
               light: { color: (cfg.inputBox?.light?.color) || '', opacity: num(cfg.inputBox?.light?.opacity, 1) },
               dark: { color: (cfg.inputBox?.dark?.color) || '', opacity: num(cfg.inputBox?.dark?.opacity, 1) },
@@ -3303,14 +3313,24 @@ window.__ModuleLoader__.load({
             React.createElement('label', null, '共用背景图'),
             React.createElement('div', { className: 'dsh-glass-bg' }, glassImageInput(state.bgImage, (v) => setState((s) => ({ ...s, bgImage: v })))),
           ),
-          React.createElement('div', { className: 'dsh-glass-row' },
-            React.createElement('label', null, '背景图罩'),
-            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 0.95, step: 0.01, value: cfg.bgMask ?? 0.28, onChange: (e) => patch({ bgMask: Number(e.target.value) }) }),
-            React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(cfg.bgMask ?? 0.28)) * 100)}%`),
-          ),
-          React.createElement('div', { className: 'dsh-glass-row' },
-            React.createElement('label', null, '背景罩层颜色'),
-            React.createElement('label', { className: 'dsh-glass-colorpicker' }, '色盘', React.createElement('input', { type: 'color', value: cfg.bgColor || '#1a2332', onChange: (e) => patch({ bgColor: e.target.value }) })),
+          React.createElement('div', { className: 'dsh-glass-card' },
+            React.createElement('div', { className: 'dsh-glass-zone-title' }, '背景罩'),
+            [['light', '浅色主题', '#1a2332'], ['dark', '深色主题', '#1a2332']].map(([t, label, native]) => {
+              const bt = (cfg.bgTint && cfg.bgTint[t]) || { color: native, mask: 0.28 }
+              return React.createElement('div', { key: t, className: 'dsh-glass-input-theme' },
+                React.createElement('div', { className: 'dsh-glass-theme-label' }, label),
+                React.createElement('div', { className: 'dsh-glass-row' },
+                  React.createElement('label', null, '罩色'),
+                  React.createElement('label', { className: 'dsh-glass-colorpicker' }, '色盘', React.createElement('input', { type: 'color', value: bt.color || native, onChange: (e) => patchBgTint(t, { color: e.target.value }) })),
+                ),
+                React.createElement('div', { className: 'dsh-glass-row' },
+                  React.createElement('label', null, '罩强度'),
+                  React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 0.95, step: 0.01, value: (typeof bt.mask === 'number') ? bt.mask : 0.28, onChange: (e) => patchBgTint(t, { mask: Number(e.target.value) }) }),
+                  React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((typeof bt.mask === 'number' ? bt.mask : 0.28) * 100)}%`),
+                ),
+              )
+            }),
+            React.createElement('p', { className: 'dsh-glass-note' }, '浅色主题与深色主题可分别设置背景罩颜色与罩强度，切换主题时自动应用对应的一套。'),
           ),
           React.createElement('div', { className: 'dsh-glass-row' },
             React.createElement('label', null, '背景图模糊'),
@@ -3378,6 +3398,15 @@ window.__ModuleLoader__.load({
           }
           window.addEventListener('resize', centerScroll)
           window.__dshGlassCenter = centerScroll
+          // 主题切换监听：观察 <html> 的 style/class；只创建一次（自触发的写入在 applyTheme 内先断开再重连，杜绝死循环）
+          window.__dshGlassStyleObs = null
+          if (!window.__dshGlassStyleObs) {
+            window.__dshGlassStyleObs = new MutationObserver(() => window.__dshGlassApplyTheme && window.__dshGlassApplyTheme())
+            window.__dshGlassStyleObs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
+          }
+          const themeMq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+          const themeMqHandler = () => window.__dshGlassApplyTheme && window.__dshGlassApplyTheme()
+          if (themeMq) themeMq.addEventListener('change', themeMqHandler)
           // win 风格文字：给左栏/顶栏内的可见文字元素加白色+深色描边；跳过弹窗(modal/overlay/dialog/settings/panel)内元素。
 
           window.__dshGlassApply = (cfg) => {
@@ -3397,6 +3426,15 @@ window.__ModuleLoader__.load({
               const bgEl = document.querySelector('.dsh-glass-bgimg'); if (bgEl) { bgEl.style.display = 'none' }
               return
             }
+            // 读 DSH 真实主题（DSH 用 inline `color-scheme` 写在 <html style> 上，非 OS 偏好）
+            const dshDark = () => /dark/i.test(getComputedStyle(document.documentElement).colorScheme)
+            // 颜色亮度(0~1)：用来自动决定文字用深色还是浅色，保证可读
+            const relLum = (hex) => {
+              const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''))
+              if (!m) return 0.5
+              const map = (v) => { const s = parseInt(v, 16) / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4) }
+              return 0.2126 * map(m[1]) + 0.7152 * map(m[2]) + 0.0722 * map(m[3])
+            }
             root.setAttribute('data-dsh-glass', c.enabled ? 'on' : 'off')
             const sessOn = !(c.zone && c.zone.session && c.zone.session.enabled === false)
             root.setAttribute('data-dsh-session-glass', sessOn ? 'on' : 'off')
@@ -3413,42 +3451,13 @@ window.__ModuleLoader__.load({
             root.style.setProperty('--dsh-glass-session-white', `color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) ${Math.round((1 - sop) * 100)}%, transparent)`)
             const iop = Math.min(1, Math.max(0, Number.isFinite(Number(zi.opacity)) ? Number(zi.opacity) : 0.55))
             root.style.setProperty('--dsh-glass-input-white', `color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) ${Math.round((1 - iop) * 100)}%, transparent)`)
-            // 背景图罩：整页背景图上叠一层半透明罩色
-            const bgc = c.bgColor || '#1a2332'
-            const bgmn = Number(c.bgMask); const bgm = Math.min(0.95, Math.max(0, Number.isFinite(bgmn) ? bgmn : 0.28))
-            root.style.setProperty('--dsh-glass-bg-zone', `rgba(${hexToRgb(bgc)},${bgm})`)
 
-            const body = document.body
-            const frame = document.querySelector('#root > div > div') || document.querySelector('#root > div')
-            // 背景图独立层：铺满整页、位于内容之下；背景图模糊/透明度单独可调（不影响内容清晰度）
-            let bgimg = document.querySelector('.dsh-glass-bgimg')
-            if (!bgimg) { bgimg = document.createElement('div'); bgimg.className = 'dsh-glass-bgimg'; document.body.appendChild(bgimg) }
-            const gz = root.style.getPropertyValue('--dsh-glass-bg-zone') || `rgba(${hexToRgb(c.bgColor || '#1a2332')},0.28)`
-            if (c.enabled && c.bgImage) {
-              bgimg.style.display = 'block'
-              bgimg.style.backgroundImage = `linear-gradient(${gz},${gz}), url('${c.bgImage}')`
-              bgimg.style.backgroundSize = 'cover'
-              bgimg.style.backgroundPosition = 'center'
-              bgimg.style.backgroundRepeat = 'no-repeat'
-              const bblur = Math.max(0, Math.min(80, Number.isFinite(Number(c.bgBlur)) ? Number(c.bgBlur) : 0))
-              bgimg.style.filter = bblur > 0 ? `blur(${bblur}px)` : 'none'
-              const bop = Math.max(0, Math.min(1, Number.isFinite(Number(c.bgOpacity)) ? Number(c.bgOpacity) : 1))
-              bgimg.style.opacity = String(bop)
-            } else {
-              bgimg.style.display = 'none'
-            }
-            // 移除 body/frame 上的锐利背景图（改由独立背景层显示），避免重复/遮盖
-            body.style.backgroundImage = 'none'
-            if (c.enabled && c.bgImage) { body.style.backgroundColor = 'transparent' } else { body.style.backgroundColor = '' }
-            if (frame) { frame.style.backgroundImage = 'none'; frame.style.backgroundColor = 'transparent' }
-            // 读 DSH 真实主题（DSH 用 inline `color-scheme` 写在 <html style> 上，非 OS 偏好）
-            const dshDark = () => /dark/i.test(getComputedStyle(document.documentElement).colorScheme)
-            // 颜色亮度(0~1)：用来自动决定文字用深色还是浅色，保证可读
-            const relLum = (hex) => {
-              const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''))
-              if (!m) return 0.5
-              const map = (v) => { const s = parseInt(v, 16) / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4) }
-              return 0.2126 * map(m[1]) + 0.7152 * map(m[2]) + 0.0722 * map(m[3])
+            // 背景图罩（整页背景图上叠一层半透明罩色）：浅/深主题各一套 color+mask；
+            // 兼容旧版单套 bgColor/bgMask。
+            const bgTint = (tk) => {
+              const t = (c.bgTint && c.bgTint[tk]) || { color: c.bgColor || '#1a2332', mask: c.bgMask ?? 0.28 }
+              const mask = Math.min(0.95, Math.max(0, Number.isFinite(Number(t && t.mask)) ? Number(t.mask) : 0.28))
+              return { color: (t && t.color) || '#1a2332', mask }
             }
             // 给输入框卡片设内联实底+文字色，且用 !important，
             // 因为 DSH 核心样式用 background-color: transparent !important 压过普通内联样式；
@@ -3474,22 +3483,59 @@ window.__ModuleLoader__.load({
                 el.style.setProperty('color', fg, 'important')
               })
             }
-            applyInputCard()
-            // 主题切换监听：DSH 切主题会改 <html> 的 style/color-scheme，
-            // 同时兜底监听 OS 深色偏好变化
-            const styleObs = new MutationObserver(applyInputCard)
-            styleObs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
-            const schemeMq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
-            const onScheme = () => applyInputCard()
-            if (schemeMq) schemeMq.addEventListener('change', onScheme)
+            // 主题相关的东西统一重算：背景罩 + 输入框。切主题时由 observer/mq 触发。
+            // 写入前先断开观察器，写完再重连，避免自触发造成死循环。
+            const applyTheme = () => {
+              const obs = window.__dshGlassStyleObs
+              if (obs) obs.disconnect()
+              try {
+                const tk = dshDark() ? 'dark' : 'light'
+                const bt = bgTint(tk)
+                const v = `rgba(${hexToRgb(bt.color)},${bt.mask})`
+                root.style.setProperty('--dsh-glass-bg-zone', v)
+                applyInputCard()
+              } finally {
+                if (obs) obs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
+              }
+            }
+
+            const body = document.body
+            const frame = document.querySelector('#root > div > div') || document.querySelector('#root > div')
+            // 背景图独立层：铺满整页、位于内容之下；背景图模糊/透明度单独可调（不影响内容清晰度）。
+            // 背景罩用 CSS 变量 var(--dsh-glass-bg-zone)，随主题切换自动刷新。
+            let bgimg = document.querySelector('.dsh-glass-bgimg')
+            if (!bgimg) { bgimg = document.createElement('div'); bgimg.className = 'dsh-glass-bgimg'; document.body.appendChild(bgimg) }
+            const gzv = root.style.getPropertyValue('--dsh-glass-bg-zone') || 'rgba(26,35,50,0.28)'
+            if (c.enabled && c.bgImage) {
+              bgimg.style.display = 'block'
+              bgimg.style.backgroundImage = `linear-gradient(var(--dsh-glass-bg-zone, ${gzv}), var(--dsh-glass-bg-zone, ${gzv})), url('${c.bgImage}')`
+              bgimg.style.backgroundSize = 'cover'
+              bgimg.style.backgroundPosition = 'center'
+              bgimg.style.backgroundRepeat = 'no-repeat'
+              const bblur = Math.max(0, Math.min(80, Number.isFinite(Number(c.bgBlur)) ? Number(c.bgBlur) : 0))
+              bgimg.style.filter = bblur > 0 ? `blur(${bblur}px)` : 'none'
+              const bop = Math.max(0, Math.min(1, Number.isFinite(Number(c.bgOpacity)) ? Number(c.bgOpacity) : 1))
+              bgimg.style.opacity = String(bop)
+            } else {
+              bgimg.style.display = 'none'
+            }
+            // 移除 body/frame 上的锐利背景图（改由独立背景层显示），避免重复/遮盖
+            body.style.backgroundImage = 'none'
+            if (c.enabled && c.bgImage) { body.style.backgroundColor = 'transparent' } else { body.style.backgroundColor = '' }
+            if (frame) { frame.style.backgroundImage = 'none'; frame.style.backgroundColor = 'transparent' }
+
+            applyTheme()
+            // 记录当前主题应用函数，供唯一观察器/mq 调用
+            window.__dshGlassApplyTheme = applyTheme
             centerScroll()
           }
           return () => {
             window.__dshGlassApply = undefined
             window.removeEventListener('resize', centerScroll)
             window.__dshGlassCenter = undefined
-            if (styleObs) styleObs.disconnect()
-            if (schemeMq) schemeMq.removeEventListener('change', onScheme)
+            if (window.__dshGlassStyleObs) { window.__dshGlassStyleObs.disconnect(); window.__dshGlassStyleObs = null }
+            if (themeMq) themeMq.removeEventListener('change', themeMqHandler)
+            window.__dshGlassApplyTheme = undefined
           }
         }, 'dsh-long-plugins: glass applier')
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: '统一桌面' }, GlassSettingsSection))
