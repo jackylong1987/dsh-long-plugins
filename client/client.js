@@ -3116,7 +3116,11 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* 输入框盒子(uV2eYG_card)：不再铺玻璃淡色底，回归 DSH 原生样式(随系统) */
+      /* 输入框盒子(uV2eYG_card)：不再铺可调玻璃淡色底，改用随系统的基础色底，避免全透明透出背景图 */
+      html[data-dsh-glass="on"] [class*="uV2eYG_card"] {
+        background-color: var(--dsw-specific-input-major) !important;
+        box-shadow: none !important;
+      }
       /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
       .dsh-turn-preview:not(.open){display:none !important;}
       .dsh-turn-preview-head{background:transparent !important;}
