@@ -3101,7 +3101,7 @@ window.__ModuleLoader__.load({
         background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 62%, transparent) !important;
       }
       /* 会话区所有内容元素背景透明化：去掉"反底色"小块衬底，统一融入磨砂卡片 */
-      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] *:not([class*="button"]):not([class*="bubble"]) {
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] *:not([class*="button"]):not([class*="bubble"]):not([class*="_menu"]) {
         background-color: transparent !important;
       }
       /* 会话区内容衬底(代码块/提示/气泡/引用等)玻璃开启时透明化，融入磨砂卡片，去掉浅色小块衬底 */
@@ -3116,6 +3116,26 @@ window.__ModuleLoader__.load({
       /* uV2eYG_add: composer 里随内容变化的白色衬底，玻璃开启时透明化 */
       html[data-dsh-glass="on"] #root [class*="uV2eYG_add"] {
         background-color: transparent !important;
+      }
+      /* 输入框下拉/悬浮菜单(如 / 命令、@ 提及)：背景给不透明随主题色，避免叠在会话磨砂卡上重叠看不清 */
+      html[data-dsh-glass="on"] #root [class*="_menu"][class*="_menu"][class*="_menu"][class*="_menu"] {
+        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 97%, transparent) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      /* 输入框旁权限/功能选择下拉(盾牌 Full access 等 Radix 风格菜单)：与 / 命令菜单同样处理 */
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_root_"]:has([class*="_list_"]) {
+        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 97%, transparent) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_list_"] {
+        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 97%, transparent) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
       }
       .dsh-glass-section{display:flex;flex-direction:column;gap:16px;min-width:0;padding:4px 2px 24px;color:var(--dsw-alias-label-primary)}
       .dsh-glass-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
