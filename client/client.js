@@ -3137,6 +3137,14 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
+      /* 玻璃开启 + 浅色系统主题：加深弱化标签/元信息文字，避免浅灰字叠在浅磨砂卡上看不清 */
+      @media (prefers-color-scheme: light) {
+        html[data-dsh-glass="on"],
+        html[data-dsh-glass="on"] * {
+          --dsw-alias-label-secondary: #383d44 !important;
+          --dsw-alias-label-tertiary: #50545b !important;
+        }
+      }
       .dsh-glass-section{display:flex;flex-direction:column;gap:16px;min-width:0;padding:4px 2px 24px;color:var(--dsw-alias-label-primary)}
       .dsh-glass-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
       .dsh-glass-head h2{margin:0;font-size:20px;line-height:28px}
