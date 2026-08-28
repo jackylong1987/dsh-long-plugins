@@ -3089,40 +3089,30 @@ window.__ModuleLoader__.load({
         border-radius: 0 !important;
         box-shadow: none !important;
       }
-      /* 底部输入区：整个 composer(uV2eYG_* / ydkMwW_*)背景/阴影/伪元素透明，直接透出共享背景（与欢迎页一致） */
-      html[data-dsh-glass="on"] [class*="uV2eYG_"],
-      html[data-dsh-glass="on"] [class*="ydkMwW_"] {
+      /* 输入区外围(composer根/位置座)透明透出背景；输入框盒子保留原生白/黑 */
+      html[data-dsh-glass="on"] [class*="wSkVaW_composerSeat"],
+      html[data-dsh-glass="on"] [class*="uV2eYG_root"] {
         background-color: transparent !important;
         background-image: none !important;
         box-shadow: none !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      html[data-dsh-glass="on"] [class*="uV2eYG_"]::before,
-      html[data-dsh-glass="on"] [class*="uV2eYG_"]::after,
-      html[data-dsh-glass="on"] [class*="ydkMwW_"]::before,
-      html[data-dsh-glass="on"] [class*="ydkMwW_"]::after {
-        background-color: transparent !important;
-        background-image: none !important;
+      /* 输入框盒子(uV2eYG_card)：只在外层铺淡色底(可调)；里层输入区透明避免拼缝白条；文字随主题色 */
+      html[data-dsh-glass="on"] [class*="uV2eYG_card"] {
+        background: linear-gradient(var(--dsh-glass-input-white, rgba(255,255,255,0.3)), var(--dsh-glass-input-white, rgba(255,255,255,0.3))) var(--dsh-glass-input-bg, rgba(26,35,50,0.6)) !important;
+        color: var(--dsw-alias-label-primary, #111827) !important;
         box-shadow: none !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* 输入区位置座(composerSeat)：去掉大面积背景，整个底部透出共享背景 */
-      html[data-dsh-glass="on"] [class*="wSkVaW_composerSeat"] {
+      html[data-dsh-glass="on"] [class*="uV2eYG_input"] {
         background-color: transparent !important;
-        background-image: none !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
+        color: var(--dsw-alias-label-primary, #111827) !important;
       }
-      /* 输入框盒子(uV2eYG_card) + 输入区(uV2eYG_input)：用浏览器原生系统色(Canvas/CanvasText)，
-         浅色=白底、深色=黑底，随系统自动切换；不再透出背景图、也不再用 DSH 主题色 */
-      html[data-dsh-glass="on"] [class*="uV2eYG_card"],
-      .uV2eYG_card,.uV2eYG_input,.uV2eYG_mirror {
-        color-scheme: light dark;
-        background-color: Canvas !important;
-        color: CanvasText !important;
+      @media (prefers-color-scheme: dark) {
+        html[data-dsh-glass="on"] [class*="uV2eYG_card"],
+        html[data-dsh-glass="on"] [class*="uV2eYG_input"] { color: var(--dsw-alias-label-primary, #e5e7eb) !important; }
       }
       /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
       .dsh-turn-preview:not(.open){display:none !important;}
@@ -3435,7 +3425,7 @@ window.__ModuleLoader__.load({
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: '毛玻璃界面' }, GlassSettingsSection))
         ctx.effect(() => {
           fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' }).then((r) => r.json()).then((b) => {
-            if (b && b.cfg) { window.__dshGlassApply && window.__dshGlassApply({ enabled: b.cfg.enabled, blur: b.cfg.blur, mask: b.cfg.mask, color: b.cfg.color, bgImage: b.bgImage }) }
+            if (b && b.cfg) { window.__dshGlassApply && window.__dshGlassApply({ ...b.cfg, bgImage: b.bgImage }) }
           }).catch(() => {})
         }, 'dsh-long-plugins: glass boot')
       },
