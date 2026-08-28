@@ -3148,9 +3148,17 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"][data-dsh-theme="light"] #root [class*="QWLzLg_title"] {
         color: #2f3d4a !important;
       }
-      /* DSH 内置底部状态栏(步数/时长/速度等)：浅色下显式设深色，保证可读 */
-      html[data-dsh-glass="on"][data-dsh-theme="light"] #root [class*="FJXk0a_root"] {
-        color: #3a4a5a !important;
+      /* 输入框下方状态/统计行(余额+步数/时长/速度等)都在 composer.dock 这个稳定 data 槽里：
+         混淆类名会变, 改用 data 属性锁定, 按主题给高对比色+描边, 保证在背景图上可读 */
+      html[data-dsh-glass="on"][data-dsh-theme="light"] [data-slot-conversation="conversation.composer.dock"],
+      html[data-dsh-glass="on"][data-dsh-theme="light"] [data-slot-conversation="conversation.composer.dock"] * {
+        color: #243240 !important;
+        text-shadow: 0 1px 2px rgba(255,255,255,.5);
+      }
+      html[data-dsh-glass="on"][data-dsh-theme="dark"] [data-slot-conversation="conversation.composer.dock"],
+      html[data-dsh-glass="on"][data-dsh-theme="dark"] [data-slot-conversation="conversation.composer.dock"] * {
+        color: #e8edf3 !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,.6);
       }
       /* 会话区所有内容元素背景透明化：去掉"反底色"小块衬底，统一融入磨砂卡片 */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] *:not([class*="button"]):not([class*="bubble"]):not([class*="_menu"]) {
