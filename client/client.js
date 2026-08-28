@@ -3175,6 +3175,9 @@ window.__ModuleLoader__.load({
       .dsh-glass-switch input{width:34px;height:20px;accent-color:var(--dsw-alias-state-business-primary);cursor:pointer}
       .dsh-glass-card{display:grid;gap:12px;padding:14px 16px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-specific-input-major)}
       .dsh-glass-zone-title{font-size:14px;font-weight:600;color:var(--dsw-alias-label-primary)}
+      .dsh-glass-input-theme{border-top:1px dashed var(--dsw-alias-border-l2);padding-top:12px;display:grid;gap:12px}
+      .dsh-glass-input-theme:first-of-type{border-top:none;padding-top:0}
+      .dsh-glass-theme-label{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary)}
       .dsh-glass-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
       .dsh-glass-row label{font-size:13px;color:var(--dsw-alias-label-primary);flex:none}
       .dsh-glass-range{flex:1;min-width:160px;max-width:320px;accent-color:var(--dsw-alias-state-business-primary)}
@@ -3252,6 +3255,12 @@ window.__ModuleLoader__.load({
       React.useEffect(() => { load(); }, [load])
       const patch = React.useCallback((p) => setState((s) => ({ ...s, cfg: { ...(s.cfg || {}), ...p } })), [])
       const patchZone = React.useCallback((key, p) => setState((s) => ({ ...s, cfg: { ...(s.cfg || {}), [key]: p } })), [])
+      // 输入框设置：按主题(theme)合并进 cfg.inputBox[theme]（不整体覆盖、不丢另一主题）
+      const patchInput = React.useCallback((theme, p) => setState((s) => {
+        const box = { light: { color: '', opacity: 1 }, dark: { color: '', opacity: 1 }, ...((s.cfg && s.cfg.inputBox) || {}) }
+        box[theme] = { ...((box[theme]) || { color: '', opacity: 1 }), ...p }
+        return { ...s, cfg: { ...(s.cfg || {}), inputBox: box } }
+      }), [])
       const save = React.useCallback(async () => {
         setState((s) => ({ ...s, saving: true, error: '' }))
         try {
@@ -3260,6 +3269,10 @@ window.__ModuleLoader__.load({
           const payload = {
             enabled: !!cfg.enabled, blur: num(cfg.blur, 0),
             bgImage: state.bgImage || cfg.bgImage || '', bgMask: num(cfg.bgMask, 0.28), bgColor: cfg.bgColor || '#1a2332', bgBlur: num(cfg.bgBlur, 0), bgOpacity: num(cfg.bgOpacity, 1),
+            inputBox: {
+              light: { color: (cfg.inputBox?.light?.color) || '', opacity: num(cfg.inputBox?.light?.opacity, 1) },
+              dark: { color: (cfg.inputBox?.dark?.color) || '', opacity: num(cfg.inputBox?.dark?.opacity, 1) },
+            },
             zone: {
               session: { enabled: cfg.session && cfg.session.enabled !== false, color: (cfg.session && cfg.session.color) || '#1a2332', mask: num(cfg.session && cfg.session.mask, 0.45), opacity: num(cfg.session && cfg.session.opacity, 0.5) },
               input: { color: (cfg.input && cfg.input.color) || '#1a2332', mask: num(cfg.input && cfg.input.mask, 0.6), opacity: num(cfg.input && cfg.input.opacity, 0.55) },
@@ -3309,7 +3322,27 @@ window.__ModuleLoader__.load({
             React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 1, step: 0.01, value: cfg.bgOpacity ?? 1, onChange: (e) => patch({ bgOpacity: Number(e.target.value) }) }),
             React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(cfg.bgOpacity ?? 1)) * 100)}%`),
           ),
-          React.createElement('p', { className: 'dsh-glass-note' }, '提示：背景图铺满整页(可加背景图罩)；背景图模糊/透明度单独可调；会话区使用自己的罩色、罩强度与透明度；左栏/顶部透出背景图；输入框保持系统原生样式。'),
+          React.createElement('div', { className: 'dsh-glass-card' },
+            React.createElement('div', { className: 'dsh-glass-zone-title' }, '输入框'),
+            [['light', '浅色主题', '#ffffff'], ['dark', '深色主题', '#1c2530']].map(([t, label, native]) => {
+              const tb = (cfg.inputBox && cfg.inputBox[t]) || { color: '', opacity: 1 }
+              return React.createElement('div', { key: t, className: 'dsh-glass-input-theme' },
+                React.createElement('div', { className: 'dsh-glass-theme-label' }, label),
+                React.createElement('div', { className: 'dsh-glass-row' },
+                  React.createElement('label', null, '输入框颜色'),
+                  React.createElement('label', { className: 'dsh-glass-colorpicker' }, '色盘', React.createElement('input', { type: 'color', value: tb.color || native, onChange: (e) => patchInput(t, { color: e.target.value }) })),
+                  React.createElement('button', { type: 'button', style: { marginLeft: 8, fontSize: 12 }, onClick: () => patchInput(t, { color: '', opacity: 1 }) }, '原生'),
+                ),
+                React.createElement('div', { className: 'dsh-glass-row' },
+                  React.createElement('label', null, '不透明度'),
+                  React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 1, step: 0.01, value: (typeof tb.opacity === 'number') ? tb.opacity : 1, onChange: (e) => patchInput(t, { opacity: Number(e.target.value) }) }),
+                  React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((typeof tb.opacity === 'number' ? tb.opacity : 1) * 100)}%`),
+                ),
+              )
+            }),
+            React.createElement('p', { className: 'dsh-glass-note' }, '浅色主题与深色主题可分别设置。100% = 实底不透明，越低越透出背景图；"原生" = 跟随该主题的 DSH 原生色。文字颜色按背景亮度自动配深/浅，保证可读。'),
+          ),
+          React.createElement('p', { className: 'dsh-glass-note' }, '提示：背景图铺满整页(可加背景图罩)；背景图模糊/透明度单独可调；会话区使用自己的罩色、罩强度与透明度；左栏/顶部透出背景图；输入框颜色/不透明度可单独设置。'),
           React.createElement('div', { className: 'dsh-glass-actions' },
             React.createElement('button', { type: 'button', onClick: load }, '重置'),
             React.createElement('button', { type: 'button', className: 'primary', disabled: state.saving, onClick: save }, state.saving ? '保存中…' : '保存生效'),
@@ -3410,15 +3443,30 @@ window.__ModuleLoader__.load({
             if (frame) { frame.style.backgroundImage = 'none'; frame.style.backgroundColor = 'transparent' }
             // 读 DSH 真实主题（DSH 用 inline `color-scheme` 写在 <html style> 上，非 OS 偏好）
             const dshDark = () => /dark/i.test(getComputedStyle(document.documentElement).colorScheme)
+            // 颜色亮度(0~1)：用来自动决定文字用深色还是浅色，保证可读
+            const relLum = (hex) => {
+              const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''))
+              if (!m) return 0.5
+              const map = (v) => { const s = parseInt(v, 16) / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4) }
+              return 0.2126 * map(m[1]) + 0.7152 * map(m[2]) + 0.0722 * map(m[3])
+            }
             // 给输入框卡片设内联实底+文字色，且用 !important，
             // 因为 DSH 核心样式用 background-color: transparent !important 压过普通内联样式；
-            // 内联 !important 优先级最高，一定覆盖。反复调用按当前主题修正。
+            // 内联 !important 优先级最高，一定覆盖。颜色/不透明度来自配置 inputBox。
             const applyInputCard = () => {
               const inputCard = document.querySelector('#root [class*="uV2eYG_card"]')
               if (!inputCard) return
               const dark = dshDark()
-              const bg = dark ? '#1c2530' : '#ffffff'
-              const fg = dark ? '#f5f7fa' : '#1a2332'
+              const ib = (c.inputBox && typeof c.inputBox === 'object') ? c.inputBox : {}
+              // 浅色/深色各一套配置；兼容旧版单套 inputBox:{color,opacity}
+              const tb = (ib.light && ib.dark) ? (dark ? ib.dark : ib.light) : ib
+              const defBg = dark ? '#1c2530' : '#ffffff'
+              // color: 空串/非法 => 用主题原生色；否则用用户指定的颜色
+              const hasColor = tb && typeof tb.color === 'string' && /^#/.test(tb.color)
+              const bgHex = hasColor ? tb.color : defBg
+              const alpha = (tb && typeof tb.opacity === 'number' && Number.isFinite(tb.opacity)) ? Math.min(1, Math.max(0, tb.opacity)) : 1
+              const bg = `rgba(${hexToRgb(bgHex)},${alpha})`
+              const fg = relLum(bgHex) > 0.5 ? '#1a2332' : '#f5f7fa'
               inputCard.style.setProperty('background-color', bg, 'important')
               inputCard.style.setProperty('color', fg, 'important')
               // 子层(scroll/row)也是透明的，继承卡片文字色即可，确保可读
