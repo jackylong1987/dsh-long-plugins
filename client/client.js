@@ -3173,7 +3173,7 @@ window.__ModuleLoader__.load({
       .dsh-glass-error{padding:10px 12px;border-radius:8px;background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary);font-size:12px}
       .dsh-glass-note{margin:0;font-size:12px;color:var(--dsw-alias-label-tertiary)}
     `
-    const GLASS_SWATCHES = ['#0f1420', '#14161a', '#1a2530', '#26324d', '#153a3a', '#3b2a4a', '#4a1f1f', '#2d3748']
+    const GLASS_SWATCHES = ['#1a2332', '#0f1420', '#1e3a5f', '#1e5e46', '#5e2e5e', '#6e2323']
     const glassText = (e) => (e && e.message) ? e.message : String(e)
     function glassImageInput(value, onChange) {
       return React.createElement('label', { className: 'dsh-glass-file' },
@@ -3234,12 +3234,13 @@ window.__ModuleLoader__.load({
         setState((s) => ({ ...s, saving: true, error: '' }))
         try {
           const cfg = state.cfg || {}
+          const num = (v, fb) => ((typeof v === 'number' && Number.isFinite(v) && v >= 0) ? v : fb)
           const payload = {
-            enabled: !!cfg.enabled, blur: Number(cfg.blur) || 0,
-            bgImage: state.bgImage || cfg.bgImage || '', bgMask: Number(cfg.bgMask) || 0.28, bgColor: cfg.bgColor || '#1a2332',
+            enabled: !!cfg.enabled, blur: num(cfg.blur, 0),
+            bgImage: state.bgImage || cfg.bgImage || '', bgMask: num(cfg.bgMask, 0.28), bgColor: cfg.bgColor || '#1a2332',
             zone: {
-              session: { enabled: cfg.session && cfg.session.enabled !== false, color: (cfg.session && cfg.session.color) || '#1a2332', mask: Number((cfg.session && cfg.session.mask)) || 0.45, opacity: Number((cfg.session && cfg.session.opacity)) || 0.5 },
-              input: { color: (cfg.input && cfg.input.color) || '#1a2332', mask: Number((cfg.input && cfg.input.mask)) || 0.6, opacity: Number((cfg.input && cfg.input.opacity)) || 0.55 },
+              session: { enabled: cfg.session && cfg.session.enabled !== false, color: (cfg.session && cfg.session.color) || '#1a2332', mask: num(cfg.session && cfg.session.mask, 0.45), opacity: num(cfg.session && cfg.session.opacity, 0.5) },
+              input: { color: (cfg.input && cfg.input.color) || '#1a2332', mask: num(cfg.input && cfg.input.mask, 0.6), opacity: num(cfg.input && cfg.input.opacity, 0.55) },
             },
           }
           const r = await fetch('/api/dsh-uploads/glass-config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
@@ -3331,19 +3332,22 @@ window.__ModuleLoader__.load({
             root.setAttribute('data-dsh-glass', c.enabled ? 'on' : 'off')
             const sessOn = !(c.zone && c.zone.session && c.zone.session.enabled === false)
             root.setAttribute('data-dsh-session-glass', sessOn ? 'on' : 'off')
-            const blur = Number(c.blur) || 16
+            const blurn = Number(c.blur); const blur = Math.max(0, Math.min(80, Number.isFinite(blurn) ? blurn : 16))
             root.style.setProperty('--dsh-glass-blur', blur + 'px')
             const zs = (c.zone && c.zone.session) || { color: '#1a2332', mask: 0.45, opacity: 0.5 }
             const zi = (c.zone && c.zone.input) || { color: '#1a2332', mask: 0.6, opacity: 0.55 }
-            root.style.setProperty('--dsh-glass-session-bg', `rgba(${hexToRgb(zs.color)},${Math.min(0.95, Math.max(0, Number(zs.mask) || 0.45))})`)
-            root.style.setProperty('--dsh-glass-input-bg', `rgba(${hexToRgb(zi.color)},${Math.min(0.95, Math.max(0, Number(zi.mask) || 0.6))})`)
-            const sa = Math.round(Math.min(1, Math.max(0, Number(zs.opacity) || 0.5)) * 100)
-            root.style.setProperty('--dsh-glass-session-white', `color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) ${sa}%, transparent)`)
-            const ia = Math.round(Math.min(1, Math.max(0, Number(zi.opacity) === 0 ? 0 : (Number(zi.opacity) || 0.3))) * 100)
-            root.style.setProperty('--dsh-glass-input-white', `color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) ${ia}%, transparent)`)
+            const smn = Number(zs.mask); const sm = Math.min(0.95, Math.max(0, Number.isFinite(smn) ? smn : 0.45))
+            root.style.setProperty('--dsh-glass-session-bg', `rgba(${hexToRgb(zs.color)},${sm})`)
+            const imn = Number(zi.mask); const im = Math.min(0.95, Math.max(0, Number.isFinite(imn) ? imn : 0.6))
+            root.style.setProperty('--dsh-glass-input-bg', `rgba(${hexToRgb(zi.color)},${im})`)
+            // 透明度=透明程度：越大越透明（100%=>雾面无填充,完全透出背景）
+            const sop = Math.min(1, Math.max(0, Number.isFinite(Number(zs.opacity)) ? Number(zs.opacity) : 0.5))
+            root.style.setProperty('--dsh-glass-session-white', `color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) ${Math.round((1 - sop) * 100)}%, transparent)`)
+            const iop = Math.min(1, Math.max(0, Number.isFinite(Number(zi.opacity)) ? Number(zi.opacity) : 0.55))
+            root.style.setProperty('--dsh-glass-input-white', `color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) ${Math.round((1 - iop) * 100)}%, transparent)`)
             // 背景图罩：整页背景图上叠一层半透明罩色
             const bgc = c.bgColor || '#1a2332'
-            const bgm = Math.min(0.95, Math.max(0, Number(c.bgMask) || 0.28))
+            const bgmn = Number(c.bgMask); const bgm = Math.min(0.95, Math.max(0, Number.isFinite(bgmn) ? bgmn : 0.28))
             root.style.setProperty('--dsh-glass-bg-zone', `rgba(${hexToRgb(bgc)},${bgm})`)
 
             const body = document.body
