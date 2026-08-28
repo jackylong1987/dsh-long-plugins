@@ -3096,6 +3096,15 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="off"] #root [class*="wSkVaW_root"],
       html[data-dsh-glass="off"] #root [class*="wSkVaW_scrollBody"],
       html[data-dsh-glass="off"] #root [class*="uV2eYG_card"] { background-color: transparent !important; backdrop-filter: none; }
+      /* 会话区内容衬底(代码块/提示/气泡/引用等)玻璃开启时透明化，融入磨砂卡片，去掉浅色小块衬底 */
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_block"],
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_bannerWrap"],
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="ngdEzaw_bubble"],
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_plain"],
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="n_copyButton"],
+      html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] [class*="md-code-block"] {
+        background-color: transparent !important;
+      }
       /* uV2eYG_add: composer 里随内容变化的白色衬底，玻璃开启时透明化 */
       html[data-dsh-glass="on"] #root [class*="uV2eYG_add"] {
         background-color: transparent !important;
@@ -3292,8 +3301,10 @@ window.__ModuleLoader__.load({
             const zi = (c.zone && c.zone.input) || { color: '#1a2332', mask: 0.6, opacity: 0.55 }
             root.style.setProperty('--dsh-glass-session-bg', `rgba(${hexToRgb(zs.color)},${Math.min(0.95, Math.max(0, Number(zs.mask) || 0.45))})`)
             root.style.setProperty('--dsh-glass-input-bg', `rgba(${hexToRgb(zi.color)},${Math.min(0.95, Math.max(0, Number(zi.mask) || 0.6))})`)
-            root.style.setProperty('--dsh-glass-session-white', `rgba(255,255,255,${Math.min(1, Math.max(0, Number(zs.opacity) || 0.5))})`)
-            root.style.setProperty('--dsh-glass-input-white', `rgba(255,255,255,${Math.min(1, Math.max(0, Number(zi.opacity) === 0 ? 0 : (Number(zi.opacity) || 0.3)))})`)
+            const sa = Math.round(Math.min(1, Math.max(0, Number(zs.opacity) || 0.5)) * 100)
+            root.style.setProperty('--dsh-glass-session-white', `color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) ${sa}%, transparent)`)
+            const ia = Math.round(Math.min(1, Math.max(0, Number(zi.opacity) === 0 ? 0 : (Number(zi.opacity) || 0.3))) * 100)
+            root.style.setProperty('--dsh-glass-input-white', `color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) ${ia}%, transparent)`)
             // 背景图罩：整页背景图上叠一层半透明罩色
             const bgc = c.bgColor || '#1a2332'
             const bgm = Math.min(0.95, Math.max(0, Number(c.bgMask) || 0.28))
