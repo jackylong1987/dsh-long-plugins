@@ -3320,14 +3320,16 @@ window.__ModuleLoader__.load({
       )
     }
     const GlassSettingsSection = () => {
-      const [state, setState] = React.useState({ loading: true, saving: false, error: '', cfg: null, bgImage: '' })
+      const [state, setState] = React.useState({ loading: true, saving: false, error: '', cfg: null, bgImage: '', bgList: [] })
       const load = React.useCallback(async () => {
         setState((s) => ({ ...s, loading: true, error: '' }))
         try {
           const r = await fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' })
           const b = await r.json()
           if (!r.ok) throw new Error(b.error || ('HTTP ' + r.status))
-          setState((s) => ({ ...s, loading: false, cfg: b.cfg, bgImage: b.bgImage || '' }))
+          let list = []
+          try { const rb = await fetch('/api/dsh-uploads/glass-backgrounds', { cache: 'no-store' }); const jb = await rb.json(); list = jb.list || [] } catch (_) {}
+          setState((s) => ({ ...s, loading: false, cfg: b.cfg, bgImage: b.bgImage || '', bgList: list }))
         } catch (e) { setState((s) => ({ ...s, loading: false, error: glassText(e) })) }
       }, [])
       React.useEffect(() => { load(); }, [load])
@@ -3383,13 +3385,12 @@ window.__ModuleLoader__.load({
         state.error ? React.createElement('div', { className: 'dsh-glass-error' }, state.error) : null,
         React.createElement('div', { className: 'dsh-glass-card' },
           React.createElement('div', { className: 'dsh-glass-row' },
-            React.createElement('label', null, '磨砂模糊强度'),
-            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 80, value: cfg.blur ?? 20, onChange: (e) => patch({ blur: Number(e.target.value) }) }),
-            React.createElement('span', { className: 'dsh-glass-val' }, `${Number(cfg.blur ?? 20)} px`),
-          ),
-          React.createElement('div', { className: 'dsh-glass-row' },
-            React.createElement('label', null, '共用背景图'),
+            React.createElement('label', null, '背景图'),
             React.createElement('div', { className: 'dsh-glass-bg' }, glassImageInput(state.bgImage, (v) => setState((s) => ({ ...s, bgImage: v })))),
+            state.bgList && state.bgList.length ? React.createElement('select', { className: 'dsh-glass-file', value: '', style: { marginLeft: 8 }, onChange: async (e) => {
+              const name = e.target.value; if (!name) return
+              try { const rb = await fetch('/api/dsh-uploads/glass-backgrounds?name=' + encodeURIComponent(name), { cache: 'no-store' }); const uri = await rb.text(); if (uri && uri.startsWith('data:image/')) setState((s) => ({ ...s, bgImage: uri })) } catch (_) {}
+            } }, React.createElement('option', { value: '' }, '选择旧图…'), state.bgList.map((n, i) => React.createElement('option', { key: n, value: n }, '背景图 ' + (i + 1))) ) : null,
           ),
           React.createElement('div', { className: 'dsh-glass-card' },
             React.createElement('div', { className: 'dsh-glass-zone-title' }, '背景罩'),
@@ -3416,9 +3417,18 @@ window.__ModuleLoader__.load({
             React.createElement('span', { className: 'dsh-glass-val' }, `${Number(cfg.bgBlur ?? 0)} px`),
           ),
           React.createElement('div', { className: 'dsh-glass-row' },
-            React.createElement('label', null, '背景图透明度'),
-            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 1, step: 0.01, value: cfg.bgOpacity ?? 1, onChange: (e) => patch({ bgOpacity: Number(e.target.value) }) }),
-            React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((Number(cfg.bgOpacity ?? 1)) * 100)}%`),
+            React.createElement('label', null, '背景透明度'),
+            React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 100, value: Math.round((1 - (Number(cfg.bgOpacity ?? 1))) * 100), onChange: (e) => patch({ bgOpacity: 1 - Number(e.target.value) / 100 }) }),
+            React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((1 - (Number(cfg.bgOpacity ?? 1))) * 100)}%`),
+          ),
+          React.createElement('div', { className: 'dsh-glass-card' },
+            React.createElement('div', { className: 'dsh-glass-zone-title' }, '面板'),
+            React.createElement('div', { className: 'dsh-glass-row' },
+              React.createElement('label', null, '面板磨砂'),
+              React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 80, value: cfg.blur ?? 20, onChange: (e) => patch({ blur: Number(e.target.value) }) }),
+              React.createElement('span', { className: 'dsh-glass-val' }, `${Number(cfg.blur ?? 20)} px`),
+            ),
+            React.createElement('p', { className: 'dsh-glass-note' }, '作用于弹窗/任务卡等面板的磨砂玻璃强度（0 = 关闭磨砂）。'),
           ),
           React.createElement('div', { className: 'dsh-glass-card' },
             React.createElement('div', { className: 'dsh-glass-zone-title' }, '输入框'),
@@ -3432,13 +3442,13 @@ window.__ModuleLoader__.load({
                   React.createElement('button', { type: 'button', style: { marginLeft: 8, fontSize: 12 }, onClick: () => patchInput(t, { color: '', opacity: 1 }) }, '原生'),
                 ),
                 React.createElement('div', { className: 'dsh-glass-row' },
-                  React.createElement('label', null, '不透明度'),
-                  React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 1, step: 0.01, value: (typeof tb.opacity === 'number') ? tb.opacity : 1, onChange: (e) => patchInput(t, { opacity: Number(e.target.value) }) }),
-                  React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((typeof tb.opacity === 'number' ? tb.opacity : 1) * 100)}%`),
+                  React.createElement('label', null, '透明度'),
+                  React.createElement('input', { type: 'range', className: 'dsh-glass-range', min: 0, max: 100, value: Math.round((1 - (typeof tb.opacity === 'number' ? tb.opacity : 1)) * 100), onChange: (e) => patchInput(t, { opacity: 1 - Number(e.target.value) / 100 }) }),
+                  React.createElement('span', { className: 'dsh-glass-val' }, `${Math.round((1 - (typeof tb.opacity === 'number' ? tb.opacity : 1)) * 100)}%`),
                 ),
               )
             }),
-            React.createElement('p', { className: 'dsh-glass-note' }, '浅色主题与深色主题可分别设置。100% = 实底不透明，越低越透出背景图；"原生" = 跟随该主题的 DSH 原生色。文字颜色按背景亮度自动配深/浅，保证可读。'),
+            React.createElement('p', { className: 'dsh-glass-note' }, '浅色主题与深色主题可分别设置。0% = 全不透明，100% = 全透明；"原生" = 跟随该主题的 DSH 原生色。文字颜色按背景亮度自动配深/浅，保证可读。'),
           ),
           React.createElement('p', { className: 'dsh-glass-note' }, '提示：背景图铺满整页(可加背景图罩)；背景图模糊/透明度单独可调；会话区使用自己的罩色、罩强度与透明度；左栏/顶部透出背景图；输入框颜色/不透明度可单独设置。'),
           React.createElement('div', { className: 'dsh-glass-actions' },
@@ -3747,6 +3757,8 @@ window.__ModuleLoader__.load({
               bgimg.style.backgroundSize = 'cover'
               bgimg.style.backgroundPosition = 'center'
               bgimg.style.backgroundRepeat = 'no-repeat'
+              // 背景图模糊 = 背景图模糊(bgBlur) + 磨砂模糊强度(blur)，两者叠加让背景图一起磨砂
+              // 背景图模糊 = 仅背景图模糊(bgBlur)；面板磨砂(blur)作用于弹窗/任务面板的 backdrop-filter
               const bblur = Math.max(0, Math.min(80, Number.isFinite(Number(c.bgBlur)) ? Number(c.bgBlur) : 0))
               bgimg.style.filter = bblur > 0 ? `blur(${bblur}px)` : 'none'
               const bop = Math.max(0, Math.min(1, Number.isFinite(Number(c.bgOpacity)) ? Number(c.bgOpacity) : 1))
