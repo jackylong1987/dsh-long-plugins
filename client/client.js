@@ -3148,17 +3148,21 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"][data-dsh-theme="light"] #root [class*="QWLzLg_title"] {
         color: #2f3d4a !important;
       }
-      /* 输入框下方状态/统计行(余额+步数/时长/速度等)都在 composer.dock 这个稳定 data 槽里：
-         混淆类名会变, 改用 data 属性锁定, 按主题给高对比色+描边, 保证在背景图上可读 */
-      html[data-dsh-glass="on"][data-dsh-theme="light"] [data-slot-conversation="conversation.composer.dock"],
-      html[data-dsh-glass="on"][data-dsh-theme="light"] [data-slot-conversation="conversation.composer.dock"] * {
-        color: #243240 !important;
-        text-shadow: 0 1px 2px rgba(255,255,255,.5);
+      /* 输入框下方状态/统计行(余额+步数/时长/速度等)都在 composer.dock 槽里：
+         背景是会变的背景图, 单色难保证可读；给整块加半透明深色衬底+亮字, 任意背景都可读。
+         槽位属性可能是 data-slot-conversation 或 data-slot(两种都锁) */
+      html[data-dsh-glass="on"] [data-slot-conversation="conversation.composer.dock"],
+      html[data-dsh-glass="on"] [data-slot="conversation.composer.dock"] {
+        background-color: rgba(12,20,30,.55) !important;
+        border-radius: 8px !important;
+        padding: 1px 10px !important;
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
       }
-      html[data-dsh-glass="on"][data-dsh-theme="dark"] [data-slot-conversation="conversation.composer.dock"],
-      html[data-dsh-glass="on"][data-dsh-theme="dark"] [data-slot-conversation="conversation.composer.dock"] * {
-        color: #e8edf3 !important;
-        text-shadow: 0 1px 2px rgba(0,0,0,.6);
+      html[data-dsh-glass="on"] [data-slot-conversation="conversation.composer.dock"] *,
+      html[data-dsh-glass="on"] [data-slot="conversation.composer.dock"] * {
+        color: #f0f4f9 !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,.55);
       }
       /* 会话区所有内容元素背景透明化：去掉"反底色"小块衬底，统一融入磨砂卡片 */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] *:not([class*="button"]):not([class*="bubble"]):not([class*="_menu"]) {
