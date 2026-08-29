@@ -3108,10 +3108,10 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* 输入框盒子(uV2eYG_card)：实底(浅色=白/深色=深)并在背景图之上，文字随主题，保证可读。
-         加 #root 提高优先级，压过 DSH 自身把 card 背景设透明的规则 */
-      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"],
-      html[data-dsh-glass="on"] [class*="uV2eYG_card"] {
+      /* 输入框盒子(uV2eYG_card)：实底(浅=白/深=深)，文字按 DSH 主题(浅=深字/深=浅字)。
+         用 data-dsh-theme(DSH 真实主题)而非 prefers-color-scheme(OS)，避免 OS 深色让浅色主题变成白字 */
+      html[data-dsh-glass="on"][data-dsh-theme="light"] #root [class*="uV2eYG_card"],
+      html[data-dsh-glass="on"][data-dsh-theme="light"] [class*="uV2eYG_card"] {
         position: relative !important;
         z-index: 0 !important;
         background-color: #ffffff !important;
@@ -3121,9 +3121,48 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      @media (prefers-color-scheme: dark) {
-        html[data-dsh-glass="on"] #root [class*="uV2eYG_card"],
-        html[data-dsh-glass="on"] [class*="uV2eYG_card"] { background: #1c2530 !important; color: #f5f7fa !important; }
+      html[data-dsh-glass="on"][data-dsh-theme="dark"] #root [class*="uV2eYG_card"],
+      html[data-dsh-glass="on"][data-dsh-theme="dark"] [class*="uV2eYG_card"] {
+        position: relative !important;
+        z-index: 0 !important;
+        background-color: #1c2530 !important;
+        background-image: none !important;
+        color: #f2f6fa !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      /* 输入框文字/占位符/mirror：按主题取色(浅=深字/深=浅字)，覆盖 DSH 用 mirror 渲染占位可能的白字 */
+      html[data-dsh-glass="on"][data-dsh-theme="light"] [class*="uV2eYG_input"] { color: #1a2332 !important; }
+      html[data-dsh-glass="on"][data-dsh-theme="dark"] [class*="uV2eYG_input"] { color: #f2f6fa !important; }
+      html[data-dsh-glass="on"][data-dsh-theme="light"] [class*="uV2eYG_input"]::placeholder { color: #5c6b7a !important; }
+      html[data-dsh-glass="on"][data-dsh-theme="dark"] [class*="uV2eYG_input"]::placeholder { color: #9fb0c2 !important; }
+      /* 会话语流"耗时统计"(turn-tail: 12:38/用时/首token/tok/s)：白字+深投影，避免淡字叠在背景图上看不见 */
+      html[data-dsh-glass="on"] [class*="osXY9a_root"],
+      html[data-dsh-glass="on"] [class*="osXY9a_root"] span,
+      html[data-dsh-glass="on"] [class*="p-xYUq_timeEnd"],
+      html[data-dsh-glass="on"] [class*="p-xYUq_"] span {
+        color: #ffffff !important;
+        text-shadow: 0 1px 1px rgba(0,0,0,.5);
+      }
+      /* DSH 弹窗/浮层(提问/确认/重命名等)：给不透明底+主题文字, 杜绝透明与会话内容重叠 */
+      html[data-dsh-glass="on"] [class*="Radix"] [class*="Content"],
+      html[data-dsh-glass="on"] [class*="DialogContent"],
+      html[data-dsh-glass="on"] [class*="ModalContent"],
+      html[data-dsh-glass="on"] [class*="overlay"] [class*="content"],
+      html[data-dsh-glass="on"] [class*="_content"][class*="dialog"] {
+        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        color: var(--dsw-alias-label-primary) !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+      }
+      /* DSH 提问/弹窗卡(M8wy4a_card 等)：不透明底+原生文字, 避免透明重叠、白字 */
+      html[data-dsh-glass="on"] [class*="M8wy4a_card"],
+      html[data-dsh-glass="on"] [data-chain-overlay-fallback] [class*="card"] {
+        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        color: var(--dsw-alias-label-primary) !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
       }
       /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
       .dsh-turn-preview:not(.open){display:none !important;}
@@ -3162,7 +3201,7 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"] [data-slot-conversation="conversation.composer.dock"] *,
       html[data-dsh-glass="on"] [data-slot="conversation.composer.dock"] * {
         color: #f0f4f9 !important;
-        text-shadow: 0 1px 2px rgba(0,0,0,.55);
+        text-shadow: 0 1px 1px rgba(0,0,0,.5);
       }
       /* 会话区所有内容元素背景透明化：去掉"反底色"小块衬底，统一融入磨砂卡片 */
       html[data-dsh-glass="on"] #root [class*="wSkVaW_scrollBody"] *:not([class*="button"]):not([class*="bubble"]):not([class*="_menu"]) {
@@ -3513,17 +3552,18 @@ window.__ModuleLoader__.load({
               const bgHex = hasColor ? tb.color : defBg
               const alpha = (tb && typeof tb.opacity === 'number' && Number.isFinite(tb.opacity)) ? Math.min(1, Math.max(0, tb.opacity)) : 1
               const bg = `rgba(${hexToRgb(bgHex)},${alpha})`
-              const fg = relLum(bgHex) > 0.5 ? '#1a2332' : '#f5f7fa'
+              // 文字色按 DSH 主题取原生(浅色=深字/深色=浅字)，不再用背景亮度判断，避免白字叠白底
+              const fg = dark ? '#f2f6fa' : '#1a2332'
               inputCard.style.setProperty('background-color', bg, 'important')
               inputCard.style.setProperty('color', fg, 'important')
-              // 子层(scroll/row)也是透明的，继承卡片文字色即可，确保可读
-              inputCard.querySelectorAll('[class*="uV2eYG_scroll"],[class*="uV2eYG_row"]').forEach(el => {
+              // 输入框本体/mirror/scroll/row 一并内联强制主题色(DSH 重渲染会刷成白字, 内联 !important 压过)
+              inputCard.querySelectorAll('[class*="uV2eYG_input"],[class*="uV2eYG_scroll"],[class*="uV2eYG_row"]').forEach(el => {
                 el.style.setProperty('color', fg, 'important')
               })
             }
             // 主界面左栏/顶栏可见文字：白字+单层轻投影(Windows 桌面图标风格, 不加粗)。
             // 显式跳过设置/弹窗/浮层(modal/overlay/dialog/settings/panel/drawer/Radix/menu), 避免波及设置面板/弹出菜单。
-            const SKIP_SEL = ':is([class*="settings"],[class*="Dialog"],[class*="dialog"],[class*="modal"],[class*="overlay"],[class*="_panel"],[class*="panel"],[class*="drawer"],[class*="Radix"],[class*="_menu"],[class*="brand"])'
+            const SKIP_SEL = ':is([class*="settings"],[class*="Dialog"],[class*="dialog"],[class*="modal"],[class*="overlay"],[class*="_panel"],[class*="panel"],[class*="drawer"],[class*="Radix"],[class*="_menu"],[class*="brand"],[data-chain-overlay-fallback],[class*="M8wy4a_"])'
             const isInSkip = (el) => { let p = el; while (p && p !== document.documentElement) { if (p.matches && p.matches(SKIP_SEL)) return true; p = p.parentElement } return false }
             const applyChromeText = () => {
               if (!c.enabled) return
@@ -3546,7 +3586,7 @@ window.__ModuleLoader__.load({
                   const bgbg = getComputedStyle(el).backgroundColor
                   if (bgbg && bgbg !== 'rgba(0, 0, 0, 0)' && bgbg !== 'transparent') return
                   el.style.setProperty('color', '#ffffff', 'important')
-                  el.style.setProperty('text-shadow', '0 1px 2px rgba(0,0,0,.85)')
+                  el.style.setProperty('text-shadow', '0 1px 1px rgba(0,0,0,.5)')
                 })
                 // 图标也变白(随 currentColor)，用于工作区文件夹等单色图标；保留显式品牌色
                 root.querySelectorAll('svg, [class*="icon"], [class*="Icon"]').forEach((el) => {
@@ -3579,7 +3619,7 @@ window.__ModuleLoader__.load({
                 const bgbg = getComputedStyle(el).backgroundColor
                 if (bgbg && bgbg !== 'rgba(0, 0, 0, 0)' && bgbg !== 'transparent') return
                 el.style.setProperty('color', '#ffffff', 'important')
-                el.style.setProperty('text-shadow', '0 1px 2px rgba(0,0,0,.85)')
+                el.style.setProperty('text-shadow', '0 1px 1px rgba(0,0,0,.5)')
               })
               // 在白字底上, 给过程内容配色区分, Error 用红色。
               // 文字常在标签的子元素里(白字已把它设白), 故连同文本子元素一起上色。
@@ -3659,6 +3699,18 @@ window.__ModuleLoader__.load({
                 })
               })
             }
+            // DSH 提问/弹窗卡(M8wy4a_card 等)：内联强制不透明底+原生文字色, 压过 DSH 重渲染/透明与白字
+            const fixDialogs = () => {
+              if (!c.enabled) return
+              const dark = dshDark()
+              const bg = (getComputedStyle(document.documentElement).getPropertyValue('--dsw-specific-input-major') || '').trim() || '#e8edf3'
+              const fg = dark ? '#f2f6fa' : '#1a2332'
+              document.querySelectorAll('[class*="M8wy4a_card"],[data-chain-overlay-fallback] [class*="card"]').forEach((el) => {
+                el.style.setProperty('background-color', bg, 'important')
+                el.style.setProperty('color', fg, 'important')
+                el.style.setProperty('backdrop-filter', 'blur(8px)')
+              })
+            }
             // 主题相关的东西统一重算：背景罩 + 输入框。切主题时由 observer/mq 触发。
             // 写入前先断开观察器，写完再重连，避免自触发造成死循环。
             const applyTheme = () => {
@@ -3673,6 +3725,7 @@ window.__ModuleLoader__.load({
                 applyInputCard()
                 applyChromeText()
                 applySessionText()
+                fixDialogs()
               } finally {
                 if (obs) obs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
               }
@@ -3728,7 +3781,7 @@ window.__ModuleLoader__.load({
             const sessionObs = new MutationObserver((muts) => {
               let hit = false
               for (const m of muts) { for (const node of m.addedNodes) { if (node.nodeType === 1 && inScroll(node)) { hit = true; break } } if (hit) break }
-              if (hit) { if (sessionTimer) clearTimeout(sessionTimer); sessionTimer = setTimeout(() => applySessionText(), 150) }
+              if (hit) { if (sessionTimer) clearTimeout(sessionTimer); sessionTimer = setTimeout(() => { applySessionText(); fixDialogs() }, 150) }
             })
             sessionObs.observe(document.body, { childList: true, subtree: true })
           }
