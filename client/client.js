@@ -3053,7 +3053,7 @@ window.__ModuleLoader__.load({
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
       }
-      /* 左栏顶部「新会话」按钮：去掉白/黑实底与边框，透出背景图；文字跟侧边栏一致(白+描边) */
+      /* 左栏顶部「新会话」按钮：去掉白/黑实底与边框，透出背景图；文字颜色交由下方统一的侧边栏/顶栏可读文字规则决定 */
       html[data-dsh-glass="on"] #root [class*="newSession"] {
         background-color: transparent !important;
         background-image: none !important;
@@ -3062,9 +3062,9 @@ window.__ModuleLoader__.load({
         box-shadow: none !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-        color: #ffffff !important;
-        text-shadow: 0 1px 3px rgba(0,0,0,.85);
       }
+      /* 左栏/顶栏文字可读性改用 JS 处理(见 glassPlugin.apply 的 applyChromeText)，
+         只作用于主界面左栏/顶栏、并跳过设置/弹窗/浮层，避免波及设置面板 */
       /* 左栏内部根 / 底部容器也用透明（这些是 DSH 当前版本哈希类名；背景图要透到左栏与底部） */
       html[data-dsh-glass="on"] #root [class*="hHd-Xa_root"],
       html[data-dsh-glass="on"] #root [class*="FJxK0a_root"] {
@@ -3521,6 +3521,44 @@ window.__ModuleLoader__.load({
                 el.style.setProperty('color', fg, 'important')
               })
             }
+            // 主界面左栏/顶栏可见文字：白字+单层轻投影(Windows 桌面图标风格, 不加粗)。
+            // 显式跳过设置/弹窗/浮层(modal/overlay/dialog/settings/panel/drawer/Radix/menu), 避免波及设置面板/弹出菜单。
+            const SKIP_SEL = ':is([class*="settings"],[class*="Dialog"],[class*="dialog"],[class*="modal"],[class*="overlay"],[class*="_panel"],[class*="panel"],[class*="drawer"],[class*="Radix"],[class*="_menu"])'
+            const isInSkip = (el) => { let p = el; while (p && p !== document.documentElement) { if (p.matches && p.matches(SKIP_SEL)) return true; p = p.parentElement } return false }
+            const applyChromeText = () => {
+              if (!c.enabled) return
+              // 只处理主界面左栏/顶栏内带文字的元素；跳过图标/纯容器。
+              // 文字检测放宽：button/a/span/li/p/标题等直接算，纯 div 容器需自身带文本才算，
+              // 这样底部「设置/已归档」等包在子元素里的按钮也能命中。
+              const roots = [...document.querySelectorAll('#root [class*="sidebarCol"],#root [class*="wSkVaW_header"]')]
+              roots.forEach((root) => {
+                if (isInSkip(root)) return
+                root.querySelectorAll('div,span,button,a,label,p,li,h1,h2,h3,h4').forEach((el) => {
+                  if (isInSkip(el)) return
+                  const tag = el.tagName
+                  const hasText = el.textContent && el.textContent.trim()
+                  if (!hasText) return
+                  const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
+                  const textLike = /^(BUTTON|A|SPAN|LABEL|LI|P|H1|H2|H3|H4)$/.test(tag)
+                  if (!textLike && !ownText) return
+                  el.style.setProperty('color', '#ffffff', 'important')
+                  el.style.setProperty('text-shadow', '0 1px 2px rgba(0,0,0,.85)')
+                })
+                // 图标也变白(随 currentColor)，用于工作区文件夹等单色图标；保留显式品牌色
+                root.querySelectorAll('svg, [class*="icon"], [class*="Icon"]').forEach((el) => {
+                  if (isInSkip(el)) return
+                  el.style.setProperty('color', '#ffffff', 'important')
+                  el.querySelectorAll('path,use,rect,circle,line,polyline,ellipse').forEach((p) => {
+                    const f = (p.getAttribute('fill') || '').toLowerCase()
+                    if (f && f !== 'none' && f !== 'currentcolor') return
+                    p.style.setProperty('fill', 'currentColor', 'important')
+                    const s = (p.getAttribute('stroke') || '').toLowerCase()
+                    if (s && s !== 'none' && s !== 'currentcolor') return
+                    p.style.setProperty('stroke', 'currentColor', 'important')
+                  })
+                })
+              })
+            }
             // 主题相关的东西统一重算：背景罩 + 输入框。切主题时由 observer/mq 触发。
             // 写入前先断开观察器，写完再重连，避免自触发造成死循环。
             const applyTheme = () => {
@@ -3533,6 +3571,7 @@ window.__ModuleLoader__.load({
                 const v = `rgba(${hexToRgb(bt.color)},${bt.mask})`
                 root.style.setProperty('--dsh-glass-bg-zone', v)
                 applyInputCard()
+                applyChromeText()
               } finally {
                 if (obs) obs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
               }
@@ -3567,6 +3606,11 @@ window.__ModuleLoader__.load({
             // 记录当前主题应用函数，供唯一观察器/mq 调用
             window.__dshGlassApplyTheme = applyTheme
             centerScroll()
+            // 侧边栏/顶栏 DOM 变化(会话列表更新等)时重算左栏/顶栏文字，防抖 120ms
+            let chromeTimer = null
+            const chromeRoots = [...document.querySelectorAll('#root [class*="sidebarCol"],#root [class*="wSkVaW_header"]')]
+            const chromeObs = new MutationObserver(() => { if (chromeTimer) clearTimeout(chromeTimer); chromeTimer = setTimeout(applyChromeText, 120) })
+            chromeRoots.forEach((r) => chromeObs.observe(r, { childList: true, subtree: true, characterData: true }))
           }
           return () => {
             window.__dshGlassApply = undefined
@@ -3575,6 +3619,8 @@ window.__ModuleLoader__.load({
             if (window.__dshGlassStyleObs) { window.__dshGlassStyleObs.disconnect(); window.__dshGlassStyleObs = null }
             if (themeMq) themeMq.removeEventListener('change', themeMqHandler)
             window.__dshGlassApplyTheme = undefined
+            if (chromeObs) chromeObs.disconnect()
+            if (chromeTimer) clearTimeout(chromeTimer)
           }
         }, 'dsh-long-plugins: glass applier')
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: 'RA-Span' }, GlassSettingsSection))
