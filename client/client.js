@@ -3615,6 +3615,16 @@ window.__ModuleLoader__.load({
             const chromeRoots = [...document.querySelectorAll('#root [class*="sidebarCol"],#root [class*="wSkVaW_header"]')]
             const chromeObs = new MutationObserver(() => { if (chromeTimer) clearTimeout(chromeTimer); chromeTimer = setTimeout(applyChromeText, 120) })
             chromeRoots.forEach((r) => chromeObs.observe(r, { childList: true, subtree: true, characterData: true }))
+            // 输入框卡片(uV2eYG_card/root)可能在启动后才挂载(会话/输入区加载晚)，
+            // 启动那一刻 applyInputCard 常找不到框 → 需刷新才生效。监听新增卡片节点时重算，防抖 100ms。
+            let cardTimer = null
+            const hasInputNode = (node) => (node.querySelector && (node.querySelector('[class*="uV2eYG_card"]') || node.querySelector('[class*="uV2eYG_root"]'))) || (node.matches && (node.matches('[class*="uV2eYG_card"]') || node.matches('[class*="uV2eYG_root"]')))
+            const cardObs = new MutationObserver((muts) => {
+              let hit = false
+              for (const m of muts) { for (const node of m.addedNodes) { if (node && node.nodeType === 1 && hasInputNode(node)) { hit = true; break } } if (hit) break }
+              if (hit) { if (cardTimer) clearTimeout(cardTimer); cardTimer = setTimeout(() => applyTheme(), 100) }
+            })
+            cardObs.observe(document.body, { childList: true, subtree: true })
           }
           return () => {
             window.__dshGlassApply = undefined
@@ -3625,6 +3635,8 @@ window.__ModuleLoader__.load({
             window.__dshGlassApplyTheme = undefined
             if (chromeObs) chromeObs.disconnect()
             if (chromeTimer) clearTimeout(chromeTimer)
+            if (cardObs) cardObs.disconnect()
+            if (cardTimer) clearTimeout(cardTimer)
           }
         }, 'dsh-long-plugins: glass applier')
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: 'RA-Span' }, GlassSettingsSection))
