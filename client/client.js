@@ -3108,10 +3108,10 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* 输入框盒子(uV2eYG_card)：实底(浅=白/深=深)，文字按 DSH 主题(浅=深字/深=浅字)。
-         用 data-dsh-theme(DSH 真实主题)而非 prefers-color-scheme(OS)，避免 OS 深色让浅色主题变成白字 */
-      html[data-dsh-glass="on"][data-dsh-theme="light"] #root [class*="uV2eYG_card"],
-      html[data-dsh-glass="on"][data-dsh-theme="light"] [class*="uV2eYG_card"] {
+      /* 输入框盒子(uV2eYG_card)：实底(浅色=白/深色=深)并在背景图之上，文字随主题，保证可读。
+         加 #root 提高优先级，压过 DSH 自身把 card 背景设透明的规则(与 v2.2.1 一致) */
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"],
+      html[data-dsh-glass="on"] [class*="uV2eYG_card"] {
         position: relative !important;
         z-index: 0 !important;
         background-color: #ffffff !important;
@@ -3121,24 +3121,10 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      html[data-dsh-glass="on"][data-dsh-theme="dark"] #root [class*="uV2eYG_card"],
-      html[data-dsh-glass="on"][data-dsh-theme="dark"] [class*="uV2eYG_card"] {
-        position: relative !important;
-        z-index: 0 !important;
-        background-color: #1c2530 !important;
-        background-image: none !important;
-        color: #f2f6fa !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
+      @media (prefers-color-scheme: dark) {
+        html[data-dsh-glass="on"] #root [class*="uV2eYG_card"],
+        html[data-dsh-glass="on"] [class*="uV2eYG_card"] { background: #1c2530 !important; color: #f5f7fa !important; }
       }
-      /* 输入框文字/占位符/mirror：按主题取色(浅=深字/深=浅字)，覆盖 DSH 用 mirror 渲染占位可能的白字 */
-      html[data-dsh-glass="on"][data-dsh-theme="light"] [class*="uV2eYG_input"] { color: #1a2332 !important; }
-      html[data-dsh-glass="on"][data-dsh-theme="dark"] [class*="uV2eYG_input"] { color: #f2f6fa !important; }
-      html[data-dsh-glass="on"][data-dsh-theme="light"] [class*="uV2eYG_input"]::placeholder { color: #5c6b7a !important; }
-      html[data-dsh-glass="on"][data-dsh-theme="dark"] [class*="uV2eYG_input"]::placeholder { color: #9fb0c2 !important; }
-      /* 隐藏输入框的 mirror 测量层(重复文字, 造成重影)；backdrop 是正常显示文字的层, 保留 */
-      html[data-dsh-glass="on"] [class*="uV2eYG_mirror"] { visibility: hidden !important; }
       /* 会话语流"耗时统计"(turn-tail: 12:38/用时/首token/tok/s)：白字+深投影，避免淡字叠在背景图上看不见 */
       html[data-dsh-glass="on"] [class*="osXY9a_root"],
       html[data-dsh-glass="on"] [class*="osXY9a_root"] span,
@@ -3554,12 +3540,14 @@ window.__ModuleLoader__.load({
               const bgHex = hasColor ? tb.color : defBg
               const alpha = (tb && typeof tb.opacity === 'number' && Number.isFinite(tb.opacity)) ? Math.min(1, Math.max(0, tb.opacity)) : 1
               const bg = `rgba(${hexToRgb(bgHex)},${alpha})`
-              // 文字色按 DSH 主题取原生(浅色=深字/深色=浅字)，不再用背景亮度判断，避免白字叠白底
-              const fg = dark ? '#f2f6fa' : '#1a2332'
+              // 背景/文字同步：按背景底色亮度决定文字色(亮底=深字/暗底=浅字)，确保可读；与 v2.2.1 一致
+              const fg = relLum(bgHex) > 0.5 ? '#1a2332' : '#f5f7fa'
               inputCard.style.setProperty('background-color', bg, 'important')
               inputCard.style.setProperty('color', fg, 'important')
-              // 不再动 input/mirror/scroll/row 内部层的颜色(避免与 DSH 原生渲染叠加导致重影)，
-              // 文字由上面的 card color + 输入框 CSS 规则决定
+              // 子层(scroll/row)也是透明的，继承卡片文字色即可，确保可读
+              inputCard.querySelectorAll('[class*="uV2eYG_scroll"],[class*="uV2eYG_row"]').forEach(el => {
+                el.style.setProperty('color', fg, 'important')
+              })
             }
             // 主界面左栏/顶栏可见文字：白字+单层轻投影(Windows 桌面图标风格, 不加粗)。
             // 显式跳过设置/弹窗/浮层(modal/overlay/dialog/settings/panel/drawer/Radix/menu), 避免波及设置面板/弹出菜单。
@@ -3705,7 +3693,8 @@ window.__ModuleLoader__.load({
               const dark = dshDark()
               const bg = (getComputedStyle(document.documentElement).getPropertyValue('--dsw-specific-input-major') || '').trim() || '#e8edf3'
               const fg = dark ? '#f2f6fa' : '#1a2332'
-              document.querySelectorAll('[class*="M8wy4a_card"],[data-chain-overlay-fallback] [class*="card"]').forEach((el) => {
+              // 只匹配提问/弹窗卡(M8wy4a_card)，避免误匹配输入框 uV2eYG_card(含"card")导致 blur 重影
+              document.querySelectorAll('[class*="M8wy4a_card"]').forEach((el) => {
                 el.style.setProperty('background-color', bg, 'important')
                 el.style.setProperty('color', fg, 'important')
                 el.style.setProperty('backdrop-filter', 'blur(8px)')
