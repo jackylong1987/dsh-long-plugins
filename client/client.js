@@ -3139,18 +3139,31 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"] [class*="ModalContent"],
       html[data-dsh-glass="on"] [class*="overlay"] [class*="content"],
       html[data-dsh-glass="on"] [class*="_content"][class*="dialog"] {
-        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
         color: var(--dsw-alias-label-primary) !important;
-        backdrop-filter: blur(8px) !important;
-        -webkit-backdrop-filter: blur(8px) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
       }
-      /* DSH 提问/弹窗卡(M8wy4a_card 等)：不透明底+原生文字, 避免透明重叠、白字 */
-      html[data-dsh-glass="on"] [class*="M8wy4a_card"],
-      html[data-dsh-glass="on"] [data-chain-overlay-fallback] [class*="card"] {
-        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+      /* DSH 提问/弹窗卡(M8wy4a_card)：不透明底+原生文字, 避免透明重叠、白字。
+         注意: 不能再用 [data-chain-overlay-fallback] [class*=card](会误匹配输入框 uV2eYG_card 加 blur 造成重影) */
+      html[data-dsh-glass="on"] [class*="M8wy4a_card"] {
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
         color: var(--dsw-alias-label-primary) !important;
-        backdrop-filter: blur(8px) !important;
-        -webkit-backdrop-filter: blur(8px) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+      }
+      /* 任务/todo 面板(lXshSW_root, 在 conversation.input.dock 内)：不透明底+可读文字, 不透明与会话重叠 */
+      html[data-dsh-glass="on"] [class*="lXshSW_root"],
+      html[data-dsh-glass="on"] [class*="lXshSW_body"] {
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
+        color: var(--dsw-alias-label-primary) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+      }
+      html[data-dsh-glass="on"] [class*="lXshSW_header"] [class*="lXshSW_title"],
+      html[data-dsh-glass="on"] [class*="lXshSW_header"] [class*="lXshSW_progress"],
+      html[data-dsh-glass="on"] [class*="lXshSW_item"] {
+        color: var(--dsw-alias-label-primary) !important;
       }
       /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
       .dsh-turn-preview:not(.open){display:none !important;}
@@ -3206,20 +3219,20 @@ window.__ModuleLoader__.load({
       }
       /* 输入框下拉/悬浮菜单(如 / 命令、@ 提及)：背景给不透明随主题色，避免叠在会话磨砂卡上重叠看不清 */
       html[data-dsh-glass="on"] #root [class*="_menu"][class*="_menu"][class*="_menu"][class*="_menu"] {
-        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
         background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 97%, transparent) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
       /* 输入框旁权限/功能选择下拉(盾牌 Full access 等 Radix 风格菜单)：与 / 命令菜单同样处理 */
       html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_root_"]:has([class*="_list_"]) {
-        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
         background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 97%, transparent) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
       html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_list_"] {
-        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
         background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 97%, transparent) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
@@ -3695,9 +3708,10 @@ window.__ModuleLoader__.load({
               const fg = dark ? '#f2f6fa' : '#1a2332'
               // 只匹配提问/弹窗卡(M8wy4a_card)，避免误匹配输入框 uV2eYG_card(含"card")导致 blur 重影
               document.querySelectorAll('[class*="M8wy4a_card"]').forEach((el) => {
-                el.style.setProperty('background-color', bg, 'important')
+                const rgb = bg
+                el.style.setProperty('background-color', `color-mix(in srgb, ${rgb} 76%, transparent)`, 'important')
                 el.style.setProperty('color', fg, 'important')
-                el.style.setProperty('backdrop-filter', 'blur(8px)')
+                el.style.setProperty('backdrop-filter', 'blur(20px)')
               })
             }
             // 主题相关的东西统一重算：背景罩 + 输入框。切主题时由 observer/mq 触发。
