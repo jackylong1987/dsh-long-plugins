@@ -3600,18 +3600,30 @@ window.__ModuleLoader__.load({
                 const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
                 if (ownText) el.style.setProperty('color', '#ff6b6b', 'important')
               })
-              // 工具名标签(o3BgMG_title) → 蓝；所在工具卡片/根内其它文本(工具输出) → 青绿, 错误保留红
+              // 工具名标签(o3BgMG_title) → 蓝；其所在工具行/卡片内其它文本(工具输出/路径) → 水绿, 错误保留红
               scroll.querySelectorAll('[class*="o3BgMG_title"]').forEach((title) => {
                 paint(title, '#8ccfff')
-                let box = title.closest('[class*="_card"],[class*="_root"],[class*="_view"]')
-                if (!box) return
-                box.querySelectorAll('div,span,p,li,pre,code').forEach((el) => {
+                // 从标签向上找最近一个"含链接/代码/更多文本"的容器作为工具行，找不到就用父级
+                let box = title.parentElement
+                for (let i = 0; i < 4 && box; i++) {
+                  if (box.querySelector && box.querySelector('a, code, [class*="desc"], [class*="path"], [class*="cmd"], [class*="arg"]')) break
+                  box = box.parentElement
+                }
+                if (!box) box = title.parentElement
+                box.querySelectorAll('div,span,a,p,li,pre,code').forEach((el) => {
                   if (el === title || el.querySelector('[class*="o3BgMG_title"]')) return
                   const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
                   if (!ownText || isErrText(el)) return
-                  paint(el, '#9fd9c7')
+                  paint(el, '#6fb89a')
                 })
               })
+              // 工具输出/路径(o3BgMG_summary)：成功 → 水绿；errorSummary 保持红
+              scroll.querySelectorAll('[class*="o3BgMG_summary"]').forEach((el) => {
+                if (/errorSummary/i.test(String(el.className))) return
+                paint(el, '#6fb89a')
+              })
+              // 路径/文件链接(o3BgMG_fileLink) → 水绿(与白字标签区分)
+              scroll.querySelectorAll('[class*="o3BgMG_fileLink"]').forEach((el) => paint(el, '#6fb89a'))
               // 思考正文(think 容器) → 暖琥珀；再覆盖 Think 标签为琥珀
               const thinkRoot = scroll.querySelector('[class*="QWLzLg_root"]')
               if (thinkRoot) thinkRoot.querySelectorAll('div,span,p,li').forEach((el) => {
@@ -3619,6 +3631,19 @@ window.__ModuleLoader__.load({
                 if (ownText && !isErrText(el)) paint(el, '#e6c583')
               })
               scroll.querySelectorAll('[class*="QWLzLg_title"]').forEach((el) => paint(el, '#f2c566'))
+              // 会话区工具调用等图标：改为白色清晰显示(单色图标随 currentColor 变白, 保留品牌色)
+              scroll.querySelectorAll('svg, [class*="icon"], [class*="Icon"]').forEach((el) => {
+                if (isInSkip(el)) return
+                el.style.setProperty('color', '#ffffff', 'important')
+                el.querySelectorAll('path,use,rect,circle,line,polyline,ellipse').forEach((p) => {
+                  const f = (p.getAttribute('fill') || '').toLowerCase()
+                  if (f && f !== 'none' && f !== 'currentcolor') return
+                  p.style.setProperty('fill', 'currentColor', 'important')
+                  const s = (p.getAttribute('stroke') || '').toLowerCase()
+                  if (s && s !== 'none' && s !== 'currentcolor') return
+                  p.style.setProperty('stroke', 'currentColor', 'important')
+                })
+              })
             }
             // 主题相关的东西统一重算：背景罩 + 输入框。切主题时由 observer/mq 触发。
             // 写入前先断开观察器，写完再重连，避免自触发造成死循环。
