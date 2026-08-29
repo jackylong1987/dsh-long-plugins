@@ -1961,7 +1961,9 @@ window.__ModuleLoader__.load({
 						if (!cancelled) setBalance(null);
 					}
 				};
-				load();
+				// 首次拉取延迟到浏览器空闲(减轻首屏网络风暴), 60s 轮询不变
+				const schedule = () => { try { if (window.requestIdleCallback) window.requestIdleCallback(() => load(), { timeout: 300 }); else setTimeout(load, 300) } catch (_) { load() } };
+				schedule();
 				const interval = setInterval(load, 60000);
 				return () => {
 					cancelled = true;
@@ -2003,7 +2005,9 @@ window.__ModuleLoader__.load({
 						if (!cancelled) setCost(null);
 					}
 				};
-				load();
+				// 首次拉取延迟到空闲(减轻首屏网络风暴), 60s 轮询不变
+				const schedule = () => { try { if (window.requestIdleCallback) window.requestIdleCallback(() => load(), { timeout: 300 }); else setTimeout(load, 300) } catch (_) { load() } };
+				schedule();
 				const interval = setInterval(load, 60000);
 				return () => {
 					cancelled = true;
@@ -3133,6 +3137,7 @@ window.__ModuleLoader__.load({
         color: #ffffff !important;
         text-shadow: 0 1px 1px rgba(0,0,0,.5);
       }
+      /* (移除 color/text-shadow 过渡: 会在收尾重渲染时短暂贴默认色导致"闪黑") */
       /* DSH 弹窗/浮层(提问/确认/重命名等)：给不透明底+主题文字, 杜绝透明与会话内容重叠 */
       html[data-dsh-glass="on"] [class*="Radix"] [class*="Content"],
       html[data-dsh-glass="on"] [class*="DialogContent"],
@@ -3163,6 +3168,19 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"] [class*="lXshSW_header"] [class*="lXshSW_title"],
       html[data-dsh-glass="on"] [class*="lXshSW_header"] [class*="lXshSW_progress"],
       html[data-dsh-glass="on"] [class*="lXshSW_item"] {
+        color: var(--dsw-alias-label-primary) !important;
+      }
+      /* 排队消息/等待任务面板(_7yHdaG_dock/panel, 在 conversation.input.dock 内)：不透明/磨砂底+可读文字 */
+      html[data-dsh-glass="on"] [class*="_7yHdaG_panel"],
+      html[data-dsh-glass="on"] [class*="_7yHdaG_dock"] {
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 88%, transparent) !important;
+        color: var(--dsw-alias-label-primary) !important;
+        backdrop-filter: blur(var(--dsh-glass-blur, 16px)) !important;
+        -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px)) !important;
+      }
+      html[data-dsh-glass="on"] [class*="_7yHdaG_header"],
+      html[data-dsh-glass="on"] [class*="_7yHdaG_preview"],
+      html[data-dsh-glass="on"] [class*="_7yHdaG_row"] {
         color: var(--dsw-alias-label-primary) !important;
       }
       /* 轮次/历史提问预览：默认隐藏（点开才显示），并去掉头部底色，避免底部露出白条 */
@@ -3224,18 +3242,27 @@ window.__ModuleLoader__.load({
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* 输入框旁权限/功能选择下拉(盾牌 Full access 等 Radix 风格菜单)：与 / 命令菜单同样处理 */
-      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_root_"]:has([class*="_list_"]) {
-        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
-        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 97%, transparent) !important;
+      /* 输入框旁权限/功能选择下拉(盾牌 Full access 等)：给不透明底+可读文字(高优先级, 压过 DSH 透明覆盖) */
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_root_"] [class*="_list_"],
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_root_"] [class*="_list_"] [class*="_viewport_"],
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_list_"] [class*="_viewport_"] [class*="_itemWrap_"] {
+        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_list_"] {
-        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
-        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 97%, transparent) !important;
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_item_"],
+      html[data-dsh-glass="on"] #root [class*="uV2eYG_card"] [class*="_itemLabel_"] {
+        color: var(--dsw-alias-label-primary) !important;
+      }
+      /* 兜底: Radix 风格菜单/下拉(可能被渲染到 body 顶层) */
+      html[data-dsh-glass="on"] [class*="Radix"] [class*="Menu"],
+      html[data-dsh-glass="on"] [class*="radix-menu"],
+      html[data-dsh-glass="on"] [class*="menuitem"],
+      html[data-dsh-glass="on"] [role="menu"] {
+        background-color: var(--dsw-specific-input-major, #e8edf3) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
+        color: var(--dsw-alias-label-primary) !important;
       }
       /* 玻璃开启 + 浅色系统主题：加深弱化标签/元信息文字，避免浅灰字叠在浅磨砂卡上看不清 */
       @media (prefers-color-scheme: light) {
@@ -3329,7 +3356,7 @@ window.__ModuleLoader__.load({
           if (!r.ok) throw new Error(b.error || ('HTTP ' + r.status))
           let list = []
           try { const rb = await fetch('/api/dsh-uploads/glass-backgrounds', { cache: 'no-store' }); const jb = await rb.json(); list = jb.list || [] } catch (_) {}
-          setState((s) => ({ ...s, loading: false, cfg: b.cfg, bgImage: b.bgImage || '', bgList: list }))
+          setState((s) => ({ ...s, loading: false, cfg: b.cfg, bgImage: b.bgImageUrl || '', bgList: list }))
         } catch (e) { setState((s) => ({ ...s, loading: false, error: glassText(e) })) }
       }, [])
       React.useEffect(() => { load(); }, [load])
@@ -3352,9 +3379,16 @@ window.__ModuleLoader__.load({
         try {
           const cfg = state.cfg || {}
           const num = (v, fb) => ((typeof v === 'number' && Number.isFinite(v) && v >= 0) ? v : fb)
+          // 背景图: 仅当用户上传了新图(data-URI)才传; 未改(URL)省略以保持引用; 清空传 '' 清除
+          const sBg = state.bgImage
+          let bgImageOut
+          if (sBg === '') bgImageOut = ''
+          else if (typeof sBg === 'string' && sBg.startsWith('data:image/')) bgImageOut = sBg
+          else bgImageOut = undefined
           const payload = {
             enabled: !!cfg.enabled, blur: num(cfg.blur, 0),
-            bgImage: state.bgImage || cfg.bgImage || '', bgMask: num(cfg.bgMask, 0.28), bgColor: cfg.bgColor || '#1a2332', bgBlur: num(cfg.bgBlur, 0), bgOpacity: num(cfg.bgOpacity, 1),
+            bgMask: num(cfg.bgMask, 0.28), bgColor: cfg.bgColor || '#1a2332', bgBlur: num(cfg.bgBlur, 0), bgOpacity: num(cfg.bgOpacity, 1),
+            ...(bgImageOut !== undefined ? { bgImage: bgImageOut } : {}),
             bgTint: {
               light: { color: (cfg.bgTint?.light?.color) || '#1a2332', mask: num(cfg.bgTint?.light?.mask, 0.28) },
               dark: { color: (cfg.bgTint?.dark?.color) || '#1a2332', mask: num(cfg.bgTint?.dark?.mask, 0.28) },
@@ -3371,8 +3405,9 @@ window.__ModuleLoader__.load({
           const r = await fetch('/api/dsh-uploads/glass-config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
           const b = await r.json()
           if (!r.ok) throw new Error(b.error || ('HTTP ' + r.status))
-          window.__dshGlassApply && window.__dshGlassApply(payload)
-          setState((s) => ({ ...s, saving: false, cfg: { ...(s.cfg || {}), ...payload }, bgImage: payload.bgImage, error: '' }))
+          const applyBg = (payload.bgImage && payload.bgImage.startsWith('data:')) ? payload.bgImage : ((state.bgImage && state.bgImage.startsWith('/')) ? state.bgImage : '')
+          window.__dshGlassApply && window.__dshGlassApply({ ...payload, bgImage: applyBg })
+          setState((s) => ({ ...s, saving: false, cfg: { ...(s.cfg || {}), ...payload }, bgImage: applyBg, error: '' }))
         } catch (e) { setState((s) => ({ ...s, saving: false, error: glassText(e) })) }
       }, [state])
       const cfg = state.cfg || {}
@@ -3586,18 +3621,15 @@ window.__ModuleLoader__.load({
                 if (isInSkip(root)) return
                 root.querySelectorAll('div,span,button,a,label,p,li,h1,h2,h3,h4').forEach((el) => {
                   if (isInSkip(el)) return
-                  const tag = el.tagName
-                  const hasText = el.textContent && el.textContent.trim()
-                  if (!hasText) return
+                  if (el.dataset && el.dataset.dshgl) return  // 已处理过, 跳过
                   const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
-                  const textLike = /^(BUTTON|A|SPAN|LABEL|LI|P|H1|H2|H3|H4)$/.test(tag)
+                  const textLike = /^(BUTTON|A|SPAN|LABEL|LI|P|H1|H2|H3|H4)$/.test(el.tagName)
                   if (!textLike && !ownText) return
-                  // 跳过有盒子背景的元素(badge/徽章/药丸等, 如 deepseek 的 HARNESS 徽章)：
-                  // 这类文字颜色应随其盒子背景走主题, 不强制白字(否则白底徽章+白字不可见)
-                  const bgbg = getComputedStyle(el).backgroundColor
-                  if (bgbg && bgbg !== 'rgba(0, 0, 0, 0)' && bgbg !== 'transparent') return
+                  // 跳过有盒子背景的元素(用类名判断, 不再 getComputedStyle 以免每元素强制样式重算导致卡顿)
+                  if (/bubble|badge|chip|tag|pill|code-block|md-code|n_block|n_banner|n_plain|button/i.test(el.className)) return
                   el.style.setProperty('color', '#ffffff', 'important')
                   el.style.setProperty('text-shadow', '0 1px 1px rgba(0,0,0,.5)')
+                  if (el.dataset) el.dataset.dshgl = '1'
                 })
                 // 图标也变白(随 currentColor)，用于工作区文件夹等单色图标；保留显式品牌色
                 root.querySelectorAll('svg, [class*="icon"], [class*="Icon"]').forEach((el) => {
@@ -3622,15 +3654,14 @@ window.__ModuleLoader__.load({
               if (!scroll) return
               scroll.querySelectorAll('div,span,p,li,pre,code,button,a,label,h1,h2,h3,h4').forEach((el) => {
                 if (isInSkip(el)) return
-                const hasText = el.textContent && el.textContent.trim()
-                if (!hasText) return
+                if (el.dataset && el.dataset.dshgl) return  // 已处理过, 跳过(只处理新内容)
                 const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
                 const textLike = /^(BUTTON|A|SPAN|LABEL|LI|P|H1|H2|H3|H4|PRE|CODE)$/.test(el.tagName)
                 if (!textLike && !ownText) return
-                const bgbg = getComputedStyle(el).backgroundColor
-                if (bgbg && bgbg !== 'rgba(0, 0, 0, 0)' && bgbg !== 'transparent') return
+                if (/bubble|badge|chip|tag|pill|code-block|md-code|n_block|n_banner|n_plain/i.test(el.className)) return
                 el.style.setProperty('color', '#ffffff', 'important')
                 el.style.setProperty('text-shadow', '0 1px 1px rgba(0,0,0,.5)')
+                if (el.dataset) el.dataset.dshgl = '1'
               })
               // 在白字底上, 给过程内容配色区分, Error 用红色。
               // 文字常在标签的子元素里(白字已把它设白), 故连同文本子元素一起上色。
@@ -3726,6 +3757,8 @@ window.__ModuleLoader__.load({
             }
             // 主题相关的东西统一重算：背景罩 + 输入框。切主题时由 observer/mq 触发。
             // 写入前先断开观察器，写完再重连，避免自触发造成死循环。
+            // 把非关键的"内容配色/白字"延迟到浏览器空闲时执行, 让页面先渲染出来(优化刷新加载时间)
+            const defer = (fn) => { try { if (window.requestIdleCallback) window.requestIdleCallback(fn, { timeout: 120 }); else setTimeout(fn, 0) } catch (_) { fn() } }
             const applyTheme = () => {
               const obs = window.__dshGlassStyleObs
               if (obs) obs.disconnect()
@@ -3736,9 +3769,7 @@ window.__ModuleLoader__.load({
                 const v = `rgba(${hexToRgb(bt.color)},${bt.mask})`
                 root.style.setProperty('--dsh-glass-bg-zone', v)
                 applyInputCard()
-                applyChromeText()
-                applySessionText()
-                fixDialogs()
+                defer(() => { applyChromeText(); applySessionText(); fixDialogs() })
               } finally {
                 if (obs) obs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
               }
@@ -3778,7 +3809,7 @@ window.__ModuleLoader__.load({
             // 侧边栏/顶栏 DOM 变化(会话列表更新等)时重算左栏/顶栏文字，防抖 120ms
             let chromeTimer = null
             const chromeRoots = [...document.querySelectorAll('#root [class*="sidebarCol"],#root [class*="wSkVaW_header"]')]
-            const chromeObs = new MutationObserver(() => { if (chromeTimer) clearTimeout(chromeTimer); chromeTimer = setTimeout(applyChromeText, 120) })
+            const chromeObs = new MutationObserver(() => { if (chromeTimer) clearTimeout(chromeTimer); chromeTimer = setTimeout(applyChromeText, 30) })
             chromeRoots.forEach((r) => chromeObs.observe(r, { childList: true, subtree: true, characterData: true }))
             // 输入框卡片(uV2eYG_card/root)可能在启动后才挂载(会话/输入区加载晚)，
             // 启动那一刻 applyInputCard 常找不到框 → 需刷新才生效。监听新增卡片节点时重算，防抖 100ms。
@@ -3796,7 +3827,7 @@ window.__ModuleLoader__.load({
             const sessionObs = new MutationObserver((muts) => {
               let hit = false
               for (const m of muts) { for (const node of m.addedNodes) { if (node.nodeType === 1 && inScroll(node)) { hit = true; break } } if (hit) break }
-              if (hit) { if (sessionTimer) clearTimeout(sessionTimer); sessionTimer = setTimeout(() => { applySessionText(); fixDialogs() }, 150) }
+              if (hit) { if (sessionTimer) clearTimeout(sessionTimer); sessionTimer = setTimeout(() => { applySessionText(); fixDialogs() }, 20) }
             })
             sessionObs.observe(document.body, { childList: true, subtree: true })
           }
@@ -3817,9 +3848,11 @@ window.__ModuleLoader__.load({
         }, 'dsh-long-plugins: glass applier')
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: 'RA-Span' }, GlassSettingsSection))
         ctx.effect(() => {
-          fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' }).then((r) => r.json()).then((b) => {
-            if (b && b.cfg) { window.__dshGlassApply && window.__dshGlassApply({ ...b.cfg, bgImage: b.bgImage }) }
-          }).catch(() => {})
+          // 玻璃配置/背景图历史拉取延迟到空闲, 减轻首屏网络风暴(背景没用玻璃时几乎零成本)
+          const loadGlass = () => { fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' }).then((r) => r.json()).then((b) => {
+            if (b && b.cfg) { window.__dshGlassApply && window.__dshGlassApply({ ...b.cfg, bgImage: b.bgImageUrl || '' }) }
+          }).catch(() => {}) }
+          try { if (window.requestIdleCallback) window.requestIdleCallback(loadGlass, { timeout: 500 }); else setTimeout(loadGlass, 500) } catch (_) { loadGlass() }
         }, 'dsh-long-plugins: glass boot')
       },
     }
