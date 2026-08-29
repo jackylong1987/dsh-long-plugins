@@ -3137,6 +3137,8 @@ window.__ModuleLoader__.load({
       html[data-dsh-glass="on"][data-dsh-theme="dark"] [class*="uV2eYG_input"] { color: #f2f6fa !important; }
       html[data-dsh-glass="on"][data-dsh-theme="light"] [class*="uV2eYG_input"]::placeholder { color: #5c6b7a !important; }
       html[data-dsh-glass="on"][data-dsh-theme="dark"] [class*="uV2eYG_input"]::placeholder { color: #9fb0c2 !important; }
+      /* 隐藏输入框的 mirror 测量层(重复文字, 造成重影)；backdrop 是正常显示文字的层, 保留 */
+      html[data-dsh-glass="on"] [class*="uV2eYG_mirror"] { visibility: hidden !important; }
       /* 会话语流"耗时统计"(turn-tail: 12:38/用时/首token/tok/s)：白字+深投影，避免淡字叠在背景图上看不见 */
       html[data-dsh-glass="on"] [class*="osXY9a_root"],
       html[data-dsh-glass="on"] [class*="osXY9a_root"] span,
@@ -3556,10 +3558,8 @@ window.__ModuleLoader__.load({
               const fg = dark ? '#f2f6fa' : '#1a2332'
               inputCard.style.setProperty('background-color', bg, 'important')
               inputCard.style.setProperty('color', fg, 'important')
-              // 输入框本体/mirror/scroll/row 一并内联强制主题色(DSH 重渲染会刷成白字, 内联 !important 压过)
-              inputCard.querySelectorAll('[class*="uV2eYG_input"],[class*="uV2eYG_scroll"],[class*="uV2eYG_row"]').forEach(el => {
-                el.style.setProperty('color', fg, 'important')
-              })
+              // 不再动 input/mirror/scroll/row 内部层的颜色(避免与 DSH 原生渲染叠加导致重影)，
+              // 文字由上面的 card color + 输入框 CSS 规则决定
             }
             // 主界面左栏/顶栏可见文字：白字+单层轻投影(Windows 桌面图标风格, 不加粗)。
             // 显式跳过设置/弹窗/浮层(modal/overlay/dialog/settings/panel/drawer/Radix/menu), 避免波及设置面板/弹出菜单。
