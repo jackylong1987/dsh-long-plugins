@@ -3563,6 +3563,25 @@ window.__ModuleLoader__.load({
                 })
               })
             }
+            // 会话区内容（尤其 AI 过程内容：Bash/Think 标签、思考、工具输出等浅色灰字）
+            // 在透明背景图上看不清；用同侧边栏「白字+深投影」处理，跳过有盒子背景的元素(用户气泡/代码块衬底等)。
+            const applySessionText = () => {
+              if (!c.enabled) return
+              const scroll = document.querySelector('#root [class*="wSkVaW_scrollBody"]')
+              if (!scroll) return
+              scroll.querySelectorAll('div,span,p,li,pre,code,button,a,label,h1,h2,h3,h4').forEach((el) => {
+                if (isInSkip(el)) return
+                const hasText = el.textContent && el.textContent.trim()
+                if (!hasText) return
+                const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
+                const textLike = /^(BUTTON|A|SPAN|LABEL|LI|P|H1|H2|H3|H4|PRE|CODE)$/.test(el.tagName)
+                if (!textLike && !ownText) return
+                const bgbg = getComputedStyle(el).backgroundColor
+                if (bgbg && bgbg !== 'rgba(0, 0, 0, 0)' && bgbg !== 'transparent') return
+                el.style.setProperty('color', '#ffffff', 'important')
+                el.style.setProperty('text-shadow', '0 1px 2px rgba(0,0,0,.85)')
+              })
+            }
             // 主题相关的东西统一重算：背景罩 + 输入框。切主题时由 observer/mq 触发。
             // 写入前先断开观察器，写完再重连，避免自触发造成死循环。
             const applyTheme = () => {
@@ -3576,6 +3595,7 @@ window.__ModuleLoader__.load({
                 root.style.setProperty('--dsh-glass-bg-zone', v)
                 applyInputCard()
                 applyChromeText()
+                applySessionText()
               } finally {
                 if (obs) obs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
               }
@@ -3625,6 +3645,15 @@ window.__ModuleLoader__.load({
               if (hit) { if (cardTimer) clearTimeout(cardTimer); cardTimer = setTimeout(() => applyTheme(), 100) }
             })
             cardObs.observe(document.body, { childList: true, subtree: true })
+            // 会话区内容随流式更新会持续变，重算会话区文字(防抖 150ms, 只监听新增/移除节点)
+            let sessionTimer = null
+            const inScroll = (node) => { let p = node; while (p && p !== document.documentElement) { if (p.matches && p.matches('[class*="wSkVaW_scrollBody"]')) return true; p = p.parentElement } return false }
+            const sessionObs = new MutationObserver((muts) => {
+              let hit = false
+              for (const m of muts) { for (const node of m.addedNodes) { if (node.nodeType === 1 && inScroll(node)) { hit = true; break } } if (hit) break }
+              if (hit) { if (sessionTimer) clearTimeout(sessionTimer); sessionTimer = setTimeout(() => applySessionText(), 150) }
+            })
+            sessionObs.observe(document.body, { childList: true, subtree: true })
           }
           return () => {
             window.__dshGlassApply = undefined
@@ -3637,6 +3666,8 @@ window.__ModuleLoader__.load({
             if (chromeTimer) clearTimeout(chromeTimer)
             if (cardObs) cardObs.disconnect()
             if (cardTimer) clearTimeout(cardTimer)
+            if (sessionObs) sessionObs.disconnect()
+            if (sessionTimer) clearTimeout(sessionTimer)
           }
         }, 'dsh-long-plugins: glass applier')
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: 'RA-Span' }, GlassSettingsSection))
