@@ -3523,7 +3523,7 @@ window.__ModuleLoader__.load({
             }
             // 主界面左栏/顶栏可见文字：白字+单层轻投影(Windows 桌面图标风格, 不加粗)。
             // 显式跳过设置/弹窗/浮层(modal/overlay/dialog/settings/panel/drawer/Radix/menu), 避免波及设置面板/弹出菜单。
-            const SKIP_SEL = ':is([class*="settings"],[class*="Dialog"],[class*="dialog"],[class*="modal"],[class*="overlay"],[class*="_panel"],[class*="panel"],[class*="drawer"],[class*="Radix"],[class*="_menu"])'
+            const SKIP_SEL = ':is([class*="settings"],[class*="Dialog"],[class*="dialog"],[class*="modal"],[class*="overlay"],[class*="_panel"],[class*="panel"],[class*="drawer"],[class*="Radix"],[class*="_menu"],[class*="brand"])'
             const isInSkip = (el) => { let p = el; while (p && p !== document.documentElement) { if (p.matches && p.matches(SKIP_SEL)) return true; p = p.parentElement } return false }
             const applyChromeText = () => {
               if (!c.enabled) return
@@ -3541,6 +3541,10 @@ window.__ModuleLoader__.load({
                   const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
                   const textLike = /^(BUTTON|A|SPAN|LABEL|LI|P|H1|H2|H3|H4)$/.test(tag)
                   if (!textLike && !ownText) return
+                  // 跳过有盒子背景的元素(badge/徽章/药丸等, 如 deepseek 的 HARNESS 徽章)：
+                  // 这类文字颜色应随其盒子背景走主题, 不强制白字(否则白底徽章+白字不可见)
+                  const bgbg = getComputedStyle(el).backgroundColor
+                  if (bgbg && bgbg !== 'rgba(0, 0, 0, 0)' && bgbg !== 'transparent') return
                   el.style.setProperty('color', '#ffffff', 'important')
                   el.style.setProperty('text-shadow', '0 1px 2px rgba(0,0,0,.85)')
                 })
