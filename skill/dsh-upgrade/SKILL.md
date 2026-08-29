@@ -73,6 +73,34 @@ cd "$DSH_HOME/profiles/web" && pnpm install
 4. 提问/审批窗口：弹出一个问题，等 60s+ 不再自己消失（心跳补丁生效）。
 5. 插件设置面板「上传文件」「输出文件」「技能文档」都在。
 6. `grep -q WEBSOCKET_HEARTBEAT_MS <核心解压路径>/dsh-client-connection/lib/index.js` → 心跳在位。
+7. **RA-Span 玻璃观感**：左栏/顶栏文字图标、会话区过程内容配色、输入框、提问卡、耗时统计等是否仍正常（见下文"RA-Span 升级后需重新校准"）。
+
+## RA-Span（统一桌面/玻璃）升级后需重新校准 ⚠️
+
+dsh-long-plugins 的「RA-Span（统一桌面/玻璃）」**大量依赖 DSH 内部混淆类名**（`o3BgMG_*`/`CY-8Ka_*`/`QWLzLg_*`/`M8wy4a_*`/`uV2eYG_*`/`wSkVaW_*`/`osXY9a_*`/`p-xYUq_*` 等）与 DSH 内部 DOM 结构。DSH 升级重打包后**这些类名前缀会变**，导致插件里靠类名压样式的规则/JS **静默失效**（不报错，只是观感/配色不对）。
+
+升级流程会**同步插件代码（逻辑保住）**，但**不会自动重抓新的类名**，所以升级后必须**人工复核**玻璃观感。
+
+### 升级后重点复核 + 处理
+1. 浏览器强刷（Ctrl/Cmd+Shift+R）。
+2. 逐项看 RA-Span 是否仍正常：
+   - 左栏/顶栏文字与图标（白字+深影、品牌区不被白化）
+   - 会话区过程内容配色（Bash 绿 / Read 蓝 / Edit 橙 / Write 紫 / Think 琥珀、错误红、工具输出水绿）
+   - 状态/统计行余额（走 `data-slot-conversation="composer.dock"` 的相对稳）
+   - 输入框（无重影、背景/文字随主题、可调色）
+   - 「新会话」按钮去白底
+3. 若某项观感/配色不对 → **新类名变了**。让用户在对应元素「右键 → 检查」，把高亮元素及父级的 class 发我，把 `client/client.js` 里对应的 `[class*="..."]` 前缀更新成新类名（只改选择器，不动逻辑）。
+4. 稳定项无需动：用 `data-slot-*` 的（状态栏）、注入 `<head>` 的 CSS、`data-dsh-theme` 属性。
+
+### 各依赖类名的功能清单（升级后最可能失效）
+| 功能 | 依赖类名 | 失效表现 |
+|---|---|---|
+| 工具名配色(Bash/Read/Edit/Write) | `o3BgMG_title` / `CY-8Ka_title` | 标签不变色 |
+| Think 配色 | `QWLzLg_*` | Think 不琥珀 |
+| 提问/弹窗不透明 | `M8wy4a_card` | 弹窗透明重叠 |
+| 输入框 | `uV2eYG_*` | 重影/背景不随主题 |
+| 耗时统计 | `osXY9a_*` / `p-xYUq_*` | 统计字淡/重影 |
+| 左栏「新会话」 | `newSession` | 白底回来 |
 
 ## 硬性安全边界（必须遵守）
 - **不主动 push / 打 tag / 发 Release**；需要发布版本时停下用 ask_user_question 等确认。
@@ -86,4 +114,5 @@ cd "$DSH_HOME/profiles/web" && pnpm install
 | 升级后设置页"未暴露命名空间" | 补丁2 被覆盖 | 重跑 apply-dsh-patches.sh |
 | 升级后提问窗口自己消失 | 心跳补丁(补丁3)被覆盖 | 重跑 apply-dsh-patches.sh 或装插件补丁脚本 |
 | 升级后插件不显示 | 插件安装副本未同步 | 步骤 5 `pnpm install` |
+| 升级后 RA-Span 观感/配色不对（输入框重影、标签不变色、弹窗透明、统计字淡等） | DSH 混淆类名变了 | 见 RA-Span 校准节：强刷 + 逐项检查，让用户右键给出新类名，更新 `client/client.js` 对应选择器 |
 | 按钮全没了/界面异常 | 浏览器缓存了旧前端 | 强刷 Ctrl/Cmd+Shift+R |
