@@ -3581,6 +3581,44 @@ window.__ModuleLoader__.load({
                 el.style.setProperty('color', '#ffffff', 'important')
                 el.style.setProperty('text-shadow', '0 1px 2px rgba(0,0,0,.85)')
               })
+              // 在白字底上, 给过程内容配色区分, Error 用红色。
+              // 文字常在标签的子元素里(白字已把它设白), 故连同文本子元素一起上色。
+              const paint = (el, color) => {
+                if (!el) return
+                const set = (d) => { if (d.textContent && d.textContent.trim()) d.style.setProperty('color', color, 'important') }
+                set(el)
+                el.querySelectorAll('span,div,p,li,a').forEach(set)
+              }
+              // 错误/失败单行文本 → 红(只判短行、以 Error/错误/失败/异常 开头, 避免整段误标红)
+              const isErrText = (d) => {
+                const t = (d.textContent || '').trim()
+                if (!t || t.length > 120) return false
+                return /^(error|错误|失败|异常|fail)\b/i.test(t) || /^(error|错误|失败|异常)\s*[:：]/i.test(t) || /^File not found/i.test(t)
+              }
+              scroll.querySelectorAll('div,span,p,li,pre,code').forEach((el) => {
+                if (!isErrText(el)) return
+                const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
+                if (ownText) el.style.setProperty('color', '#ff6b6b', 'important')
+              })
+              // 工具名标签(o3BgMG_title) → 蓝；所在工具卡片/根内其它文本(工具输出) → 青绿, 错误保留红
+              scroll.querySelectorAll('[class*="o3BgMG_title"]').forEach((title) => {
+                paint(title, '#8ccfff')
+                let box = title.closest('[class*="_card"],[class*="_root"],[class*="_view"]')
+                if (!box) return
+                box.querySelectorAll('div,span,p,li,pre,code').forEach((el) => {
+                  if (el === title || el.querySelector('[class*="o3BgMG_title"]')) return
+                  const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
+                  if (!ownText || isErrText(el)) return
+                  paint(el, '#9fd9c7')
+                })
+              })
+              // 思考正文(think 容器) → 暖琥珀；再覆盖 Think 标签为琥珀
+              const thinkRoot = scroll.querySelector('[class*="QWLzLg_root"]')
+              if (thinkRoot) thinkRoot.querySelectorAll('div,span,p,li').forEach((el) => {
+                const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
+                if (ownText && !isErrText(el)) paint(el, '#e6c583')
+              })
+              scroll.querySelectorAll('[class*="QWLzLg_title"]').forEach((el) => paint(el, '#f2c566'))
             }
             // 主题相关的东西统一重算：背景罩 + 输入框。切主题时由 observer/mq 触发。
             // 写入前先断开观察器，写完再重连，避免自触发造成死循环。
