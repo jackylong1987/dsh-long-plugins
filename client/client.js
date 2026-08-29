@@ -3600,9 +3600,16 @@ window.__ModuleLoader__.load({
                 const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
                 if (ownText) el.style.setProperty('color', '#ff6b6b', 'important')
               })
-              // 工具名标签(o3BgMG_title) → 蓝；其所在工具行/卡片内其它文本(工具输出/路径) → 水绿, 错误保留红
-              scroll.querySelectorAll('[class*="o3BgMG_title"]').forEach((title) => {
-                paint(title, '#8ccfff')
+              // 工具名标签(o3BgMG_title)：按工具类型配色(Bash/Shell=绿, Read=蓝, Edit=橙, Write=紫, 默认蓝)
+              const toolColor = (text) => {
+                const t = (text || '').toLowerCase()
+                if (/bash|shell|zsh|terminal|powershell|cmd|sh\b/i.test(t)) return '#5ec26b'
+                if (/edit|modify/i.test(t)) return '#f0a860'
+                if (/write|create/i.test(t)) return '#c9a0ff'
+                return '#8ccfff'
+              }
+              scroll.querySelectorAll('[class*="o3BgMG_title"],[class*="CY-8Ka_title"]').forEach((title) => {
+                paint(title, toolColor(title.textContent))
                 // 从标签向上找最近一个"含链接/代码/更多文本"的容器作为工具行，找不到就用父级
                 let box = title.parentElement
                 for (let i = 0; i < 4 && box; i++) {
@@ -3624,13 +3631,20 @@ window.__ModuleLoader__.load({
               })
               // 路径/文件链接(o3BgMG_fileLink) → 水绿(与白字标签区分)
               scroll.querySelectorAll('[class*="o3BgMG_fileLink"]').forEach((el) => paint(el, '#6fb89a'))
-              // 思考正文(think 容器) → 暖琥珀；再覆盖 Think 标签为琥珀
-              const thinkRoot = scroll.querySelector('[class*="QWLzLg_root"]')
-              if (thinkRoot) thinkRoot.querySelectorAll('div,span,p,li').forEach((el) => {
-                const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
-                if (ownText && !isErrText(el)) paint(el, '#e6c583')
+              // 思考正文(think 容器) → 暖琥珀；再覆盖 Think 标签为琥珀。
+              // 全文档查找，不受 scrollBody 位置/加载时序影响(仍跳过设置/菜单/浮层)
+              const paintThinkBody = (root) => {
+                if (!root) return
+                root.querySelectorAll('div,span,p,li').forEach((el) => {
+                  const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())
+                  if (ownText && !isErrText(el) && !isInSkip(el)) paint(el, '#e6c583')
+                })
+              }
+              const thinkRoots = [...document.querySelectorAll('[class*="QWLzLg_root"]')].filter((r) => !isInSkip(r))
+              thinkRoots.forEach(paintThinkBody)
+              document.querySelectorAll('[class*="QWLzLg_title"]').forEach((el) => {
+                if (!isInSkip(el)) paint(el, '#f2c566')
               })
-              scroll.querySelectorAll('[class*="QWLzLg_title"]').forEach((el) => paint(el, '#f2c566'))
               // 会话区工具调用等图标：改为白色清晰显示(单色图标随 currentColor 变白, 保留品牌色)
               scroll.querySelectorAll('svg, [class*="icon"], [class*="Icon"]').forEach((el) => {
                 if (isInSkip(el)) return
