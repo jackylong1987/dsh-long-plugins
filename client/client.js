@@ -3998,7 +3998,7 @@ window.__ModuleLoader__.load({
         }
       }
       // 「dsh-long」设置区(模块开关+补丁状态)始终注册——独立于任何模块开关, 否则禁用 RA-Span 会连带它一起消失
-      ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'dsh-long', order: 30, label: 'dsh-long' }, DshLongSettingsSection))
+      ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'dsh-long', order: 60, label: 'dsh-long' }, DshLongSettingsSection))
       // .dsh-glass-* 布局类(设置区排版)的 CSS 始终注入(不随 glass 开关丢失; 体积小)
       ctx.effect(() => {
         const style = document.createElement('style')
