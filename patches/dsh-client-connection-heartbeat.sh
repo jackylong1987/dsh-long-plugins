@@ -42,11 +42,16 @@ if grep -q 'WEBSOCKET_HEARTBEAT_MS' "$IDX"; then
   echo "    已打过，跳过 ✓"
   exit 0
 fi
+# DSH 已原生心跳（如 v0.1.2-alpha 网关定期 ping）：检测到已是 ping 心跳即跳过，避免重复/冲突
+if grep -q 'socket\.ping()' "$IDX"; then
+  echo "    检测到 DSH 已有 WebSocket ping 心跳（原生或已打过），跳过 ✓"
+  exit 0
+fi
 
-# 待替换的原始代码未在 -> 提示人工核对
+# 待替换的原始代码未在 -> 可能是 DSH 已改逻辑（如 v0.1.2-alpha 会话视图/网关重构）：温和跳过而不是硬失败
 if ! grep -q 'var WebSocketDownlinks = class {' "$IDX"; then
-  echo "    警告：未找到 WebSocketDownlinks 类，可能 DSH 已改逻辑，请人工核对" >&2
-  exit 1
+  echo "    提示：未找到 WebSocketDownlinks 类，DSH 可能已改逻辑（如新版原生心跳），跳过本补丁（不再硬失败）" >&2
+  exit 0
 fi
 
 cp "$IDX" "$IDX.bak-heartbeat-$(date +%Y%m%d-%H%M)"

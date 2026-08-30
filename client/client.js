@@ -529,17 +529,27 @@ window.__ModuleLoader__.load({
             }
           }
         }
-        window.addEventListener('dragenter', onDragEnter, true)
-        window.addEventListener('dragover', onDragOver, true)
-        window.addEventListener('dragleave', onDragLeave, true)
-        window.addEventListener('drop', onDrop, true)
-        window.addEventListener('paste', onPaste, true)
+        const dragOn = !!(window.__dshLongMod && window.__dshLongMod('uploadDragDrop'))
+        const pasteOn = !!(window.__dshLongMod && window.__dshLongMod('uploadPaste'))
+        if (dragOn) {
+          window.addEventListener('dragenter', onDragEnter, true)
+          window.addEventListener('dragover', onDragOver, true)
+          window.addEventListener('dragleave', onDragLeave, true)
+          window.addEventListener('drop', onDrop, true)
+        }
+        if (pasteOn) {
+          window.addEventListener('paste', onPaste, true)
+        }
         return () => {
-          window.removeEventListener('dragenter', onDragEnter, true)
-          window.removeEventListener('dragover', onDragOver, true)
-          window.removeEventListener('dragleave', onDragLeave, true)
-          window.removeEventListener('drop', onDrop, true)
-          window.removeEventListener('paste', onPaste, true)
+          if (dragOn) {
+            window.removeEventListener('dragenter', onDragEnter, true)
+            window.removeEventListener('dragover', onDragOver, true)
+            window.removeEventListener('dragleave', onDragLeave, true)
+            window.removeEventListener('drop', onDrop, true)
+          }
+          if (pasteOn) {
+            window.removeEventListener('paste', onPaste, true)
+          }
         }
       }, [controller, sessionId])
 
@@ -1367,25 +1377,52 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
-      const controller = new FileDraftController(ctx)
-      ctx.effect(() => () => controller.dispose(), 'dsh-upload-manager: draft-file state')
-      ctx.effect(() => ctx.inputTriggers.registerSource({
-        trigger: '@',
-        name: SOURCE,
-        order: 10_000,
-        candidates: async () => [],
-        onPick: () => undefined,
-        codec: {
-          clipboardText: () => '',
-          serialize: async (ref) => {
-            const file = controller.fileForRef(ref)
-            if (!file) throw new Error('待发送文件已失效，请重新上传')
-            controller.markSerializing(ref)
-            return serializedFile(file)
+      const mod = window.__dshLongMod || (() => true)
+      const anyUpload = mod('uploadAttach') || mod('uploadDragDrop') || mod('uploadPaste')
+      if (anyUpload) {
+        const controller = new FileDraftController(ctx)
+        ctx.effect(() => () => controller.dispose(), 'dsh-upload-manager: draft-file state')
+        ctx.effect(() => ctx.inputTriggers.registerSource({
+          trigger: '@',
+          name: SOURCE,
+          order: 10_000,
+          candidates: async () => [],
+          onPick: () => undefined,
+          codec: {
+            clipboardText: () => '',
+            serialize: async (ref) => {
+              const file = controller.fileForRef(ref)
+              if (!file) throw new Error('待发送文件已失效，请重新上传')
+              controller.markSerializing(ref)
+              return serializedFile(file)
+            },
           },
-        },
-      }), 'dsh-upload-manager: hidden file reference codec')
-
+        }), 'dsh-upload-manager: hidden file reference codec')
+        // 输入框附件上传(回形针) + 待发送文件栏：由 uploadAttach 控制
+        if (mod('uploadAttach')) {
+          ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
+            name: 'conversation.input.left',
+            id: 'local-file-upload',
+            order: -20,
+            label: '上传文件',
+          }, (props) => React.createElement(UploadControl, { ...props, controller })))
+          ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+            name: 'conversation.input.dock',
+            id: 'local-file-upload-rail',
+            order: 80,
+            label: '待发送文件',
+          }, (props) => React.createElement(PendingFileRail, { ...props, controller })))
+        }
+        // 拖放上传(遮罩+window 监听) / 粘贴上传：由各自开关控制
+        if (mod('uploadDragDrop') || mod('uploadPaste')) {
+          ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+            name: 'conversation.input.dock',
+            id: 'local-file-upload-dropzone',
+            order: 90,
+            label: '拖放/粘贴上传',
+          }, (props) => React.createElement(DragDropOverlay, { ...props, controller })))
+        }
+      }
       ctx.effect(() => {
         const style = document.createElement('style')
         style.dataset.plugin = 'dsh-file-uploads'
@@ -1393,41 +1430,24 @@ window.__ModuleLoader__.load({
         document.head.appendChild(style)
         return () => style.remove()
       }, 'dsh-upload-manager: styles')
-
-      ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
-        name: 'conversation.input.left',
-        id: 'local-file-upload',
-        order: -20,
-        label: '上传文件',
-      }, (props) => React.createElement(UploadControl, { ...props, controller })))
-
-      ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-        name: 'conversation.input.dock',
-        id: 'local-file-upload-rail',
-        order: 80,
-        label: '待发送文件',
-      }, (props) => React.createElement(PendingFileRail, { ...props, controller })))
-
-      ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-        name: 'conversation.input.dock',
-        id: 'local-file-upload-dropzone',
-        order: 90,
-        label: '拖放上传',
-      }, (props) => React.createElement(DragDropOverlay, { ...props, controller })))
-
-      ctx.slots.inject('settings.section', () => ctx.slots.register({
-        name: 'settings.section',
-        id: 'uploaded-files',
-        order: 30,
-        label: '上传文件',
-      }, UploadSettingsSection))
-
-      ctx.slots.inject('settings.section', () => ctx.slots.register({
-        name: 'settings.section',
-        id: 'output-files',
-        order: 35,
-        label: '输出文件',
-      }, WorkspaceFilesSection))
+      // 上传文件预览/管理设置区：由 uploadPreview 控制
+      if (mod('uploadPreview')) {
+        ctx.slots.inject('settings.section', () => ctx.slots.register({
+          name: 'settings.section',
+          id: 'uploaded-files',
+          order: 30,
+          label: '上传文件',
+        }, UploadSettingsSection))
+      }
+      // 输出文件(工作区)设置区：由 workspace 控制
+      if (mod('workspace')) {
+        ctx.slots.inject('settings.section', () => ctx.slots.register({
+          name: 'settings.section',
+          id: 'output-files',
+          order: 35,
+          label: '输出文件',
+        }, WorkspaceFilesSection))
+      }
     }
       return { apply, inject }
     })()
@@ -2062,18 +2082,21 @@ window.__ModuleLoader__.load({
 		const inject = ["slots", "locale"];
 		/** Register the token-usage card into the sidebar footer. */
 		function apply(ctx) {
-			injectMobileCss();
+			injectMobileCss(); // 移动端布局 CSS 始终注入(与余额开关解耦)
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
 			}), "dsh-token-usage: dictionaries");
-			ctx.slots.inject("conversation.composer.dock", () => ctx.slots.register({
-				name: "conversation.composer.dock",
-				id: "token-balance",
-				order: -10,
-				locale: NS,
-				inject: () => ({})
-			}, BalanceChip));
+			// 余额 chip：仅当"余额"模块开启时注册(禁用余额时保留移动布局)
+			if (!(window.__dshLongModules && window.__dshLongModules.balance === false)) {
+				ctx.slots.inject("conversation.composer.dock", () => ctx.slots.register({
+					name: "conversation.composer.dock",
+					id: "token-balance",
+					order: -10,
+					locale: NS,
+					inject: () => ({})
+				}, BalanceChip));
+			}
 		}
       return { apply, inject }
     })()
@@ -2437,6 +2460,11 @@ window.__ModuleLoader__.load({
         .dsh-turn-preview{width:min(360px,88vw);height:min(70vh,520px);top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important}
 
       }
+      /* 会话导航开关(off 时隐藏轮次刻尺/手机把手)：与 DSH 原生回合导航避免冲突 */
+      html[data-dsh-turnruler="off"] .dsh-turn-ruler,
+      html[data-dsh-turnruler="off"] .dsh-turn-phone-tab {
+        display: none !important;
+      }
     `
     const turnRulerPlugin = {
       inject: [],
@@ -2467,6 +2495,11 @@ window.__ModuleLoader__.load({
           let scrollAnim = 0
           let scrollTarget = -1
           let scrollFrom = 0
+          // 会话导航开关：从 glass 配置读取 turnRuler；false=off 隐藏刻尺(避免与 DSH 原生回合导航冲突)
+          ;(() => {
+            const setVis = (en) => { try { document.documentElement.setAttribute('data-dsh-turnruler', en ? 'on' : 'off') } catch (_) {} }
+            fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' }).then((r) => r.json()).then((b) => { if (b && b.cfg) setVis((b.cfg.modules && b.cfg.modules.turnRuler) !== false) }).catch(() => {})
+          })()
 
           const ensureRuler = () => {
             if (ruler && ruler.isConnected) return ruler
@@ -3346,6 +3379,80 @@ window.__ModuleLoader__.load({
         ),
       )
     }
+    // 「dsh-long」设置区：各模块开关(独立、移动端干净)，避免把开关塞进 RA-Span
+    const DSH_LONG_MODULES = [
+      ['glass', 'RA-Span'],
+      ['turnRuler', '会话导航（轮次刻尺）'],
+      ['uploadAttach', '附件上传（回形针）'],
+      ['uploadDragDrop', '附件拖放上传'],
+      ['uploadPaste', '附件粘贴上传'],
+      ['uploadPreview', '上传文件预览/管理'],
+      ['skillDocs', '技能文档'],
+      ['balance', '账户余额'],
+      ['workspace', '输出文件预览/管理'],
+      ['mobile', '移动端布局'],
+    ]
+    const DshLongSettingsSection = () => {
+      const [state, setState] = React.useState({ loading: true, saving: false, error: '', modules: null, patches: null })
+      const load = React.useCallback(async () => {
+        setState((s) => ({ ...s, loading: true, error: '', patches: null }))
+        try {
+          const [r, pr] = await Promise.all([
+            fetch('/api/dsh-uploads/glass-config', { cache: 'no-store' }),
+            fetch('/api/dsh-uploads/patch-status', { cache: 'no-store' }),
+          ])
+          const b = await r.json()
+          if (!r.ok) throw new Error(b.error || ('HTTP ' + r.status))
+          let patches = null
+          try { const pb = await pr.json(); patches = pb.patches } catch (_) {}
+          setState((s) => ({ ...s, loading: false, modules: b.cfg.modules || {}, patches }))
+        } catch (e) { setState((s) => ({ ...s, loading: false, error: String((e && e.message) || e) })) }
+      }, [])
+      React.useEffect(() => { load(); }, [load])
+      const setMod = React.useCallback((k, v) => setState((s) => ({ ...s, modules: { ...(s.modules || {}), [k]: v } })), [])
+      const save = React.useCallback(async () => {
+        setState((s) => ({ ...s, saving: true, error: '' }))
+        try {
+          const r = await fetch('/api/dsh-uploads/glass-config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ modules: state.modules }) })
+          const b = await r.json()
+          if (!r.ok) throw new Error(b.error || ('HTTP ' + r.status))
+          window.__dshLongModules = state.modules
+          try { localStorage.setItem('dsh-long:modules', JSON.stringify(state.modules)) } catch (e) {}
+          setState((s) => ({ ...s, saving: false, error: '' }))
+        } catch (e) { setState((s) => ({ ...s, saving: false, error: String((e && e.message) || e) })) }
+      }, [state.modules])
+      const PATCH_LABELS = { trustedHosts: 'privileged 信任 trustedHosts', loopback: '反代域名视为 loopback', heartbeat: 'WebSocket 心跳' }
+      const pstat = (st) => st === '已打' ? { text: '已打', cls: 'ok' } : (st === '原生无需' ? { text: '原生无需', cls: 'na' } : { text: '未打', cls: 'warn' })
+      if (state.loading) return React.createElement('div', { className: 'dsh-glass-section' }, '加载中…')
+      return React.createElement('div', { className: 'dsh-glass-section' },
+        React.createElement('div', { className: 'dsh-glass-head' },
+          React.createElement('div', null, React.createElement('h2', null, 'dsh-long'), React.createElement('p', null, '各模块开关：关掉某模块即禁用其功能（若新版 DSH 自带某项，可关掉插件对应功能避免冲突）。')),
+        ),
+        state.error ? React.createElement('div', { className: 'dsh-glass-error' }, state.error) : null,
+        React.createElement('div', { className: 'dsh-glass-card' },
+          DSH_LONG_MODULES.map(([k, label]) => React.createElement('div', { key: k, className: 'dsh-glass-row' },
+            React.createElement('label', null, label),
+            React.createElement('label', { className: 'dsh-glass-switch' }, React.createElement('input', { type: 'checkbox', checked: (state.modules ? state.modules[k] !== false : true), onChange: (e) => setMod(k, e.target.checked) }), (state.modules ? state.modules[k] !== false : true) ? '已开启' : '已关闭'),
+          )),
+          React.createElement('div', { className: 'dsh-glass-actions' },
+            React.createElement('button', { type: 'button', onClick: load }, '重置'),
+            React.createElement('button', { type: 'button', className: 'primary', disabled: state.saving, onClick: save }, state.saving ? '保存中…' : '保存生效'),
+          ),
+        ),
+        state.patches ? React.createElement('div', { className: 'dsh-glass-card' },
+          React.createElement('div', { className: 'dsh-glass-zone-title' }, '补丁状态(只读)'),
+          typeof state.patches === 'string' ? React.createElement('p', { className: 'dsh-glass-note' }, state.patches)
+            : Object.keys(PATCH_LABELS).map((k) => {
+              const st = state.patches[k]
+              const info = pstat(st)
+              return React.createElement('div', { key: k, className: 'dsh-glass-row' },
+                React.createElement('label', null, PATCH_LABELS[k]),
+                React.createElement('span', { className: 'dsh-glass-val' + (info.cls === 'ok' ? '' : (info.cls === 'na' ? ' dsh-glass-na' : ' dsh-glass-warn')) }, info.text),
+              )
+            })
+        ) : null,
+      )
+    }
     const GlassSettingsSection = () => {
       const [state, setState] = React.useState({ loading: true, saving: false, error: '', cfg: null, bgImage: '', bgList: [] })
       const load = React.useCallback(async () => {
@@ -3765,6 +3872,9 @@ window.__ModuleLoader__.load({
               try {
                 const tk = dshDark() ? 'dark' : 'light'
                 root.setAttribute('data-dsh-theme', tk)
+                root.setAttribute('data-dsh-turnruler', ((c.modules && c.modules.turnRuler) !== false) ? 'on' : 'off')
+                window.__dshLongModules = c.modules || {}
+                try { localStorage.setItem('dsh-long:modules', JSON.stringify(window.__dshLongModules)) } catch (e) {}
                 const bt = bgTint(tk)
                 const v = `rgba(${hexToRgb(bt.color)},${bt.mask})`
                 root.style.setProperty('--dsh-glass-bg-zone', v)
@@ -3846,6 +3956,7 @@ window.__ModuleLoader__.load({
             if (sessionTimer) clearTimeout(sessionTimer)
           }
         }, 'dsh-long-plugins: glass applier')
+        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'dsh-long', order: 30, label: 'dsh-long' }, DshLongSettingsSection))
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: 'RA-Span' }, GlassSettingsSection))
         ctx.effect(() => {
           // 玻璃配置/背景图历史拉取延迟到空闲, 减轻首屏网络风暴(背景没用玻璃时几乎零成本)
@@ -3867,7 +3978,17 @@ window.__ModuleLoader__.load({
       ...glassPlugin.inject,
     ]))
 
+    // 模块开关缓存：页面加载时同步读取(让 main apply 的 modEnabled 门控生效)；
+    // 配置加载(applyTheme)/保存(dsh-long 保存)后更新。开关在下次刷新生效。
+    try {
+      const _m = localStorage.getItem('dsh-long:modules')
+      if (_m) window.__dshLongModules = JSON.parse(_m)
+    } catch (_) {}
+    // 全局模块开关查询(供各组件/apply 内部判断)
+    window.__dshLongMod = (n) => (window.__dshLongModules ? window.__dshLongModules[n] !== false : true)
+
     function apply(ctx) {
+      const modEnabled = (n) => (window.__dshLongModules ? window.__dshLongModules[n] !== false : true)
       const safeApply = (label, fn) => {
         try {
           fn(ctx)
@@ -3875,13 +3996,13 @@ window.__ModuleLoader__.load({
           console.error('[dsh-long-plugins] ' + label + ' apply failed:', error)
         }
       }
-      safeApply('upload', (c) => uploadPlugin.apply(c))
-      safeApply('skill-docs', (c) => skillDocsPlugin.apply(c))
-      safeApply('token-usage', (c) => tokenUsagePlugin.apply(c))
-      safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
-      safeApply('workspace-files', (c) => workspaceFilesPlugin.apply(c))
-      safeApply('turn-ruler', (c) => turnRulerPlugin.apply(c))
-      safeApply('glass', (c) => glassPlugin.apply(c))
+      safeApply('upload', (c) => uploadPlugin.apply(c)) // 上传子功能(预览/附件/拖放/粘贴)在插件内部按模块开关
+      if (modEnabled('skillDocs')) safeApply('skill-docs', (c) => skillDocsPlugin.apply(c))
+      safeApply('token-usage', (c) => tokenUsagePlugin.apply(c)) // 余额 chip 开关在其内部; MOBILE_CSS 始终注入
+      if (modEnabled('mobile')) safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
+      if (modEnabled('workspace')) safeApply('workspace-files', (c) => workspaceFilesPlugin.apply(c))
+      if (modEnabled('turnRuler')) safeApply('turn-ruler', (c) => turnRulerPlugin.apply(c))
+      if (modEnabled('glass')) safeApply('glass', (c) => glassPlugin.apply(c))
     }
 
     exports.apply = apply
