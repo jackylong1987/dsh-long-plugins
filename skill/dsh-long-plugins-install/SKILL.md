@@ -119,14 +119,14 @@ pnpm install        # 或用探测到的 pnpm 绝对路径
     # md2docxScript: /your/path/md2docx.py           # 可选，默认用包内 lib/md2docx.py
 ```
 
-### 4.5 设置插件默认：回合导航关闭（避免与 DSH 新版自带回合导航冲突）
-> DSH ≥ v0.1.2-alpha 已自带「紧凑回合导航」。新机默认把插件 `modules.turnRuler` 置为 false，避免两者同时操纵会话 DOM 冲突；如目标 DSH 无原生回合导航，可在「dsh-long」设置区手动开回。
+### 4.5 设置插件默认：回合导航 + RA-Span 关闭（避免与 DSH 新版自带功能冲突 / 默认更简洁）
+> DSH ≥ v0.1.2-alpha 已自带「紧凑回合导航」。新机默认把插件 `modules.turnRuler` 置 false（避免轮次刻尺冲突），`modules.glass`（RA-Span）也默认 false（要玻璃桌面可在「dsh-long」设置区手动开）。如目标 DSH 无原生回合导航，可在「dsh-long」手动开回。
 ```sh
 GJ="${HOME:-/root}/.dsh-long-plugins/glass.json"
 mkdir -p "$(dirname "$GJ")"
-[ -f "$GJ" ] || echo '{"enabled":false,"blur":20,"bgImage":"","bgColor":"#1a2332","bgMask":0.28,"bgTint":{"light":{"color":"#1a2332","mask":0.28},"dark":{"color":"#1a2332","mask":0.28}},"inputBox":{"light":{"color":"","opacity":1},"dark":{"color":"","opacity":1}},"zone":{"session":{"color":"#1a2332","mask":0.45,"opacity":0.5},"input":{"color":"#1a2332","mask":0.6,"opacity":0.55}},"modules":{"glass":true,"uploadAttach":true,"uploadDragDrop":true,"uploadPaste":true,"uploadPreview":true,"skillDocs":true,"balance":true,"mobile":true,"workspace":true,"turnRuler":false}}' > "$GJ"
-node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));p.modules=p.modules||{};p.modules.turnRuler=false;fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+'\n')" "$GJ" \
-  && echo "  ✅ 已默认关闭插件回合导航 (modules.turnRuler=false)"
+[ -f "$GJ" ] || echo '{"enabled":false,"blur":20,"bgImage":"","bgColor":"#1a2332","bgMask":0.28,"bgTint":{"light":{"color":"#1a2332","mask":0.28},"dark":{"color":"#1a2332","mask":0.28}},"inputBox":{"light":{"color":"","opacity":1},"dark":{"color":"","opacity":1}},"zone":{"session":{"color":"#1a2332","mask":0.45,"opacity":0.5},"input":{"color":"#1a2332","mask":0.6,"opacity":0.55}},"modules":{"glass":false,"uploadAttach":true,"uploadDragDrop":true,"uploadPaste":true,"uploadPreview":true,"skillDocs":true,"balance":true,"mobile":true,"workspace":true,"turnRuler":false}}' > "$GJ"
+node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));p.modules=p.modules||{};p.modules.glass=false;p.modules.turnRuler=false;fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+'\n')" "$GJ" \
+  && echo "  ✅ 已默认关闭插件 RA-Span(modules.glass=false) 与回合导航(modules.turnRuler=false)"
 ```
 
 ## 工作目录 / 上传目录匹配（重要决策点）
