@@ -3157,10 +3157,10 @@ window.__ModuleLoader__.load({
         backdrop-filter: blur(var(--dsh-glass-blur, 16px)) !important;
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px)) !important;
       }
-      /* 任务/todo 面板(lXshSW_root, 在 conversation.input.dock 内)：不透明底+可读文字, 不透明与会话重叠 */
+      /* 任务/todo 面板(lXshSW_root, 在 conversation.input.dock 内)：半透明磨砂底+可读文字 */
       html[data-dsh-glass="on"] [class*="lXshSW_root"],
       html[data-dsh-glass="on"] [class*="lXshSW_body"] {
-        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 76%, transparent) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 62%, transparent) !important;
         color: var(--dsw-alias-label-primary) !important;
         backdrop-filter: blur(var(--dsh-glass-blur, 16px)) !important;
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px)) !important;
@@ -3173,7 +3173,7 @@ window.__ModuleLoader__.load({
       /* 排队消息/等待任务面板(_7yHdaG_dock/panel, 在 conversation.input.dock 内)：不透明/磨砂底+可读文字 */
       html[data-dsh-glass="on"] [class*="_7yHdaG_panel"],
       html[data-dsh-glass="on"] [class*="_7yHdaG_dock"] {
-        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 88%, transparent) !important;
+        background-color: color-mix(in srgb, var(--dsw-specific-input-major, #e8edf3) 62%, transparent) !important;
         color: var(--dsw-alias-label-primary) !important;
         backdrop-filter: blur(var(--dsh-glass-blur, 16px)) !important;
         -webkit-backdrop-filter: blur(var(--dsh-glass-blur, 16px)) !important;

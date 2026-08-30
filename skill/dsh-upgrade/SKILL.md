@@ -77,7 +77,7 @@ cd "$DSH_HOME/profiles/web" && pnpm install
 
 ## RA-Span（统一桌面/玻璃）升级后需重新校准 ⚠️
 
-dsh-long-plugins 的「RA-Span（统一桌面/玻璃）」**大量依赖 DSH 内部混淆类名**（`o3BgMG_*`/`CY-8Ka_*`/`QWLzLg_*`/`M8wy4a_*`/`uV2eYG_*`/`wSkVaW_*`/`osXY9a_*`/`p-xYUq_*` 等）与 DSH 内部 DOM 结构。DSH 升级重打包后**这些类名前缀会变**，导致插件里靠类名压样式的规则/JS **静默失效**（不报错，只是观感/配色不对）。
+dsh-long-plugins 的「RA-Span（统一桌面/玻璃）」**大量依赖 DSH 内部混淆类名**（`o3BgMG_*`/`CY-8Ka_*`/`QWLzLg_*`/`M8wy4a_*`/`uV2eYG_*`/`wSkVaW_*`/`osXY9a_*`/`p-xYUq_*`/`lXshSW_*`/`_7yHdaG_*` 及菜单 `_root_`/`_list_`/`_viewport_`/`_item_` 等）与 DSH 内部 DOM 结构。DSH 升级重打包后**这些类名前缀会变**，导致插件里靠类名压样式的规则/JS **静默失效**（不报错，只是观感/配色不对）。
 
 升级流程会**同步插件代码（逻辑保住）**，但**不会自动重抓新的类名**，所以升级后必须**人工复核**玻璃观感。
 
@@ -89,8 +89,12 @@ dsh-long-plugins 的「RA-Span（统一桌面/玻璃）」**大量依赖 DSH 内
    - 状态/统计行余额（走 `data-slot-conversation="composer.dock"` 的相对稳）
    - 输入框（无重影、背景/文字随主题、可调色）
    - 「新会话」按钮去白底
+   - 待办/任务面板、排队消息面板（`lXshSW_*`/`_7yHdaG_*`，磨砂底+可读文字）
+   - 权限下拉菜单（点 Full access 弹出，`_list_`/`_root_`/`_viewport_`/`_item_`，不透明）
+   - 提问弹窗（`M8wy4a_card`，不透明磨砂）
+   - 背景图（文件+引用，走 `/api/dsh-uploads/glass-background` 路由；若 DSH webServer 接口/路由注册 API 变化，此路由可能 404 → 背景图不显示）
 3. 若某项观感/配色不对 → **新类名变了**。让用户在对应元素「右键 → 检查」，把高亮元素及父级的 class 发我，把 `client/client.js` 里对应的 `[class*="..."]` 前缀更新成新类名（只改选择器，不动逻辑）。
-4. 稳定项无需动：用 `data-slot-*` 的（状态栏）、注入 `<head>` 的 CSS、`data-dsh-theme` 属性。
+4. 稳定项无需动：用 `data-slot-*` 的（状态栏）、注入 `<head>` 的 CSS、`data-dsh-theme` 属性、背景图文件存储（`~/.dsh-long-plugins/backgrounds/current.uri` 与 `glass.json` 的 `bgImage:"current"` 引用，不依赖 DSH 类名）。
 
 ### 各依赖类名的功能清单（升级后最可能失效）
 | 功能 | 依赖类名 | 失效表现 |
@@ -100,7 +104,11 @@ dsh-long-plugins 的「RA-Span（统一桌面/玻璃）」**大量依赖 DSH 内
 | 提问/弹窗不透明 | `M8wy4a_card` | 弹窗透明重叠 |
 | 输入框 | `uV2eYG_*` | 重影/背景不随主题 |
 | 耗时统计 | `osXY9a_*` / `p-xYUq_*` | 统计字淡/重影 |
+| 待办/任务面板 | `lXshSW_*` | 面板透明/字淡 |
+| 排队消息/等待任务 | `_7yHdaG_*` | 面板透明/字淡 |
+| 权限下拉菜单 | `uV2eYG_card` 内 `_root_/_list_/_viewport_/_item_` | 菜单透明/字不清 |
 | 左栏「新会话」 | `newSession` | 白底回来 |
+| 背景图(文件+引用) | 服务器路由 `/api/dsh-uploads/glass-background` + `current.uri` | 若 DSH webServer 路由 API 变 → 背景图 404/不显示 |
 
 ## 硬性安全边界（必须遵守）
 - **不主动 push / 打 tag / 发 Release**；需要发布版本时停下用 ask_user_question 等确认。
