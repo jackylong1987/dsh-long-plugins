@@ -176,6 +176,7 @@ setsid nohup <node绝对路径> --expose-internals --max-old-space-size=8192 \
    > **md2docx 工具需新建会话后 agent 才加载**（会话工具集创建时固定），验证时开新会话。
 6. 窄屏（手机）下预览窗按钮自动换行不截断。
 7. 用 `dsh --profile <p> --dump-config` 核对组合树正确。
+8. **「dsh-long」设置区**：设置面板出现「dsh-long」节，含**各模块开关**（RA-Span/会话导航/附件上传/拖放/粘贴/上传预览/技能文档/余额/移动端/输出文件）与**「补丁状态（只读）」**——显示 3 个 DSH 核心补丁的已打/未打/原生无需。模块开关存于 `~/.dsh-long-plugins/glass.json` 的 `modules` 字段，保存后下次刷新生效。
 
 ## 硬性安全边界（必须遵守）
 - **不主动 `git push` / 打 tag / 发 Release**；需要发版本时停下用 `ask_user_question` 等用户确认。
