@@ -3305,6 +3305,8 @@ window.__ModuleLoader__.load({
           --dsw-alias-label-tertiary: #50545b !important;
         }
       }
+    `
+    const GLASS_LAYOUT_CSS = `
       .dsh-glass-section{display:flex;flex-direction:column;gap:16px;min-width:0;padding:4px 2px 24px;color:var(--dsw-alias-label-primary)}
       .dsh-glass-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
       .dsh-glass-head h2{margin:0;font-size:20px;line-height:28px}
@@ -3608,7 +3610,7 @@ window.__ModuleLoader__.load({
           const style = document.createElement('style')
           style.dataset.plugin = 'dsh-long-plugins'
           style.dataset.pluginCss = 'dsh-long-plugins/glass'
-          style.textContent = GLASS_CSS
+          style.textContent = GLASS_CSS // 玻璃视觉规则(仅 RA-Span 开启时注入)
           document.head.appendChild(style)
           return () => style.remove()
         }, 'dsh-long-plugins: glass styles')
@@ -3956,7 +3958,6 @@ window.__ModuleLoader__.load({
             if (sessionTimer) clearTimeout(sessionTimer)
           }
         }, 'dsh-long-plugins: glass applier')
-        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'dsh-long', order: 30, label: 'dsh-long' }, DshLongSettingsSection))
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'glass-ui', order: 40, label: 'RA-Span' }, GlassSettingsSection))
         ctx.effect(() => {
           // 玻璃配置/背景图历史拉取延迟到空闲, 减轻首屏网络风暴(背景没用玻璃时几乎零成本)
@@ -3996,6 +3997,17 @@ window.__ModuleLoader__.load({
           console.error('[dsh-long-plugins] ' + label + ' apply failed:', error)
         }
       }
+      // 「dsh-long」设置区(模块开关+补丁状态)始终注册——独立于任何模块开关, 否则禁用 RA-Span 会连带它一起消失
+      ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'dsh-long', order: 30, label: 'dsh-long' }, DshLongSettingsSection))
+      // .dsh-glass-* 布局类(设置区排版)的 CSS 始终注入(不随 glass 开关丢失; 体积小)
+      ctx.effect(() => {
+        const style = document.createElement('style')
+        style.dataset.plugin = 'dsh-long-plugins'
+        style.dataset.pluginCss = 'dsh-long-plugins/glass-layout'
+        style.textContent = GLASS_LAYOUT_CSS
+        document.head.appendChild(style)
+        return () => style.remove()
+      }, 'dsh-long-plugins: glass layout css (always)')
       safeApply('upload', (c) => uploadPlugin.apply(c)) // 上传子功能(预览/附件/拖放/粘贴)在插件内部按模块开关
       if (modEnabled('skillDocs')) safeApply('skill-docs', (c) => skillDocsPlugin.apply(c))
       safeApply('token-usage', (c) => tokenUsagePlugin.apply(c)) // 余额 chip 开关在其内部; MOBILE_CSS 始终注入
