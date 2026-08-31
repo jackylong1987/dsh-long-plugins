@@ -933,7 +933,7 @@ window.__ModuleLoader__.load({
                     !preview.officeLoading && !(preview.url && preview.url.startsWith('blob:')) && preview.name !== void 0
                       ? React.createElement('a', { href: downloadUrl(preview.name), download: preview.name, className: 'dsh-upload-preview-open' }, '下载')
                       : null,
-                    React.createElement('button', { type: 'button', onClick: () => setPreviewMaximized((m) => !m) }, previewMaximized ? '还原' : '放大'),
+                    React.createElement('button', { type: 'button', onClick: () => { const m = !previewMaximized; setPreviewMaximized(m); try { const el = document.querySelector('.dsh-upload-preview-card'); if (m && el && el.requestFullscreen) el.requestFullscreen(); else if (document.fullscreenElement) document.exitFullscreen() } catch (e) {} } }, previewMaximized ? '还原' : '放大'),
                     React.createElement('button', { type: 'button', className: 'dsh-upload-preview-del', disabled: deleting === preview.name, onClick: () => remove(preview.name) }, deleting === preview.name ? '删除中…' : '删除'),
                     React.createElement('button', { type: 'button', onClick: closePreview }, '关闭'),
                   ),
@@ -1412,7 +1412,7 @@ window.__ModuleLoader__.load({
               (preview.url !== void 0 || preview.officeHtml !== void 0 || preview.mdHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(preview.path) + '&download=1', download: preview.name, style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '下载'),
               (preview.url !== void 0 || preview.officeHtml !== void 0 || preview.mdHtml !== void 0) && preview.loading !== true && React.createElement('a', { href: preview.url !== void 0 ? preview.url : '/api/dsh-uploads/workspace-preview?path=' + encodeURIComponent(preview.path), target: '_blank', rel: 'noopener noreferrer', style: { ...btnStyle, color: 'var(--dsw-alias-state-business-primary)' } }, '打开'),
               React.createElement('button', { type: 'button', style: delStyle, disabled: busy, onClick: () => doDelete(preview.path) }, '删除'),
-              React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setMaximized((m) => !m) }, maximized ? '还原' : '放大'),
+              React.createElement('button', { type: 'button', style: btnStyle, onClick: () => { const m = !maximized; setMaximized(m); try { const el = document.querySelector('.dsh-ws-preview-card'); if (m && el && el.requestFullscreen) el.requestFullscreen(); else if (document.fullscreenElement) document.exitFullscreen() } catch (e) {} } }, maximized ? '还原' : '放大'),
               React.createElement('button', { type: 'button', style: btnStyle, onClick: () => setPreview(null) }, '关闭'),
             ),
             React.createElement(
@@ -1522,8 +1522,8 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 		/** `skillDocs` namespace dictionaries. */
 		const zh = {
-			"nav": "技能文档",
-			"files.hint": "技能文档目录（可折叠，点击预览可编辑）",
+			"nav": "技能管理",
+			"files.hint": "技能管理目录（可折叠，点击预览可编辑）",
 			"files.loading": "加载中…",
 			"files.empty": "目录为空",
 			"files.preview": "预览",
@@ -1569,19 +1569,12 @@ window.__ModuleLoader__.load({
 		/** 🔍 放大镜搜索弹窗（技能文档用）：点击弹出搜索框，✕ 清除并关闭。不自动隐藏。 */
 		function SkillSearchPop({ value, onChange, placeholder }) {
 			const [open, setOpen] = react.useState(false);
-			const [pos, setPos] = react.useState({ top: 72, left: 8 });
 			const ref = react.useRef(null);
 			react.useEffect(() => { if (open && ref.current) { try { ref.current.focus(); } catch (e) {} } }, [open]);
-			const toggle = (e) => {
-				if (!open && e && e.currentTarget) {
-					const r = e.currentTarget.getBoundingClientRect();
-					setPos({ top: r.bottom + 8, left: Math.max(8, Math.min(r.left, (window.innerWidth || 0) - 280)) });
-				}
-				setOpen((o) => !o);
-			};
+			const toggle = () => setOpen((o) => !o);
 			return react_jsx_runtime.jsxs("div", { className: "dsh-searchpop", children: [
 				react_jsx_runtime.jsx("button", { type: "button", className: "dsh-searchpop-btn", onClick: toggle, title: "搜索技能/文件", "aria-label": "搜索技能/文件", children: "🔍" }),
-				open && react_jsx_runtime.jsxs("div", { className: "dsh-searchpop-box", style: { top: pos.top, left: pos.left }, children: [
+				open && react_jsx_runtime.jsxs("div", { className: "dsh-searchpop-box", children: [
 					react_jsx_runtime.jsx("input", { ref, type: "text", className: "dsh-searchpop-input", value, onChange: (e) => onChange(e.target.value), placeholder: placeholder || "搜索技能/文件…", autoFocus: true }),
 					value !== "" && react_jsx_runtime.jsx("button", { type: "button", className: "dsh-searchpop-clear", title: "清除", "aria-label": "清除搜索", onMouseDown: (e) => { e.preventDefault(); e.stopPropagation(); }, onClick: (e) => { e.preventDefault(); e.stopPropagation(); onChange(""); setOpen(false); }, children: "✕" })
 				] })
@@ -1599,34 +1592,37 @@ window.__ModuleLoader__.load({
 			const [busy, setBusy] = react.useState(false);
 			const [savedFlash, setSavedFlash] = react.useState(false);
 			const [copiedFlash, setCopiedFlash] = react.useState(false);
+			const [root, setRoot] = react.useState("global");
 			const toggleFolder = (folder) => setCollapsed((prev) => ({ ...prev, [folder]: !prev[folder] }));
 
 			const load = react.useCallback(async () => {
 				try {
-					const res = await fetch("/dsh-skill-docs/skill-docs", { headers: { Accept: "application/json" } });
+					const cwd = (window.__dshCurrentCwd || "").replace(/\\/g, "/");
+					const ws = cwd ? cwd.split("/").filter(Boolean).pop() : "";
+					const res = await fetch("/dsh-skill-docs/skill-docs?root=" + encodeURIComponent(root) + "&ws=" + encodeURIComponent(ws), { headers: { Accept: "application/json" } });
 					if (!res.ok) { setError(`HTTP ${res.status}`); return; }
 					const data = await res.json();
 					if (data.ok === true) { setGroups(data.groups); setError(null); }
 					else setError(data.error);
 				}
 				catch (e) { setError(String((e && e.message) || e)); }
-			}, []);
+			}, [root]);
 			react.useEffect(() => { load(); }, [load]);
 
-			const openDoc = async (path) => {
-				setPreview({ path, loading: true });
+			const openDoc = async (path, ws = "") => {
+				setPreview({ path, loading: true, ws });
 				setEditing(false);
 				setMaximized(false);
 				try {
-					const res = await fetch("/dsh-skill-docs/skill-doc?path=" + encodeURIComponent(path), { headers: { Accept: "application/json" } });
+					const res = await fetch("/dsh-skill-docs/skill-doc?root=" + encodeURIComponent(root) + "&ws=" + encodeURIComponent(ws) + "&path=" + encodeURIComponent(path), { headers: { Accept: "application/json" } });
 					const data = await res.json();
 					if (data.ok === true) {
-						setPreview(data);
+						setPreview({ ...data, ws });
 						setEdited(data.content !== void 0 ? data.content : "");
 					}
-					else setPreview({ path, error: data.error });
+					else setPreview({ path, error: data.error, ws });
 				}
-				catch (e) { setPreview({ path, error: String((e && e.message) || e) }); }
+				catch (e) { setPreview({ path, error: String((e && e.message) || e), ws }); }
 			};
 
 			const doSave = async () => {
@@ -1636,7 +1632,7 @@ window.__ModuleLoader__.load({
 					const res = await fetch("/dsh-skill-docs/skill-doc/save", {
 						method: "POST",
 						headers: { "content-type": "application/json" },
-						body: JSON.stringify({ path: preview.path, content: edited })
+						body: JSON.stringify({ path: preview.path, content: edited, root, ws: preview.ws || "" })
 					});
 					const data = await res.json().catch(() => ({}));
 					if (data.ok === true) {
@@ -1727,6 +1723,10 @@ window.__ModuleLoader__.load({
 			return react_jsx_runtime.jsxs("div", {
 				style: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
 				children: [
+					react_jsx_runtime.jsxs("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" }, children: [
+						react_jsx_runtime.jsx("button", { type: "button", style: { ...btnStyle, fontWeight: root === "global" ? 700 : 400 }, onClick: () => setRoot("global"), children: "全局技能" }),
+						react_jsx_runtime.jsx("button", { type: "button", style: { ...btnStyle, fontWeight: root === "workspace" ? 700 : 400 }, onClick: () => setRoot("workspace"), children: "工作区技能" })
+					] }),
 					react_jsx_runtime.jsx("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }, children: [
 						react_jsx_runtime.jsx("span", { style: { fontSize: 13, color: "var(--dsw-alias-label-tertiary)" }, children: t("files.hint") }),
 						react_jsx_runtime.jsx(SkillSearchPop, { value: search, onChange: setSearch, placeholder: "搜索技能/文件…" })
@@ -1751,19 +1751,20 @@ window.__ModuleLoader__.load({
 									children: [
 										react_jsx_runtime.jsx("span", { style: nameStyle, title: f.path, children: f.path }),
 										react_jsx_runtime.jsx("span", { style: metaStyle, children: `${f.size < 1024 ? `${f.size} B` : `${(f.size / 1024).toFixed(1)} KiB`}` }),
-										react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, onClick: () => openDoc(f.path), children: t("files.preview") }),
+										react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, onClick: () => openDoc(f.path, group.folder), children: t("files.preview") }),
 										react_jsx_runtime.jsx("a", { href: "/dsh-skill-docs/skill-doc?path=" + encodeURIComponent(f.path) + "&download=1", download: f.name, style: btnStyle, children: t("files.download") })
 									]
 								}, f.path))
 							]
 						}, group.folder);
 					}),
-					searching && shownGroups !== null && shownGroups.length === 0 && react_jsx_runtime.jsx("div", { style: metaStyle, children: "没有匹配的技能文档" }),
+					searching && shownGroups !== null && shownGroups.length === 0 && react_jsx_runtime.jsx("div", { style: metaStyle, children: "没有匹配的技能管理" }),
 					preview !== null && react_jsx_runtime.jsxs("div", {
 						style: overlayStyle,
 						onClick: () => setPreview(null),
 						children: [
 							react_jsx_runtime.jsxs("div", {
+								className: "dsh-skill-preview-card",
 								style: cardStyle,
 								onClick: (e) => e.stopPropagation(),
 								children: [
@@ -1774,7 +1775,7 @@ window.__ModuleLoader__.load({
 											preview.binary !== true && react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, disabled: busy, onClick: () => { if (editing) { setEdited(preview.content !== void 0 ? preview.content : ""); setEditing(false); } else setEditing(true); }, children: editing ? t("files.cancelEdit") : t("files.edit") }),
 											editing && react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, disabled: busy, onClick: doSave, children: savedFlash ? t("files.saved") : t("files.save") }),
 											react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, onClick: copyAll, children: copiedFlash ? t("files.copied") : t("files.copy") }),
-											react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, onClick: () => setMaximized((m) => !m), children: maximized ? t("files.restore") : t("files.maximize") }),
+											react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, onClick: () => { const m = !maximized; setMaximized(m); try { const el = document.querySelector(".dsh-skill-preview-card"); if (m && el && el.requestFullscreen) el.requestFullscreen(); else if (document.fullscreenElement) document.exitFullscreen() } catch (e) {} }, children: maximized ? t("files.restore") : t("files.maximize") }),
 											react_jsx_runtime.jsx("button", { type: "button", style: btnStyle, onClick: () => setPreview(null), children: t("files.close") })
 										]
 									}),
@@ -1865,7 +1866,7 @@ window.__ModuleLoader__.load({
 			"files.binary": "二进制文件，无法预览，请下载后查看",
 			"files.truncated": "（内容过大，仅显示前 256KB）",
 			"files.close": "关闭预览",
-			"skills.hint": "技能文档（各技能的 SKILL.md），可预览",
+			"skills.hint": "技能管理（各技能的 SKILL.md），可预览",
 			"balance": "余额",
 			"spend": "本会话约"
 		};
@@ -2447,7 +2448,7 @@ window.__ModuleLoader__.load({
         }
         const WorkspaceFilesButton = ({ sessionId, useSessions }) => {
           const cur = useSessions((s) => (sessionId === void 0 ? void 0 : s.byId[sessionId]?.cwd))
-          React.useEffect(() => { if (cur) lastCwd = normPath(cur) }, [cur])
+          React.useEffect(() => { if (cur) { lastCwd = normPath(cur); try { window.__dshCurrentCwd = normPath(cur) } catch (e) {} } }, [cur])
           // Windows 下 cwd 是反斜杠路径（C:\...\jacky），按 / 与 \ 都能切，取末段文件夹名。
           const ws = cur ? normPath(cur).split('/').filter(Boolean).pop() : ''
           return React.createElement(
@@ -3449,7 +3450,7 @@ window.__ModuleLoader__.load({
       ['uploadDragDrop', '附件拖放上传'],
       ['uploadPaste', '附件粘贴上传'],
       ['uploadPreview', '上传文件预览/管理'],
-      ['skillDocs', '技能文档'],
+      ['skillDocs', '技能管理'],
       ['balance', '账户余额'],
       ['workspace', '输出文件预览/管理'],
       ['mobile', '移动端布局'],
