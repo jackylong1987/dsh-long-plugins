@@ -717,6 +717,8 @@ window.__ModuleLoader__.load({
         error: '',
       })
       const [deleting, setDeleting] = React.useState('')
+      const [batchBusy, setBatchBusy] = React.useState(false)
+      const [selected, setSelected] = React.useState(() => new Set())
       const [preview, setPreview] = React.useState(null)
       const [previewMaximized, setPreviewMaximized] = React.useState(false)
       const [dayFilter, setDayFilter] = React.useState('')
@@ -759,6 +761,24 @@ window.__ModuleLoader__.load({
         } finally {
           setDeleting('')
         }
+      }
+
+      async function batchDelete() {
+        const names = Array.from(selected || [])
+        if (names.length === 0) return
+        if (!globalThis.confirm(`确定删除所选 ${names.length} 个文件吗？此操作不可恢复。`)) return
+        setBatchBusy(true)
+        let err = ''
+        for (const name of names) {
+          try {
+            const response = await fetch(`${API_PATH}?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
+            if (!response.ok) { const b = await response.json().catch(() => ({})); err = err || (b.error || `HTTP ${response.status}`) }
+          } catch (e) { err = err || errorMessage(e) }
+        }
+        setState((current) => ({ ...current, error: err }))
+        setBatchBusy(false)
+        setSelected(new Set())
+        await refresh()
       }
 
       async function previewFile(name) {
@@ -859,8 +879,18 @@ window.__ModuleLoader__.load({
             React.createElement(
               'label',
               { className: 'dsh-upload-del-toggle' },
-              React.createElement('input', { type: 'checkbox', checked: deleteEnabled, onChange: (e) => setDeleteEnabled(e.target.checked) }),
+              React.createElement('input', { type: 'checkbox', checked: deleteEnabled, onChange: (e) => { setDeleteEnabled(e.target.checked); if (!e.target.checked) setSelected(new Set()) } }),
               '开启删除',
+            ),
+            deleteEnabled && React.createElement('label',
+              { className: 'dsh-upload-del-toggle' },
+              React.createElement('input', { type: 'checkbox', checked: (state.files || []).length > 0 && (selected || new Set()).size === (state.files || []).length, onChange: (e) => { setSelected(e.target.checked ? new Set((state.files || []).map((f) => f.name)) : new Set()) } }),
+              '全选',
+            ),
+            React.createElement(
+              'button',
+              { type: 'button', className: 'dsh-upload-batchdel', disabled: !deleteEnabled || (selected || new Set()).size === 0 || batchBusy, onClick: batchDelete },
+              batchBusy ? '删除中…' : `批量删除(${(selected || new Set()).size})`,
             ),
           ),
         ),
@@ -941,6 +971,7 @@ window.__ModuleLoader__.load({
             group.files.map((file) => React.createElement(
               'div',
               { className: 'dsh-upload-row', key: file.name },
+              deleteEnabled && React.createElement('input', { type: 'checkbox', className: 'dsh-upload-select', checked: (selected || new Set()).has(file.name), onChange: (e) => { const s = new Set(selected || []); if (e.target.checked) s.add(file.name); else s.delete(file.name); setSelected(s) } }),
               React.createElement(
                 'span',
                 { className: 'dsh-upload-file-name', title: file.path },
@@ -1038,9 +1069,13 @@ window.__ModuleLoader__.load({
       .dsh-upload-actions button:disabled{opacity:.5;cursor:not-allowed;color:var(--dsw-alias-label-tertiary)}
       .dsh-upload-del-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;user-select:none}
       .dsh-upload-del-toggle input{accent-color:var(--dsw-alias-state-business-primary);cursor:pointer}
+      .dsh-upload-batchdel{display:inline-flex;align-items:center;height:30px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font-size:12px;line-height:1;cursor:pointer;white-space:nowrap}
+      .dsh-upload-batchdel:disabled{opacity:.5;cursor:not-allowed}
+      .dsh-upload-batchdel:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}
+      .dsh-upload-select{flex:none;width:15px;height:15px;margin:0 6px 0 0;accent-color:var(--dsw-alias-state-business-primary);cursor:pointer}
       .dsh-ws-del:disabled{opacity:.5;cursor:not-allowed;color:var(--dsw-alias-label-tertiary)!important}
       .dsh-upload-actions a,.dsh-upload-actions button{white-space:nowrap}
-      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%;display:flex;gap:6px}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center;white-space:nowrap;padding:6px 4px}.dsh-upload-chip{min-width:160px}.dsh-upload-settings-head{flex-direction:column;align-items:stretch;gap:10px}.dsh-upload-head-actions{width:100%;flex-wrap:nowrap;justify-content:flex-start}.dsh-upload-head-actions .dsh-searchpop,.dsh-upload-head-actions .dsh-datefilter{flex:1 1 0;min-width:0}.dsh-upload-head-actions .dsh-upload-refresh{flex:none;text-align:center;padding:7px 8px;max-width:none}.dsh-upload-head-actions .dsh-upload-del-toggle{flex:none;white-space:nowrap;padding:0 4px}}
+      @media (max-width:640px){.dsh-upload-row{align-items:stretch;flex-direction:column;gap:4px}.dsh-upload-file-name{white-space:normal;word-break:break-all}.dsh-upload-actions{width:100%;display:flex;gap:6px}.dsh-upload-actions a,.dsh-upload-actions button{flex:1;text-align:center;white-space:nowrap;padding:6px 4px}.dsh-upload-chip{min-width:160px}.dsh-upload-settings-head{flex-direction:column;align-items:stretch;gap:10px}.dsh-upload-head-actions{width:100%;flex-wrap:wrap;justify-content:flex-start;gap:6px}.dsh-upload-head-actions .dsh-searchpop,.dsh-upload-head-actions .dsh-datefilter{flex:none;min-width:0}.dsh-upload-head-actions .dsh-upload-refresh{flex:none;text-align:center;padding:7px 8px;max-width:none}.dsh-upload-head-actions .dsh-upload-del-toggle,.dsh-upload-head-actions .dsh-upload-batchdel{flex:none;white-space:nowrap;padding:0 4px}}
       .dsh-ws-folder:hover{background:var(--dsw-alias-interactive-bg-hover)}
       .dsh-ws-file-type{flex:none;font-size:10px;line-height:14px;padding:1px 6px;border-radius:5px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover);white-space:nowrap}
       .dsh-upload-preview-del{color:var(--dsw-alias-state-error-primary)!important}
@@ -1084,6 +1119,8 @@ window.__ModuleLoader__.load({
       const [dayFilter, setDayFilter] = React.useState('')
       const [search, setSearch] = React.useState('')
       const [deleteEnabled, setDeleteEnabled] = React.useState(false)
+      const [batchBusy, setBatchBusy] = React.useState(false)
+      const [selected, setSelected] = React.useState(() => new Set())
       const [copied, setCopied] = React.useState(false)
       const [editing, setEditing] = React.useState(false)
       const [edited, setEdited] = React.useState('')
@@ -1279,6 +1316,28 @@ window.__ModuleLoader__.load({
           .filter((g) => g.files.length > 0)
         : groups
 
+      // 批量删除当前勾选的文件（受「开启删除」开关控制）
+      const batchDelete = async () => {
+        const paths = Array.from(selected || [])
+        if (paths.length === 0) return
+        if (!window.confirm(`确定删除所选 ${paths.length} 个文件吗？此操作不可恢复。`)) return
+        setBatchBusy(true)
+        let err = null
+        for (const path of paths) {
+          try {
+            const res = await fetch('/api/dsh-uploads/workspace-file/delete', {
+              method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }),
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!(data.ok === true)) err = err || (data.error || `HTTP ${res.status}`)
+          } catch (e) { err = err || String((e && e.message) || e) }
+        }
+        setError(err)
+        setBatchBusy(false)
+        setSelected(new Set())
+        load()
+      }
+
       return React.createElement(
         'div',
         { style: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 } },
@@ -1287,8 +1346,15 @@ window.__ModuleLoader__.load({
           React.createElement(SearchPopup, { value: search, onChange: setSearch, placeholder: '搜索文件名…' }),
           React.createElement(DateFilter, { value: dayFilter, onChange: setDayFilter, placeholder: '选择日期' }),
           React.createElement('label', { className: 'dsh-upload-del-toggle' },
-            React.createElement('input', { type: 'checkbox', checked: deleteEnabled, onChange: (e) => setDeleteEnabled(e.target.checked) }),
+            React.createElement('input', { type: 'checkbox', checked: deleteEnabled, onChange: (e) => { setDeleteEnabled(e.target.checked); if (!e.target.checked) setSelected(new Set()) } }),
             '开启删除',
+          ),
+          deleteEnabled && React.createElement('label', { className: 'dsh-upload-del-toggle' },
+            React.createElement('input', { type: 'checkbox', checked: (shownGroups || []).reduce((n, g) => n + g.files.length, 0) > 0 && (selected || new Set()).size === (shownGroups || []).reduce((n, g) => n + g.files.length, 0), onChange: (e) => { setSelected(e.target.checked ? new Set((shownGroups || []).flatMap((g) => g.files.map((f) => f.path))) : new Set()) } }),
+            '全选',
+          ),
+          React.createElement('button', { type: 'button', className: 'dsh-upload-batchdel', disabled: !deleteEnabled || (selected || new Set()).size === 0 || batchBusy, onClick: batchDelete },
+            batchBusy ? '删除中…' : `批量删除(${(selected || new Set()).size})`,
           ),
         ),
         error !== null && React.createElement('div', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)' } }, error),
@@ -1312,6 +1378,7 @@ window.__ModuleLoader__.load({
           !collapsed[group.folder] && group.files.map((f) => React.createElement(
             'div',
             { key: f.path, className: 'dsh-ws-row', style: rowStyle },
+            deleteEnabled && React.createElement('input', { type: 'checkbox', className: 'dsh-upload-select', checked: (selected || new Set()).has(f.path), onChange: (e) => { const s = new Set(selected || []); if (e.target.checked) s.add(f.path); else s.delete(f.path); setSelected(s) } }),
             React.createElement(
               'span',
               { className: 'dsh-ws-name', style: { ...nameStyle, display: 'flex', alignItems: 'center', gap: 6 }, title: f.path },
