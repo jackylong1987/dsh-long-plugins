@@ -683,23 +683,16 @@ window.__ModuleLoader__.load({
     /** 🔍 放大镜搜索：点击图标弹出搜索框，输入即过滤；✕ 清除并关闭。不自动隐藏（需人工关闭或刷新）。 */
     function SearchPopup({ value, onChange, placeholder }) {
       const [open, setOpen] = React.useState(false)
-      const [pos, setPos] = React.useState({ top: 72, left: 8 })
       const ref = React.useRef(null)
       React.useEffect(() => { if (open && ref.current) { try { ref.current.focus() } catch (e) {} } }, [open])
-      const toggle = (e) => {
-        if (!open && e && e.currentTarget) {
-          const r = e.currentTarget.getBoundingClientRect()
-          setPos({ top: r.bottom + 8, left: Math.max(8, Math.min(r.left, (window.innerWidth || 0) - 280)) })
-        }
-        setOpen((o) => !o)
-      }
+      const toggle = () => setOpen((o) => !o)
       return React.createElement('div', { className: 'dsh-searchpop' },
         React.createElement('button', {
           type: 'button', className: 'dsh-searchpop-btn',
           onClick: toggle,
           title: '搜索文件名', 'aria-label': '搜索文件名',
         }, '🔍'),
-        open && React.createElement('div', { className: 'dsh-searchpop-box', style: { top: pos.top, left: pos.left } },
+        open && React.createElement('div', { className: 'dsh-searchpop-box' },
           React.createElement('input', {
             ref, type: 'text', className: 'dsh-searchpop-input', value,
             onChange: (e) => onChange(e.target.value), placeholder: placeholder || '搜索文件名…', autoFocus: true,
@@ -1007,7 +1000,7 @@ window.__ModuleLoader__.load({
       .dsh-searchpop{position:relative;display:inline-flex;align-items:center;flex:none}
       .dsh-searchpop-btn{width:30px;height:30px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
       .dsh-searchpop-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-      .dsh-searchpop-box{position:fixed;z-index:60;display:flex;align-items:center;gap:6px;background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:6px;box-shadow:var(--dsw-shadow-lv3);max-width:calc(100vw - 16px)}
+      .dsh-searchpop-box{position:absolute;top:calc(100% + 6px);left:0;z-index:60;display:flex;align-items:center;gap:6px;background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:6px;box-shadow:var(--dsw-shadow-lv3);max-width:calc(100vw - 16px)}
       .dsh-searchpop-input{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);padding:5px 9px;font:inherit;font-size:12px;line-height:18px;min-width:160px}
       .dsh-searchpop-input::placeholder{color:var(--dsw-alias-label-tertiary)}
       .dsh-searchpop-clear{background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1;cursor:pointer;padding:0 3px}
