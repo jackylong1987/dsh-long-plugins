@@ -91,6 +91,29 @@ fi
 9. 设置面板「技能管理」「上传文件」「输出文件」的 🔍 搜索框：点击后弹出框紧贴按钮下方、滚动不脱离。
 10. **「技能管理」区（全局技能 / 工作区技能两 tab）**：全局技能列 `<DSH_HOME>/skills`；工作区技能扫描工作区根下各子目录的 `.dsh/skills`（无 `.dsh/skills` 则该工作区组为空）。若该区不出现/工作区技能为空，可能 DSH `settings.section` 槽或工作区结构变化——复核。
 
+## 插件依赖 DSH 内部接口（升级脆弱清单）⚠️
+dsh-long-plugins 大量依赖 DSH 内部接口/结构，DSH 升级改动后这些会**静默失效**（不注册/不显示/报错）。升级后逐项复核：
+
+| 依赖 | 用途 | 升级失效表现 |
+|---|---|---|
+| `settings.section` 槽 | 上传文件/输出文件/技能管理/dsh-long/RA-Span 设置区 | 对应设置区不出现 |
+| `conversation.composer.dock` 槽 | 余额 chip | 余额不显示 |
+| `conversation.input.dock` 槽 | 待发送文件栏、拖放/粘贴上传 | 待发送栏/拖放失效 |
+| `conversation.input.left` 槽 | 附件上传（回形针） | 回形针消失 |
+| `conversation.session.header.actions` 槽 | 会话历史/工作区按钮 | 按钮消失 |
+| `shell.overlay` 槽 | 文件浏览器浮层 | 文件浮层打不开 |
+| `data-slot-conversation="..."` 属性 | 余额 chip / dock 样式定位 | 对应样式失效 |
+| `ctx.webServer.register` | 所有路由（上传/工作区/技能/预览/glass/补丁状态） | 路由 404/无响应 |
+| `ctx.inputTriggers.registerSource` | 文件引用 codec（`@`） | 附件引用失效 |
+| `ctx.locale.register` | 多语言 | 文案不翻译 |
+| `window.__ModuleLoader__.load` | 插件客户端加载 | 插件整个不加载 |
+| `useSessions` / 会话 store | 工作区按钮拿 cwd / 当前工作区 | 工作区按钮/当前工作区失效 |
+| 混淆类名 `wSkVaW_/uV2eYG_/o3BgMG_/CY-8Ka_/QWLzLg_/M8wy4a_/lXshSW_/7yHdaG_/VOzbGW_/p-xYUq_/osXY9a_` | RA-Span 玻璃观感/排版 | 观感/配色/排版错(见"RA-Span 升级后需重新校准") |
+| DSH 设置面板 DOM(`VOzbGW` 面板) | 各设置区在其内渲染 | 设置区排版乱 |
+| DSH 核心 `dsh-client-connection` | 心跳补丁(补丁3) | 补丁被覆盖→心跳失效(需重打) |
+
+> 处置：某项失效 → 让用户右键抓新元素 class/槽名/接口，更新插件对应选择器/槽名/调用；或集成 DSH 新 API。**稳定项**：插件自己的路由表、`data-slot` 状态栏(部分)、注入 `<head>` 的 CSS(部分)。
+
 ## 硬性安全边界（必须遵守）
 - **不主动 push / 打 tag / 发 Release**；需要发布版本时停下用 ask_user_question 等确认。
 - 升级会重启 DSH 服务，可能中断当前会话——先向用户说明再执行。
