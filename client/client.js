@@ -3445,7 +3445,6 @@ window.__ModuleLoader__.load({
     // 「dsh-long」设置区：各模块开关(独立、移动端干净)，避免把开关塞进 RA-Span
     const DSH_LONG_MODULES = [
       ['glass', 'RA-Span'],
-      ['turnRuler', '会话导航（轮次刻尺）'],
       ['uploadAttach', '附件上传（回形针）'],
       ['uploadDragDrop', '附件拖放上传'],
       ['uploadPaste', '附件粘贴上传'],
@@ -3935,7 +3934,6 @@ window.__ModuleLoader__.load({
               try {
                 const tk = dshDark() ? 'dark' : 'light'
                 root.setAttribute('data-dsh-theme', tk)
-                root.setAttribute('data-dsh-turnruler', ((c.modules && c.modules.turnRuler) !== false) ? 'on' : 'off')
                 window.__dshLongModules = c.modules || {}
                 try { localStorage.setItem('dsh-long:modules', JSON.stringify(window.__dshLongModules)) } catch (e) {}
                 const bt = bgTint(tk)
@@ -4036,7 +4034,6 @@ window.__ModuleLoader__.load({
       ...tokenUsagePlugin.inject,
       ...mobilePlugin.inject,
       ...workspaceFilesPlugin.inject,
-      ...turnRulerPlugin.inject,
       ...glassPlugin.inject,
     ]))
 
@@ -4074,7 +4071,6 @@ window.__ModuleLoader__.load({
       safeApply('token-usage', (c) => tokenUsagePlugin.apply(c)) // 余额 chip 开关在其内部; MOBILE_CSS 始终注入
       if (modEnabled('mobile')) safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
       if (modEnabled('workspace')) safeApply('workspace-files', (c) => workspaceFilesPlugin.apply(c))
-      if (modEnabled('turnRuler')) safeApply('turn-ruler', (c) => turnRulerPlugin.apply(c))
       if (modEnabled('glass')) safeApply('glass', (c) => glassPlugin.apply(c))
     }
 
