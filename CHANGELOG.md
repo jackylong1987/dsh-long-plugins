@@ -1,5 +1,9 @@
 # Changelog / 更新记录
 
+## v2.5.0
+- **Office 读取/生成独立到新插件 `dsh-office-reader`**：`md2docx`（Markdown→Word）工具迁出到独立插件，本插件不再提供该工具，也不再打包 `md2docx.py`。若需 md2docx 或 Office 文件读取（docx/doc/xlsx/xls/pptx→文本/表格），请安装 `dsh-office-reader`。
+- 本插件继续专注：上传管理、工作区输出文件、技能文档、余额显示、Word/PowerPoint 真实预览、DSH 核心补丁修复。
+
 ## v2.4.1
 - 「dsh-long」设置区移到列表最后（order 60），更醒目。
 - 插件升级时默认关闭「会话导航」「RA-Span」：新增版本迁移，插件版本变化即把 `modules.turnRuler` / `modules.glass` 置为 false，避免与 DSH 新版自带功能冲突；可在「dsh-long」手动开回。默认配置（新装/无配置）也默认关。

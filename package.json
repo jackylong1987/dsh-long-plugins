@@ -1,6 +1,6 @@
 {
   "name": "dsh-long-plugins",
-  "version": "2.4.6",
+  "version": "2.5.0",
   "description": "Merged DSH web plugins: upload manager (drag-and-drop attach any file to the message), workspace output files, skill docs, account balance, and polished file preview (Word & PowerPoint real preview with zoom/pan, rendered Markdown), plus an auto-repair install for DSH core patches (reverse-proxy WebSocket heartbeat, upgrade relink). | 一个插件整合 DSH Web 的常用增强：上传管理（拖放上传：拖任意文件到会话框直接附加）、工作区「输出文件」面板、技能文档浏览、账户余额显示、Word/PowerPoint 真实预览（可缩放、翻页）；并自带修复安装，自动重连 DSH 核心补丁（反代 WebSocket 心跳、升级重连）。Office 读取/生成已独立到 dsh-office-reader。",
   "type": "module",
   "license": "MIT",
