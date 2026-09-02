@@ -12,7 +12,6 @@
   },
   "files": [
     "lib",
-    "lib/md2docx.py",
     "client",
     "!client/*.bak",
     "cordis.patch.yml",
