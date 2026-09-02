@@ -1,5 +1,9 @@
 # Changelog / 更新记录
 
+## v2.6.1
+- **修复：会话金额「本会话约」不显示**。`/dsh-token-usage/session-cost` 在 DSH 0.1.2-alpha.5 上因读取 `session.events`（该版本 `Session` 无此属性，应为 `session.snapshotEvents()`），且冷会话 `sessionPersistence.inspect()` 在会话回合打开时会抛异常，导致接口 500、前端拿不到「本会话约」金额。已改用 `session.snapshotEvents()` 读取存活会话事件，冷会话 `inspect` 用 try/catch 优雅降级。
+- **修复：版本号未同步**。`dsh.plugin.json` 此前停留在 2.4.6，现与 `package.json` 对齐，插件面板显示正确版本。
+
 ## v2.6.0
 - **RA-Span 独立到新插件 `dsh-span`**：毛玻璃背景图/背景罩/磨砂/输入框效果迁出到独立插件 `dsh-span`，本插件不再提供 RA-Span 功能。
 - 模块开关改用独立存储 `~/.dsh-long-plugins/modules.json` + `/api/dsh-uploads/modules-config` 路由（不再依赖 `glass-config`）。
