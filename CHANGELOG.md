@@ -1,5 +1,8 @@
 # Changelog / 更新记录
 
+## v2.6.2
+- **拆分：账户余额与会话成本**。余额 chip（输入框下方）默认只显示「余额」；新增「会话成本」模块开关（dsh-long 设置区，**默认关闭**）。开启该开关后，才在余额右侧显示「本会话约 ¥X」；未开启时不再请求与显示会话成本。
+
 ## v2.6.1
 - **修复：会话金额「本会话约」不显示**。`/dsh-token-usage/session-cost` 在 DSH 0.1.2-alpha.5 上因读取 `session.events`（该版本 `Session` 无此属性，应为 `session.snapshotEvents()`），且冷会话 `sessionPersistence.inspect()` 在会话回合打开时会抛异常，导致接口 500、前端拿不到「本会话约」金额。已改用 `session.snapshotEvents()` 读取存活会话事件，冷会话 `inspect` 用 try/catch 优雅降级。
 - **修复：版本号未同步**。`dsh.plugin.json` 此前停留在 2.4.6，现与 `package.json` 对齐，插件面板显示正确版本。

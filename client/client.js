@@ -2063,10 +2063,11 @@ window.__ModuleLoader__.load({
 		/** Poll the backend session-cost route (peak/off-peak aware, V4-Flash
 		 * official pricing) for the given session id. Returns the parsed JSON
 		 * `{tokens, cny:{peak,offPeak,total}}` or null while unavailable. */
-		function useSessionCost(sessionId) {
+		function useSessionCost(sessionId, enabled) {
 			const [cost, setCost] = react.useState(null);
 			react.useEffect(() => {
 				let cancelled = false;
+				if (!enabled) { setCost(null); return void 0; }
 				if (!sessionId) { setCost(null); return void 0; }
 				const load = async () => {
 					try {
@@ -2094,7 +2095,7 @@ window.__ModuleLoader__.load({
 					cancelled = true;
 					clearInterval(interval);
 				};
-			}, [sessionId]);
+			}, [sessionId, enabled]);
 			return cost;
 		}
 		/** Composer-dock balance chip: one muted line under the input card,
@@ -2105,9 +2106,10 @@ window.__ModuleLoader__.load({
 			const balance = useApiBalance();
 			const text = balanceSummaryText(balance);
 			const sessionId = useSession((s) => s.sessionId);
-			const cost = useSessionCost(sessionId);
+			const sessionCostOn = window.__dshLongModules ? window.__dshLongModules.sessionCost === true : false;
+			const cost = useSessionCost(sessionId, sessionCostOn);
 			const spendCny = cost && cost.cny && Number.isFinite(cost.cny.total) ? cost.cny.total : null;
-			const spendText = spendCny === null || spendCny <= 0 ? null : `${t("spend")}${formatCny(spendCny)}`;
+			const spendText = !sessionCostOn || spendCny === null || spendCny <= 0 ? null : `${t("spend")}${formatCny(spendCny)}`;
 			if (text === void 0 && spendText === null) return null;
 			return react_jsx_runtime.jsx("div", {
 				style: {
@@ -3173,6 +3175,7 @@ window.__ModuleLoader__.load({
       ['uploadPreview', '上传文件预览/管理'],
       ['skillDocs', '技能管理'],
       ['balance', '账户余额'],
+      ['sessionCost', '会话成本'],
       ['workspace', '输出文件预览/管理'],
       ['mobile', '移动端布局'],
     ]
