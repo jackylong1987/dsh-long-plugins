@@ -13,7 +13,18 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 
     const React = require('react')
+    const API_PATH = '/api/dsh-uploads'
+    const DOWNLOAD_PATH = '/api/dsh-uploads/download'
+    const PREVIEW_PATH = '/api/dsh-uploads/preview'
     const HIDDEN_LABEL = '__dsh_upload_hidden__:'
+
+    function downloadUrl(name) {
+      return `${DOWNLOAD_PATH}?name=${encodeURIComponent(name)}`
+    }
+
+    function previewUrl(name) {
+      return `${PREVIEW_PATH}?name=${encodeURIComponent(name)}`
+    }
 
     function errorMessage(error) {
       return error instanceof Error ? error.message : String(error)
@@ -617,6 +628,305 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function UploadSettingsSection() {
+      const [state, setState] = React.useState({
+        loading: true,
+        root: '',
+        maxFileBytes: 0,
+        totalMaxBytes: 0,
+        usedBytes: 0,
+        files: [],
+        error: '',
+      })
+      const [deleting, setDeleting] = React.useState('')
+      const [batchBusy, setBatchBusy] = React.useState(false)
+      const [selected, setSelected] = React.useState(() => new Set())
+      const [preview, setPreview] = React.useState(null)
+      const [previewMaximized, setPreviewMaximized] = React.useState(false)
+      const [dayFilter, setDayFilter] = React.useState('')
+      const [search, setSearch] = React.useState('')
+      const [deleteEnabled, setDeleteEnabled] = React.useState(false)
+
+      async function refresh() {
+        setState((current) => ({ ...current, loading: true, error: '' }))
+        try {
+          const response = await fetch(API_PATH, { cache: 'no-store' })
+          const body = await responseJson(response)
+          setState({
+            loading: false,
+            root: body.root,
+            maxFileBytes: body.maxFileBytes,
+            totalMaxBytes: body.totalMaxBytes,
+            usedBytes: body.usedBytes,
+            files: body.files,
+            error: '',
+          })
+        } catch (error) {
+          setState((current) => ({ ...current, loading: false, error: errorMessage(error) }))
+        }
+      }
+
+      React.useEffect(() => {
+        refresh()
+      }, [])
+
+      async function remove(name) {
+        if (!globalThis.confirm(`确定删除“${name}”吗？此操作不可恢复。`)) return
+        setDeleting(name)
+        try {
+          const response = await fetch(`${API_PATH}?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
+          await responseJson(response)
+          if (preview !== null && preview.name === name) closePreview()
+          await refresh()
+        } catch (error) {
+          setState((current) => ({ ...current, error: errorMessage(error) }))
+        } finally {
+          setDeleting('')
+        }
+      }
+
+      async function batchDelete() {
+        const names = Array.from(selected || [])
+        if (names.length === 0) return
+        if (!globalThis.confirm(`确定删除所选 ${names.length} 个文件吗？此操作不可恢复。`)) return
+        setBatchBusy(true)
+        let err = ''
+        for (const name of names) {
+          try {
+            const response = await fetch(`${API_PATH}?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
+            if (!response.ok) { const b = await response.json().catch(() => ({})); err = err || (b.error || `HTTP ${response.status}`) }
+          } catch (e) { err = err || errorMessage(e) }
+        }
+        setState((current) => ({ ...current, error: err }))
+        setBatchBusy(false)
+        setSelected(new Set())
+        await refresh()
+      }
+
+      async function previewFile(name) {
+        setPreviewMaximized(false)
+        try {
+          const isOffice = /\.(docx|xlsx|pptx)$/i.test(name)
+          if (isOffice) {
+            // 先打开弹窗并提示转换中（NAS 上 docx/xlsx 转换可能耗时 1~2 秒）
+            setPreview({ name, officeLoading: true })
+            const response = await fetch(previewUrl(name), { cache: 'no-store' })
+            if (!response.ok) {
+              const body = await response.json().catch(() => ({}))
+              throw new Error(body.error || `HTTP ${response.status}`)
+            }
+            const data = await response.json().catch(() => ({}))
+            setPreview({
+              name,
+              officeHtml: data.officeHtml ?? '<p style="font-family:sans-serif;padding:12px">（无法渲染此文档）</p>',
+            })
+            return
+          }
+          // 无法内嵌预览的类型（压缩包、程序、视频、字体等）：点预览直接下载。
+          if (!isInlinePreviewable(name)) {
+            triggerDownload(downloadUrl(name), name)
+            return
+          }
+          const response = await fetch(previewUrl(name), { cache: 'no-store' })
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}))
+            throw new Error(body.error || `HTTP ${response.status}`)
+          }
+          const type = response.headers.get('content-type') || ''
+          if (type.startsWith('image/')) {
+            const blob = await response.blob()
+            const url = URL.createObjectURL(blob)
+            setPreview({ url, name })
+            return
+          }
+          // PDF / txt / 其它可内嵌文件：弹窗内嵌预览（iframe 指向预览端点），
+          // 只有用户点「打开」才在新浏览器标签中打开。
+          setPreview({ url: previewUrl(name), name })
+        } catch (error) {
+          setState((current) => ({ ...current, error: errorMessage(error) }))
+        }
+      }
+
+      function closePreview() {
+        if (preview?.url) URL.revokeObjectURL(preview.url)
+        setPreview(null)
+      }
+
+      /** Group files by calendar day of their modifiedAt (YYYY-MM-DD, desc). */
+      function groupFilesByDate(files) {
+        const groups = []
+        const byDay = new Map()
+        for (const file of files) {
+          let day = ''
+          try {
+            day = localDay(file.modifiedAt)
+          } catch {
+            day = '未知日期'
+          }
+          if (!byDay.has(day)) byDay.set(day, [])
+          byDay.get(day).push(file)
+        }
+        const days = [...byDay.keys()].sort((a, b) => b.localeCompare(a))
+        for (const day of days) groups.push({ day, files: byDay.get(day) })
+        return groups
+      }
+      // 日期筛选 + 文件名搜索：先按所选天/关键词过滤 state.files，再始终按天分组（空=全部）。
+      const shownFiles = (dayFilter || search)
+        ? state.files.filter((f) => (dayFilter ? (() => { try { return localDay(f.modifiedAt) === dayFilter } catch { return false } })() : true) && matchesSearch(f, search))
+        : state.files
+      const dateGroups = groupFilesByDate(shownFiles)
+
+      return React.createElement(
+        'section',
+        { className: 'dsh-upload-settings' },
+        React.createElement(
+          'div',
+          { className: 'dsh-upload-settings-head' },
+          React.createElement(
+            'div',
+            null,
+            React.createElement('h2', null, '上传文件'),
+            React.createElement('p', null, '管理从输入框上传到 Harness 容器中的文件。'),
+          ),
+          React.createElement(
+            'div',
+            { className: 'dsh-upload-head-actions' },
+            React.createElement(SearchPopup, { value: search, onChange: setSearch, placeholder: '搜索文件名…' }),
+            React.createElement(DateFilter, { value: dayFilter, onChange: setDayFilter, placeholder: '选择日期' }),
+            React.createElement(
+              'button',
+              { type: 'button', className: 'dsh-upload-refresh', disabled: state.loading, onClick: refresh },
+              state.loading ? '刷新中…' : '刷新',
+            ),
+            React.createElement(
+              'label',
+              { className: 'dsh-upload-del-toggle' },
+              React.createElement('input', { type: 'checkbox', checked: deleteEnabled, onChange: (e) => { setDeleteEnabled(e.target.checked); if (!e.target.checked) setSelected(new Set()) } }),
+              '开启删除',
+            ),
+            deleteEnabled && React.createElement('label',
+              { className: 'dsh-upload-del-toggle' },
+              React.createElement('input', { type: 'checkbox', checked: (state.files || []).length > 0 && (selected || new Set()).size === (state.files || []).length, onChange: (e) => { setSelected(e.target.checked ? new Set((state.files || []).map((f) => f.name)) : new Set()) } }),
+              '全选',
+            ),
+            React.createElement(
+              'button',
+              { type: 'button', className: 'dsh-upload-batchdel', disabled: !deleteEnabled || (selected || new Set()).size === 0 || batchBusy, onClick: batchDelete },
+              batchBusy ? '删除中…' : `批量删除(${(selected || new Set()).size})`,
+            ),
+          ),
+        ),
+        React.createElement(
+          'div',
+          { className: 'dsh-upload-root' },
+          React.createElement('span', null, '固定目录'),
+          React.createElement('code', null, state.root || '读取中…'),
+          state.maxFileBytes
+            ? React.createElement('small', null, `单文件上限 ${sizeText(state.maxFileBytes)}`)
+            : null,
+          state.totalMaxBytes
+            ? React.createElement('small', null, `已使用 ${sizeText(state.usedBytes)} / ${sizeText(state.totalMaxBytes)}`)
+            : null,
+        ),
+        state.error ? React.createElement('div', { className: 'dsh-upload-error' }, state.error) : null,
+        !state.loading && state.files.length === 0
+          ? React.createElement('div', { className: 'dsh-upload-empty' }, '当前没有已上传文件。')
+          : null,
+        !state.loading && (dayFilter !== '' || search !== '') && shownFiles.length === 0 && state.files.length > 0
+          ? React.createElement('div', { className: 'dsh-upload-empty' }, '没有匹配的文件。')
+          : null,
+        preview
+          ? React.createElement(
+              'div',
+              { className: 'dsh-upload-preview-overlay' + (previewMaximized ? ' dsh-upload-preview-overlay-max' : ''), onClick: closePreview },
+              React.createElement(
+                'div',
+                { className: 'dsh-upload-preview-card' + (previewMaximized ? ' dsh-upload-preview-card-max' : ''), onClick: (event) => event.stopPropagation() },
+                React.createElement(
+                  'div',
+                  { className: 'dsh-upload-preview-head' },
+                  React.createElement('strong', null, preview.name),
+                  React.createElement(
+                    'div',
+                    { className: 'dsh-upload-preview-actions', style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                    !preview.officeLoading && !(preview.url && preview.url.startsWith('blob:')) && preview.name !== void 0
+                      ? React.createElement('a', { href: preview.officeHtml !== void 0 ? downloadUrl(preview.name) : previewUrl(preview.name), target: '_blank', rel: 'noopener noreferrer', className: 'dsh-upload-preview-open' }, '打开')
+                      : null,
+                    !preview.officeLoading && !(preview.url && preview.url.startsWith('blob:')) && preview.name !== void 0
+                      ? React.createElement('a', { href: downloadUrl(preview.name), download: preview.name, className: 'dsh-upload-preview-open' }, '下载')
+                      : null,
+                    React.createElement('button', { type: 'button', onClick: () => { const m = !previewMaximized; setPreviewMaximized(m); try { const el = document.querySelector('.dsh-upload-preview-card'); if (m && el && el.requestFullscreen) el.requestFullscreen(); else if (document.fullscreenElement) document.exitFullscreen() } catch (e) {} } }, previewMaximized ? '还原' : '放大'),
+                    React.createElement('button', { type: 'button', className: 'dsh-upload-preview-del', disabled: deleting === preview.name, onClick: () => remove(preview.name) }, deleting === preview.name ? '删除中…' : '删除'),
+                    React.createElement('button', { type: 'button', onClick: closePreview }, '关闭'),
+                  ),
+                ),
+                preview.url && preview.url.startsWith('blob:')
+                  ? React.createElement('img', { src: preview.url, alt: preview.name, className: 'dsh-upload-preview-img' })
+                  : React.createElement(
+                      'div',
+                      { style: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#fff' } },
+                      preview.officeLoading === true
+                        ? React.createElement('div', { className: 'dsh-upload-preview-loading' }, '转换中…')
+                        : preview.officeHtml !== void 0
+                          ? React.createElement('iframe', { title: preview.name, srcDoc: preview.officeHtml, style: previewMaximized ? { width: '100%', height: 'calc(100vh - 60px)', border: 'none', background: '#fff', flex: 1 } : { width: '100%', height: '70vh', border: 'none', background: '#fff' } })
+                          : preview.url && /\.pdf$/i.test(preview.name)
+                            ? React.createElement('embed', { src: preview.url, type: 'application/pdf', title: preview.name, style: previewMaximized ? { width: '100%', height: 'calc(100vh - 60px)', border: 'none', background: '#fff', flex: 1 } : { width: '100%', height: '70vh', border: 'none', background: '#fff' } })
+                            : React.createElement('iframe', { title: preview.name, src: preview.url, style: previewMaximized ? { width: '100%', height: 'calc(100vh - 60px)', border: 'none', background: '#fff', flex: 1 } : { width: '100%', height: '70vh', border: 'none', background: '#fff' } }),
+                    ),
+              ),
+            )
+          : null,
+        React.createElement(
+          'div',
+          { className: 'dsh-upload-list' },
+          (dateGroups === null ? [{ day: null, files: shownFiles }] : dateGroups).map((group) => React.createElement(
+            'div',
+            { key: group.day ?? '__all__', className: 'dsh-upload-group' },
+            group.day !== null
+              ? React.createElement(
+                  'div',
+                  { className: 'dsh-upload-group-day' },
+                  group.day,
+                  React.createElement('span', null, `${group.files.length} 个文件`),
+                )
+              : null,
+            group.files.map((file) => React.createElement(
+              'div',
+              { className: 'dsh-upload-row', key: file.name },
+              deleteEnabled && React.createElement('input', { type: 'checkbox', className: 'dsh-upload-select', checked: (selected || new Set()).has(file.name), onChange: (e) => { const s = new Set(selected || []); if (e.target.checked) s.add(file.name); else s.delete(file.name); setSelected(s) } }),
+              React.createElement(
+                'span',
+                { className: 'dsh-upload-file-name', title: file.path },
+                React.createElement('span', { className: 'dsh-upload-file-label' }, file.name.replace(/\.[^.]+$/, '')),
+                React.createElement('span', { className: 'dsh-upload-file-type' }, fileTypeLabel(file.name)),
+              ),
+              React.createElement('span', { className: 'dsh-upload-file-meta' }, `${sizeText(file.size)} · ${dateText(file.modifiedAt)}`),
+              React.createElement(
+                'div',
+                { className: 'dsh-upload-actions' },
+                React.createElement(
+                  'button',
+                  { type: 'button', className: 'dsh-upload-copy', onClick: () => {
+                    const s = String(file.path || file.name)
+                    const base = state.root ? String(state.root).replace(/\/[^/]*$/, '') : ''
+                    copyText(base && s.indexOf(base) === 0 ? s.slice(base.length).replace(/^\/+/, '') : s)
+                  } },
+                  '复制路径',
+                ),
+                React.createElement(
+                  'button',
+                  { type: 'button', disabled: !deleteEnabled || deleting === file.name, onClick: () => remove(file.name) },
+                  deleting === file.name ? '删除中…' : '删除',
+                ),
+                React.createElement('a', { href: downloadUrl(file.name), download: file.name }, '下载'),
+                React.createElement('button', { type: 'button', className: 'dsh-upload-preview', onClick: () => previewFile(file.name) }, '预览'),
+              ),
+            )),
+          )),
+        ),
+      )
+    }
+
     function apply(ctx) {
       const mod = window.__dshLongMod || (() => true)
       ctx.effect(() => {
@@ -627,6 +937,15 @@ window.__ModuleLoader__.load({
         document.head.appendChild(style)
         return () => style.remove()
       }, 'dsh-long-plugins: uploads+workspace styles')
+      // 上传文件预览/管理设置区：由 uploadPreview 控制
+      if (mod('uploadPreview')) {
+        ctx.slots.inject('settings.section', () => ctx.slots.register({
+          name: 'settings.section',
+          id: 'uploaded-files',
+          order: 30,
+          label: '上传文件',
+        }, UploadSettingsSection))
+      }
       // 输出文件(工作区)设置区：由 workspace 控制
       if (mod('workspace')) {
         ctx.slots.inject('settings.section', () => ctx.slots.register({
@@ -2297,6 +2616,7 @@ window.__ModuleLoader__.load({
       .dsh-glass-note{margin:0;font-size:12px;color:var(--dsw-alias-label-tertiary)}
     `
     const DSH_LONG_MODULES = [
+      ['uploadPreview', '上传文件预览/管理'],
       ['skillDocs', '技能管理'],
       ['balance', '账户余额'],
       ['sessionCost', '会话成本'],
@@ -2374,9 +2694,25 @@ window.__ModuleLoader__.load({
 
     // 模块开关缓存：页面加载时同步读取(让 main apply 的 modEnabled 门控生效)；
     // 配置加载(applyTheme)/保存(dsh-long 保存)后更新。开关在下次刷新生效。
+    // 模块开关：以服务端为准(启动时同步拉取，避免 localStorage 缓存过期导致模块被误关)
     try {
-      const _m = localStorage.getItem('dsh-long:modules')
-      if (_m) window.__dshLongModules = JSON.parse(_m)
+      const _x = new XMLHttpRequest()
+      _x.open('GET', '/api/dsh-uploads/modules-config', false)
+      _x.send()
+      if (_x.status === 200) {
+        const _b = JSON.parse(_x.responseText)
+        if (_b && _b.cfg && _b.cfg.modules && typeof _b.cfg.modules === 'object') {
+          window.__dshLongModules = _b.cfg.modules
+          try { localStorage.setItem('dsh-long:modules', JSON.stringify(_b.cfg.modules)) } catch (e) {}
+        }
+      }
+    } catch (_) {}
+    // 回退：服务端不可用时用 localStorage 缓存
+    try {
+      if (!window.__dshLongModules) {
+        const _m = localStorage.getItem('dsh-long:modules')
+        if (_m) window.__dshLongModules = JSON.parse(_m)
+      }
     } catch (_) {}
     // 全局模块开关查询(供各组件/apply 内部判断)
     window.__dshLongMod = (n) => (window.__dshLongModules ? window.__dshLongModules[n] !== false : true)
