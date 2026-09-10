@@ -133,14 +133,3 @@ for skill_name in dsh-long-plugins-install dsh-upgrade dsh-common-plugins-instal
   fi
 done
 
-# 附带重打核心心跳补丁（装插件顺带修「反代下提问窗口自己消失」）
-# 该补丁改的是 DSH 核心 dsh-client-connection，升级 DSH 会覆盖，需重跑。
-HB_PATCH="$PLUGIN_DIR/patches/dsh-client-connection-heartbeat.sh"
-if [ -f "$HB_PATCH" ]; then
-  echo
-  echo "== 重打核心心跳补丁（提问窗口不再消失）=="
-  ( sh "$HB_PATCH" ) || echo "   心跳补丁暂未应用（可稍后手动重跑 $HB_PATCH）"
-else
-  echo
-  echo "（未发现心跳补丁脚本 $HB_PATCH，跳过）"
-fi

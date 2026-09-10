@@ -1,7 +1,9 @@
 # Changelog / 更新记录
 
-## v2.6.2
-- **拆分：账户余额与会话成本**。余额 chip（输入框下方）默认只显示「余额」；新增「会话成本」模块开关（dsh-long 设置区，**默认关闭**）。开启该开关后，才在余额右侧显示「本会话约 ¥X」；未开启时不再请求与显示会话成本。
+## v3.0.0
+- **移除 4 个上传模块**（附件上传/回形针、附件拖放上传、附件粘贴上传、上传文件预览/管理）：DSH 0.1.5 已原生支持回形针/拖放/粘贴上传 + 预览卡片，插件不再重复实现。
+- 「dsh-long」设置区去掉这 4 个开关，保留：技能管理、账户余额、会话成本、输出文件预览管理、移动端布局。
+- 服务端移除上传/列表/删除路由（/api/dsh-uploads）与对应模块默认值；删除已弃用的 patches/dsh-client-connection-heartbeat.sh。
 
 ## v2.6.1
 - **修复：会话金额「本会话约」不显示**。`/dsh-token-usage/session-cost` 在 DSH 0.1.2-alpha.5 上因读取 `session.events`（该版本 `Session` 无此属性，应为 `session.snapshotEvents()`），且冷会话 `sessionPersistence.inspect()` 在会话回合打开时会抛异常，导致接口 500、前端拿不到「本会话约」金额。已改用 `session.snapshotEvents()` 读取存活会话事件，冷会话 `inspect` 用 try/catch 优雅降级。
