@@ -708,7 +708,14 @@ window.__ModuleLoader__.load({
         try {
           const isOffice = /\.(docx|xlsx|pptx)$/i.test(name)
           if (isOffice) {
-            // 先打开弹窗并提示转换中（NAS 上 docx/xlsx 转换可能耗时 1~2 秒）
+            // .docx：走 docx-preview 真实渲染页（浏览器端解析、所见即所得，轻量），
+            // 避免 mammoth 把整篇渲染成超大 HTML 塞进 iframe 造成长时间"转换中…"。
+            if (/\.docx$/i.test(name) && state.root) {
+              const full = String(state.root).replace(/\/+$/, '') + '/' + name
+              setPreview({ url: '/api/dsh-uploads/docx-preview?path=' + encodeURIComponent(full), name })
+              return
+            }
+            // 其它 Office(xlsx/pptx)：服务端渲染 HTML
             setPreview({ name, officeLoading: true })
             const response = await fetch(previewUrl(name), { cache: 'no-store' })
             if (!response.ok) {
