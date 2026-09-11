@@ -16,7 +16,6 @@ window.__ModuleLoader__.load({
     const API_PATH = '/api/dsh-uploads'
     const DOWNLOAD_PATH = '/api/dsh-uploads/download'
     const PREVIEW_PATH = '/api/dsh-uploads/preview'
-    const HIDDEN_LABEL = '__dsh_upload_hidden__:'
 
     function downloadUrl(name) {
       return `${DOWNLOAD_PATH}?name=${encodeURIComponent(name)}`
@@ -198,10 +197,6 @@ window.__ModuleLoader__.load({
     }
 
     const CSS = `
-      @font-face{font-family:DshChipCellInput;src:url(data:font/ttf;base64,AAEAAAAKAIAAAwAgT1MvMkT8SmIAAAEoAAAAYGNtYXAADQBPAAABkAAAADRnbHlmAAAAAAAAAcwAAAABaGVhZCwtPGoAAACsAAAANmhoZWEDIg7bAAAA5AAAACRobXR4EZQAAAAAAYgAAAAIbG9jYQAAAAAAAAHEAAAABm1heHAAAwACAAABCAAAACBuYW1lvljk2gAAAdAAAABscG9zdNNweNQAAAI8AAAALQABAAAAAQAAdia1tV8PPPUAAwPoAAAAAOaLfcUAAAAA5ot9xQAAAAAAAAAAAAAAAwACAAAAAAAAAAEAAAMg/zgAAA+gAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAACAAEAAAACAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAwjKAZAABQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAPz8/PwAA//z//AMg/zgAAAMgAMgAAAAAAAAAAAAAAAAAAAAgAAAB9AAAAAAAAAAAAAIAAAADAAAAFAADAAEAAAAUAAQAIAAAAAQABAABAAD//P//AAD//P//AAUAAQAAAAAAAAAAAAAAAAAAAAAAAAAEADYAAQAAAAAAAQALAAAAAQAAAAAAAgAHAAsAAwABBAkAAQAWABIAAwABBAkAAgAOAChEc2hDaGlwQ2VsbFJlZ3VsYXIARABzAGgAQwBoAGkAcABDAGUAbABsAFIAZQBnAHUAbABhAHIAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAABAgZvYmpyZXAAAAA=)format("truetype")}
-      .uV2eYG_input,.uV2eYG_mirror{font-family:"DshChipCellInput",var(--dsw-font-family)!important}
-      [data-decoration="chip"][title^="${HIDDEN_LABEL}"]{display:inline-block!important;width:0!important;height:0!important;overflow:hidden!important;background:transparent!important;border:none!important;box-shadow:none!important;margin:0!important;padding:0!important;font-size:0!important;line-height:0!important}
-      [data-decoration="chip"][title^="${HIDDEN_LABEL}"]:before,[data-decoration="chip"][title^="${HIDDEN_LABEL}"]>*{display:none!important}
       .dsh-upload-control{display:flex;align-items:center;min-width:0}
       .dsh-upload-picker,.dsh-upload-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
       .dsh-upload-button{height:28px;width:28px;padding:0;border:0;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
@@ -295,6 +290,10 @@ window.__ModuleLoader__.load({
       .dsh-upload-preview-open:hover{background:var(--dsw-alias-interactive-bg-hover)}
       .dsh-upload-preview-img{max-width:100%;max-height:70vh;object-fit:contain;display:block}
       .dsh-upload-preview-loading{display:flex;align-items:center;justify-content:center;flex:1;min-height:120px;color:var(--dsw-alias-label-secondary);font-size:13px}
+      /* 移动端：输入控件字号 >=16px，避免浏览器聚焦时自动放大且不缩回 */
+      @media (max-width: 900px){
+        textarea, input, [contenteditable="true"], .uV2eYG_input, .uV2eYG_mirror { font-size: 16px !important; }
+      }
       .dsh-long-toast{position:fixed;left:50%;bottom:36px;transform:translateX(-50%) translateY(12px);z-index:2000;max-width:min(90vw,520px);padding:10px 16px;border-radius:10px;background:var(--dsw-specific-input-major,#0f1720);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;box-shadow:var(--dsw-shadow-lv3);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
       .dsh-long-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
       .dsh-long-toast.error{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
@@ -1641,7 +1640,7 @@ window.__ModuleLoader__.load({
         .nL4_yW_sessionLogButton span{display:none!important}
         /* 手机端设置面板：全屏 + 导航横排，内容区全宽（类名随 DSH 版本，升级后需核对） */
         .VOzbGW_overlay{padding:0}
-        .VOzbGW_panel{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0}
+        .VOzbGW_panel{width:100%;max-width:100%;height:100vh;max-height:100vh;height:100svh;max-height:100svh;border-radius:0}
         .VOzbGW_nav{width:100%;flex-direction:row;gap:6px;padding:10px 14px 0;overflow-x:auto;align-items:center;flex:none}
         .VOzbGW_navTitle{display:none}
         .VOzbGW_navList{flex-direction:row;gap:6px}
