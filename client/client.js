@@ -2628,6 +2628,7 @@ window.__ModuleLoader__.load({
       ['balance', '账户余额'],
       ['sessionCost', '会话成本'],
       ['workspace', '输出文件预览/管理'],
+      ['officePreview', '右侧栏 Office 预览'],
       ['mobile', '移动端布局'],
     ]
     const DshLongSettingsSection = () => {
@@ -2691,6 +2692,303 @@ window.__ModuleLoader__.load({
         ) : null,
       )
     }
+    // ===== [可整块删除的模块] officePreview：右侧栏「文件」面板点 Office 文件即预览 =====
+    // 为什么不用原生预览标签：DSH 的 sidebar.right.tab.document 子槽是独占声明（原生已占），
+    // 第三方再声明会顶掉原生插件；documentPreviews 又只服务 kind:"text" 文本管线。
+    // 所以这里用「捕获阶段拦截点击 + 自带浮层」实现，零污染。
+    // 【删除本模块】① 删本段 ② DSH_LONG_MODULES 里删 ['officePreview', ...] 一行
+    //              ③ apply 里删 safeApply('office-preview', ...) 一行
+    //              ④ lib/index.js 的 MODULES_DEFAULTS 里删 officePreview: true
+    const officePanelPlugin = (() => {
+      const OFFICE_RE = /\.(docx|pptx|xlsx)$/i
+      const OVERLAY_ID = 'dsh-long-office-overlay'
+      function previewHref(path) {
+        const p = String(path || '')
+        const enc = encodeURIComponent(p)
+        if (/\.docx$/i.test(p)) return '/api/dsh-uploads/docx-preview?path=' + enc
+        if (/\.pptx$/i.test(p)) return '/api/dsh-uploads/pptx-preview?path=' + enc
+        if (/\.xlsx$/i.test(p)) return '/api/dsh-uploads/xlsx-preview?path=' + enc
+        return ''
+      }
+      // 侧栏文件行的 title 只是文件名，真实路径藏在 React props 里 —— 逐层找含 office 后缀的路径串。
+      function deepOfficePath(bag, depth) {
+        if (bag === null || bag === undefined || depth > 6) return ''
+        if (typeof bag === 'string') return OFFICE_RE.test(bag) && bag.indexOf('/') !== -1 ? bag : ''
+        if (typeof bag !== 'object') return ''
+        if (Array.isArray(bag)) {
+          for (let i = 0; i < bag.length; i += 1) {
+            const r = deepOfficePath(bag[i], depth + 1)
+            if (r !== '') return r
+          }
+          return ''
+        }
+        const keys = Object.keys(bag)
+        for (let i = 0; i < keys.length; i += 1) {
+          const k = keys[i]
+          if (k === 'return' || k === 'child' || k === 'sibling' || k === '_owner' || k === 'stateNode') continue
+          const r = deepOfficePath(bag[k], depth + 1)
+          if (r !== '') return r
+        }
+        return ''
+      }
+      function pathFromNode(node) {
+        try {
+          const key = Object.keys(node).find((k) => k.indexOf('__reactProps$') === 0 || k.indexOf('__reactFiber$') === 0)
+          if (key === undefined) return ''
+          return deepOfficePath(node[key], 0)
+        } catch (error) { return '' }
+      }
+      function officePathFromEvent(event) {
+        try {
+          let el = event.target, guard = 0, titleHit = ''
+          while (el !== null && el !== undefined && guard < 8) {
+            const fromProps = pathFromNode(el)
+            if (fromProps !== '') return fromProps
+            const title = el.getAttribute ? el.getAttribute('title') : null
+            if (titleHit === '' && typeof title === 'string' && OFFICE_RE.test(title)) titleHit = title
+            el = el.parentElement
+            guard += 1
+          }
+          if (titleHit !== '') return titleHit
+          const m = String((event.target && event.target.textContent) || '').match(/[^\s/\\]+\.(docx|pptx|xlsx)/i)
+          return m ? m[0] : ''
+        } catch (error) { return '' }
+      }
+      let overlay = null, frame = null, panel = null, label = null, maxBtn = null
+      let maximized = false
+      let drag = null
+      let hint = null
+      let snapTarget = ''
+
+      function layout() {
+        if (panel === null) return
+        if (maximized) {
+          panel.style.left = '8px'; panel.style.top = '8px'
+          panel.style.width = 'calc(100vw - 16px)'; panel.style.height = 'calc(100vh - 16px)'
+        } else {
+          const w = Math.min(1100, Math.round(window.innerWidth * 0.92))
+          const h = Math.round(window.innerHeight * 0.8)
+          panel.style.width = w + 'px'; panel.style.height = h + 'px'
+          const left = Math.max(8, Math.round((window.innerWidth - w) / 2))
+          const top = Math.max(8, Math.round((window.innerHeight - h) / 2))
+          panel.style.left = left + 'px'; panel.style.top = top + 'px'
+        }
+        if (maxBtn !== null) maxBtn.textContent = maximized ? '还原' : '放大'
+      }
+
+      // Windows 风格吸附：拖到左/右边缘 → 半屏；拖到顶部 → 最大化
+      const SNAP_EDGE = 12
+      function showHint(area) {
+        if (hint === null) return
+        if (area === '') { hint.style.display = 'none'; return }
+        const w = window.innerWidth, h = window.innerHeight
+        hint.style.display = 'block'
+        if (area === 'left') { hint.style.left = '0px'; hint.style.top = '0px'; hint.style.width = Math.round(w / 2) + 'px'; hint.style.height = h + 'px' }
+        else if (area === 'right') { hint.style.left = Math.round(w / 2) + 'px'; hint.style.top = '0px'; hint.style.width = Math.round(w / 2) + 'px'; hint.style.height = h + 'px' }
+        else { hint.style.left = '0px'; hint.style.top = '0px'; hint.style.width = w + 'px'; hint.style.height = h + 'px' }
+      }
+      function applySnap(area) {
+        if (panel === null) return
+        const w = window.innerWidth, h = window.innerHeight
+        if (area === 'left') { panel.style.left = '0px'; panel.style.top = '0px'; panel.style.width = Math.round(w / 2) + 'px'; panel.style.height = h + 'px'; maximized = false }
+        else if (area === 'right') { panel.style.left = Math.round(w / 2) + 'px'; panel.style.top = '0px'; panel.style.width = Math.round(w / 2) + 'px'; panel.style.height = h + 'px'; maximized = false }
+        else if (area === 'top') { maximized = true; layout() }
+        if (maxBtn !== null) maxBtn.textContent = maximized ? '还原' : '放大'
+      }
+
+      function ensureOverlay() {
+        if (overlay !== null) return overlay
+        // 遮罩层（透明，不挡页面）：只作为容器
+        overlay = document.createElement('div')
+        overlay.id = OVERLAY_ID
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.35)'
+        // 窗口本体：可拖动、可放大
+        panel = document.createElement('div')
+        panel.style.cssText = 'position:fixed;display:flex;flex-direction:column;background:#313b48;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.5);overflow:hidden'
+        const bar = document.createElement('div')
+        bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;color:#e5e7eb;font-size:13px;user-select:none;background:#1a2530'
+        label = document.createElement('strong')
+        label.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'
+        maxBtn = document.createElement('button')
+        maxBtn.type = 'button'
+        maxBtn.textContent = '放大'
+        maxBtn.style.cssText = 'padding:4px 10px;border:1px solid #2c3a47;border-radius:7px;background:transparent;color:#e5e7eb;font-size:12px;cursor:pointer'
+        maxBtn.onclick = () => { maximized = !maximized; layout() }
+        const closeBtn = document.createElement('button')
+        closeBtn.type = 'button'
+        closeBtn.textContent = '✕'
+        closeBtn.title = '关闭'
+        closeBtn.style.cssText = 'padding:4px 10px;border:1px solid #2c3a47;border-radius:7px;background:transparent;color:#e5e7eb;font-size:12px;cursor:pointer'
+        closeBtn.onclick = () => closeOverlay()
+        bar.appendChild(label); bar.appendChild(maxBtn); bar.appendChild(closeBtn)
+        frame = document.createElement('iframe')
+        frame.setAttribute('title', 'Office 预览')
+        frame.style.cssText = 'flex:1;width:100%;border:none;background:#fff'
+        panel.appendChild(bar); panel.appendChild(frame)
+        hint = document.createElement('div')
+        hint.style.cssText = 'position:fixed;display:none;z-index:-1;background:rgba(120,170,255,.22);border:1px solid rgba(120,170,255,.55);border-radius:8px;pointer-events:none'
+        overlay.appendChild(hint)
+        overlay.appendChild(panel)
+        // 拖动（按住标题条；点在按钮上不触发）
+        // 不提供拖动（拖动会触发应用的原生预览层，导致白屏）——窗口固定居中，用「放大/还原」调整大小。
+        void drag
+        // 拖动期间只移动"幽灵框"（虚线矩形），真窗口原地不动 —— 避免 iframe 连续重绘导致内容变空。
+        const onMove = (e) => {
+          if (drag === null || panel === null) return
+          const w = panel.offsetWidth, h = panel.offsetHeight
+          const left = Math.min(Math.max(0, e.clientX - drag.dx), Math.max(0, window.innerWidth - w))
+          const top = Math.min(Math.max(0, e.clientY - drag.dy), Math.max(0, window.innerHeight - h))
+          drag.left = left; drag.top = top
+          drag.w = w; drag.h = h
+          // 靠边判定（Win 风格吸附目标）
+          if (e.clientY <= SNAP_EDGE) snapTarget = 'top'
+          else if (e.clientX <= SNAP_EDGE) snapTarget = 'left'
+          else if (e.clientX >= window.innerWidth - SNAP_EDGE) snapTarget = 'right'
+          else snapTarget = ''
+          if (snapTarget !== '') { showHint(snapTarget) }
+          else {
+            // 幽灵框跟着鼠标
+            if (hint !== null) {
+              hint.style.display = 'block'
+              hint.style.background = 'transparent'
+              hint.style.border = '1px dashed rgba(160,200,255,.8)'
+              hint.style.left = left + 'px'; hint.style.top = top + 'px'
+              hint.style.width = w + 'px'; hint.style.height = h + 'px'
+            }
+          }
+        }
+        const onUp = () => {
+          const target = snapTarget
+          const pos = drag
+          drag = null; snapTarget = ''
+          if (hint !== null) { hint.style.background = 'rgba(120,170,255,.22)'; hint.style.border = '1px solid rgba(120,170,255,.55)' }
+          showHint('')
+          try { if (frame !== null) frame.style.pointerEvents = '' } catch (err) {}
+          try { document.body.style.userSelect = '' } catch (err) {}
+          if (target !== '') { applySnap(target); reloadFrame(); return }
+          // 松手才一次性落位（iframe 只重排一次），落位后重载内容以免变空
+          if (pos !== null && panel !== null && typeof pos.left === 'number') {
+            panel.style.left = pos.left + 'px'
+            panel.style.top = pos.top + 'px'
+            reloadFrame()
+          }
+        }
+        document.addEventListener('mousemove', onMove, true)
+        document.addEventListener('mouseup', onUp, true)
+        window.addEventListener('resize', layout)
+        // 掐掉原生拖拽/选择：否则「按住拖动」会被应用的全局处理器当成原生拖拽，
+        // 进而唤起它自己的文档预览层（PDF.js）→ 白屏「优质打印」。
+        overlay.setAttribute('draggable', 'false')
+        const stopNative = (e) => { try { e.preventDefault(); e.stopPropagation() } catch (err) {} }
+        overlay.addEventListener('dragstart', stopNative, true)
+        overlay.addEventListener('selectstart', stopNative, true)
+        overlay.addEventListener('drag', stopNative, true)
+        overlay.addEventListener('mousedown', (e) => {
+          // 只阻止默认（不阻断 iframe 内的正常操作）；必要时阻止冒泡给应用
+          try { e.stopPropagation() } catch (err) {}
+        }, false)
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeOverlay() })
+        document.body.appendChild(overlay)
+        layout()
+        return overlay
+      }
+
+      function openOverlay(path) {
+        const href = previewHref(path)
+        if (href === '') return false
+        ensureOverlay()
+        maximized = false
+        label.textContent = String(path).split('/').pop() || 'Office 预览'
+        frame.src = href
+        overlay.style.display = 'block'
+        layout()
+        return true
+      }
+
+      // 移动/吸附后重载一次 iframe：docx-preview 的内容在重排后会崩，重载即恢复
+      function reloadFrame() {
+        try {
+          if (frame === null) return
+          const w = frame.contentWindow
+          if (w !== null && typeof w.location !== 'undefined' && String(w.location.href).indexOf('about:blank') === -1) {
+            w.location.reload()
+          }
+        } catch (error) { /* 忽略 */ }
+      }
+
+      function closeOverlay() {
+        try {
+          if (frame !== null) frame.src = 'about:blank'
+          if (overlay !== null && overlay.parentNode !== null) overlay.parentNode.removeChild(overlay)
+        } catch (error) { /* 忽略 */ }
+        overlay = null; frame = null; panel = null; label = null; maxBtn = null; drag = null; hint = null; snapTarget = ''
+      }
+
+      function apply(ctx) {
+        try {
+          // 只处理「右侧栏文件列表」里的点击：
+          //  - 排除对话框/自身浮层（插件自己的文件预览面板、上传预览等不能被劫持）
+          //  - 只在视口右侧 40% 区域内生效（原生右侧栏）
+          const inDialogOrOwnUi = (el) => {
+            let node = el, guard = 0
+            while (node !== null && node !== undefined && guard < 10) {
+              const role = node.getAttribute ? node.getAttribute('role') : null
+              const modal = node.getAttribute ? node.getAttribute('aria-modal') : null
+              const cls = typeof node.className === 'string' ? node.className : ''
+              if (role === 'dialog' || modal === 'true' || cls.indexOf('dsh-ws-files') !== -1 || cls.indexOf('arcv') !== -1 || cls.indexOf('dsh-long-office-overlay') !== -1) return true
+              node = node.parentElement
+              guard += 1
+            }
+            return false
+          }
+          const onClick = (event) => {
+            if (!event || event.defaultPrevented) return
+            try {
+              if (inDialogOrOwnUi(event.target)) return
+              if (typeof event.clientX === 'number' && event.clientX > 0 && event.clientX < window.innerWidth * 0.6) return
+            } catch (e) { return }
+            const path = officePathFromEvent(event)
+            if (path === '') return
+            const href = previewHref(path)
+            if (href === '') return
+            // 独立浏览器小窗：OS 级窗口，拖动/贴边/最大化全由系统管，不会触发页面内逻辑
+            try {
+              const w = Math.min(1400, Math.round(window.innerWidth * 0.8))
+              const h = Math.min(1000, Math.round(window.innerHeight * 0.85))
+              const win = window.open(href, 'dsh_office_preview', 'popup=yes,width=' + w + ',height=' + h + ',left=' + Math.round((window.screen.width - w) / 2) + ',top=' + Math.round((window.screen.height - h) / 2) + ',resizable=yes,scrollbars=yes')
+              if (win !== null) { try { win.focus() } catch (e) {} }
+              else if (openOverlay(path)) { /* 弹窗被拦截 → 退回内嵌浮层 */ }
+            } catch (e) {
+              if (!openOverlay(path)) return
+            }
+            try { event.preventDefault(); event.stopPropagation() } catch (e) {}
+          }
+          const onKey = (event) => { if (event && event.key === 'Escape') closeOverlay() }
+          const onMessage = (event) => {
+            if (event.origin !== window.location.origin) return
+            if (event.data && event.data.type === 'dsh-close-preview') closeOverlay()
+          }
+          ctx.effect(() => {
+            document.addEventListener('click', onClick, true)
+            document.addEventListener('keydown', onKey, true)
+            window.addEventListener('message', onMessage)
+            return () => {
+              document.removeEventListener('click', onClick, true)
+              document.removeEventListener('keydown', onKey, true)
+              window.removeEventListener('message', onMessage)
+              if (overlay !== null && overlay.parentNode !== null) overlay.parentNode.removeChild(overlay)
+              overlay = null; frame = null
+            }
+          }, 'dsh-long-plugins: office panel preview')
+        } catch (error) {
+          try { console.warn('[dsh-long-plugins] office panel failed (skipped):', error) } catch (e) {}
+        }
+      }
+      const inject = []
+      return { apply, inject }
+    })()
+    // ===== [模块结束] officePreview =====
+
     const inject = Array.from(new Set([
       ...uploadPlugin.inject,
       ...skillDocsPlugin.inject,
@@ -2749,6 +3047,7 @@ window.__ModuleLoader__.load({
       safeApply('token-usage', (c) => tokenUsagePlugin.apply(c)) // 余额 chip 开关在其内部; MOBILE_CSS 始终注入
       if (modEnabled('mobile')) safeApply('mobile-hamburger', (c) => mobilePlugin.apply(c))
       if (modEnabled('workspace')) safeApply('workspace-files', (c) => workspaceFilesPlugin.apply(c))
+      if (modEnabled('officePreview')) safeApply('office-preview', (c) => officePanelPlugin.apply(c))
     }
 
     exports.apply = apply
