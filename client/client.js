@@ -2713,7 +2713,12 @@ window.__ModuleLoader__.load({
       // 侧栏文件行的 title 只是文件名，真实路径藏在 React props 里 —— 逐层找含 office 后缀的路径串。
       function deepOfficePath(bag, depth) {
         if (bag === null || bag === undefined || depth > 6) return ''
-        if (typeof bag === 'string') return OFFICE_RE.test(bag) && bag.indexOf('/') !== -1 ? bag : ''
+        if (typeof bag === 'string') {
+          // 仍要求含路径分隔符，避免把 React props 里的纯文件名当成路径
+          if (!OFFICE_RE.test(bag) || bag.indexOf('/') === -1) return ''
+          // 仅去掉核心按钮文案前缀（如“在侧边栏打开 ”），保留其中的真实路径
+          return bag.replace(/^(?:在侧边栏打开|在侧边栏预览|在默认程序中打开|用默认应用打开|在文件资源管理器中显示|在\s*Finder\s*中显示|打开)\s*/, '')
+        }
         if (typeof bag !== 'object') return ''
         if (Array.isArray(bag)) {
           for (let i = 0; i < bag.length; i += 1) {
@@ -2738,8 +2743,51 @@ window.__ModuleLoader__.load({
           return deepOfficePath(node[key], 0)
         } catch (error) { return '' }
       }
+      // 打开独立预览小窗（被弹窗拦截则回退内嵌浮层）
+      function openPreviewWindow(path) {
+        const href = previewHref(path)
+        if (href === '') return false
+        try {
+          const w = Math.min(1400, Math.round(window.innerWidth * 0.8))
+          const h = Math.min(1000, Math.round(window.innerHeight * 0.85))
+          const win = window.open(href, 'dsh_office_preview', 'popup=yes,width=' + w + ',height=' + h + ',left=' + Math.round((window.screen.width - w) / 2) + ',top=' + Math.round((window.screen.height - h) / 2) + ',resizable=yes,scrollbars=yes')
+          if (win !== null && win !== undefined) { try { win.focus() } catch (e) {} return true }
+        } catch (e) { /* 回退 */ }
+        return openOverlay(path)
+      }
+
+      // 生成物卡片上的「打开」按钮（点了会走系统打开，无桌面会报错）→ 交给我们的预览窗
+      function findOpenButton(target) {
+        try {
+          let el = target, guard = 0
+          while (el !== null && el !== undefined && guard < 5) {
+            const tag = el.tagName ? String(el.tagName).toLowerCase() : ''
+            const role = el.getAttribute ? el.getAttribute('role') : null
+            if (tag === 'button' || role === 'button') {
+              const txt = String(el.textContent || '').trim()
+              return txt === '打开' || txt.indexOf('打开 ') === 0 ? el : null
+            }
+            el = el.parentElement; guard += 1
+          }
+        } catch (e) { /* 忽略 */ }
+        return null
+      }
+
       function officePathFromEvent(event) {
         try {
+          // 若点击所在行/按钮的 title/aria-label 明确是“非 Office 文件名”（如 xxx.md），
+          // 则不拦截、交给原生；避免把 md 等点击劫持成同容器里其它 Office 文件的预览。
+          // 注意：读不到文件名时不要拦（否则会误伤读不到后缀的侧边栏 Office 行）。
+          {
+            let probe = event.target, g = 0, label = ''
+            while (probe !== null && probe !== undefined && g < 8) {
+              const t = String((probe.getAttribute && (probe.getAttribute('title') || probe.getAttribute('aria-label'))) || '').trim()
+              if (t !== '') { label = t; break }
+              probe = probe.parentElement
+              g += 1
+            }
+            if (label !== '' && /\.[a-z0-9]{1,6}$/i.test(label) && !OFFICE_RE.test(label)) return ''
+          }
           let el = event.target, guard = 0, titleHit = ''
           while (el !== null && el !== undefined && guard < 8) {
             const fromProps = pathFromNode(el)
@@ -2943,24 +2991,20 @@ window.__ModuleLoader__.load({
           }
           const onClick = (event) => {
             if (!event || event.defaultPrevented) return
+            // ① 生成物卡片的「打开」按钮：改为我们的预览窗（避免"此主机没有可用的桌面"）
+            try {
+              if (findOpenButton(event.target) !== null) {
+                const p = officePathFromEvent(event)
+                if (p !== '' && openPreviewWindow(p)) { event.preventDefault(); event.stopPropagation(); return }
+              }
+            } catch (e) { /* 继续走下面的右侧栏逻辑 */ }
             try {
               if (inDialogOrOwnUi(event.target)) return
               if (typeof event.clientX === 'number' && event.clientX > 0 && event.clientX < window.innerWidth * 0.6) return
             } catch (e) { return }
             const path = officePathFromEvent(event)
             if (path === '') return
-            const href = previewHref(path)
-            if (href === '') return
-            // 独立浏览器小窗：OS 级窗口，拖动/贴边/最大化全由系统管，不会触发页面内逻辑
-            try {
-              const w = Math.min(1400, Math.round(window.innerWidth * 0.8))
-              const h = Math.min(1000, Math.round(window.innerHeight * 0.85))
-              const win = window.open(href, 'dsh_office_preview', 'popup=yes,width=' + w + ',height=' + h + ',left=' + Math.round((window.screen.width - w) / 2) + ',top=' + Math.round((window.screen.height - h) / 2) + ',resizable=yes,scrollbars=yes')
-              if (win !== null) { try { win.focus() } catch (e) {} }
-              else if (openOverlay(path)) { /* 弹窗被拦截 → 退回内嵌浮层 */ }
-            } catch (e) {
-              if (!openOverlay(path)) return
-            }
+            if (!openPreviewWindow(path)) return
             try { event.preventDefault(); event.stopPropagation() } catch (e) {}
           }
           const onKey = (event) => { if (event && event.key === 'Escape') closeOverlay() }
